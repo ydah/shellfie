@@ -92,7 +92,7 @@ module Shellfie
       scaled_font_size = ((font_config[:size] || 14) * scale).to_i
       scaled_radius = (corner_radius * scale).to_i
 
-      margin = (50 * scale).to_i
+      margin = shadow ? (50 * scale).to_i : (10 * scale).to_i
       canvas_width = scaled_width + margin * 2
       canvas_height = scaled_height + margin * 2
 
