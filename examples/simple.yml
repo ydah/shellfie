@@ -1,0 +1,21 @@
+# simple.yml - Basic terminal screenshot example
+theme: macos
+title: "Terminal — zsh"
+
+window:
+  width: 600
+  padding: 20
+
+lines:
+  - prompt: "$ "
+    command: "gem install shellfie"
+
+  - output: |
+      Fetching shellfie-0.1.0.gem
+      Successfully installed shellfie-0.1.0
+      1 gem installed
+
+  - prompt: "$ "
+    command: "shellfie --version"
+
+  - output: "shellfie 0.1.0"

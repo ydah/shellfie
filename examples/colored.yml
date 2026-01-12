@@ -1,0 +1,20 @@
+# colored.yml - Example with ANSI color codes
+theme: ubuntu
+title: "user@ubuntu: ~/project"
+
+window:
+  width: 700
+  padding: 20
+
+lines:
+  - prompt: "\e[32muser@ubuntu\e[0m:\e[34m~/project\e[0m$ "
+    command: "bundle exec rspec"
+
+  - output: |
+      \e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m\e[32m.\e[0m
+
+  - output: "Finished in 0.12 seconds (files took 0.5 seconds to load)"
+  - output: "\e[32m10 examples, 0 failures\e[0m"
+
+  - prompt: "\e[32muser@ubuntu\e[0m:\e[34m~/project\e[0m$ "
+    command: ""
