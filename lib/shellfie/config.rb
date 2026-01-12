@@ -7,7 +7,8 @@ module Shellfie
       window: {
         width: 600,
         padding: 20,
-        opacity: 1.0
+        opacity: 1.0,
+        visible_lines: nil
       },
       font: {
         family: "Monaco",

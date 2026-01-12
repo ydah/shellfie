@@ -73,10 +73,16 @@ module Shellfie
       width = config.window[:width] || 600
       line_height = (font_config[:size] || 14) * (font_config[:line_height] || 1.4)
       title_bar_height = config.headless ? 0 : decoration[:title_bar_height]
+      visible_lines = config.window[:visible_lines]
 
-      content_height = lines.size * line_height + padding * 2
+      display_line_count = visible_lines || lines.size
+      content_height = display_line_count * line_height + padding * 2
       total_height = title_bar_height + content_height
       corner_radius = decoration[:corner_radius]
+
+      if visible_lines && lines.size > visible_lines
+        lines = lines.last(visible_lines)
+      end
 
       scaled_width = (width * scale).to_i
       scaled_height = (total_height * scale).to_i

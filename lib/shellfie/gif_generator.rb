@@ -119,7 +119,8 @@ module Shellfie
         title: config.title,
         window: config.window,
         font: config.font,
-        lines: lines
+        lines: lines,
+        headless: config.headless
       )
     end
 

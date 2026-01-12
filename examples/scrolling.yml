@@ -1,0 +1,48 @@
+# scrolling.yml - Animation with fixed visible lines and scrolling
+theme: macos
+title: "Terminal — zsh"
+
+window:
+  width: 600
+  padding: 20
+  visible_lines: 6  # Number of lines visible in the terminal window
+
+animation:
+  typing_speed: 40
+  command_delay: 300
+  loop: true
+
+frames:
+  - prompt: "$ "
+    type: "for i in {1..10}; do echo \"Line $i\"; done"
+    delay: 500
+
+  - output: "Line 1"
+    delay: 200
+
+  - output: "Line 2"
+    delay: 200
+
+  - output: "Line 3"
+    delay: 200
+
+  - output: "Line 4"
+    delay: 200
+
+  - output: "Line 5"
+    delay: 200
+
+  - output: "Line 6"
+    delay: 200
+
+  - output: "Line 7"
+    delay: 200
+
+  - output: "Line 8"
+    delay: 200
+
+  - output: "Line 9"
+    delay: 200
+
+  - output: "Line 10"
+    delay: 1500
