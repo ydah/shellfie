@@ -1,0 +1,33 @@
+/.bundle/
+/.yardoc
+/_yardoc/
+/coverage/
+/doc/
+/pkg/
+/spec/reports/
+/tmp/
+
+# rspec failure tracking
+/spec/examples.txt
+
+# Gem files
+*.gem
+
+# Bundler
+Gemfile.lock
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+
+# macOS
+.DS_Store
+
+# Testing outputs
+*.png
+*.gif
+!/examples/*.png
+!/examples/*.gif
