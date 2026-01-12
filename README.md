@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">Shellfie</h1>
+  <img src="assets/logo-header.svg" alt="shellfie header logo">
   <p align="center">
     <strong>Generate beautiful terminal screenshots from YAML</strong>
   </p>
