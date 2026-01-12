@@ -126,7 +126,7 @@ module Shellfie
 
     def combine_to_gif(images, output_path)
       MiniMagick.convert do |convert|
-        convert.dispose "background"
+        convert.dispose "none"
         convert.loop config.animation[:loop] ? 0 : 1
 
         images.each do |img|
