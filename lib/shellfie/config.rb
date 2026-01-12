@@ -33,6 +33,7 @@ module Shellfie
       @lines = merged[:lines] || []
       @animation = merged[:animation]
       @frames = merged[:frames] || []
+      @headless = options[:headless] || false
     end
 
     def static?

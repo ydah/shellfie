@@ -72,7 +72,7 @@ module Shellfie
       padding = config.window[:padding] || 20
       width = config.window[:width] || 600
       line_height = (font_config[:size] || 14) * (font_config[:line_height] || 1.4)
-      title_bar_height = decoration[:title_bar_height]
+      title_bar_height = config.headless ? 0 : decoration[:title_bar_height]
 
       content_height = lines.size * line_height + padding * 2
       total_height = title_bar_height + content_height
@@ -108,31 +108,33 @@ module Shellfie
                      "#{margin + scaled_width - 1},#{margin + scaled_height - 1} " \
                      "#{scaled_radius},#{scaled_radius}"
 
-        convert.fill theme.colors[:title_bar]
-        title_y2 = margin + scaled_title_bar - 1
-        convert.draw "roundrectangle #{margin},#{margin} " \
-                     "#{margin + scaled_width - 1},#{title_y2} " \
-                     "#{scaled_radius},#{scaled_radius}"
-        convert.fill theme.colors[:title_bar]
-        convert.draw "rectangle #{margin},#{margin + scaled_radius} " \
-                     "#{margin + scaled_width - 1},#{title_y2}"
+        unless config.headless
+          convert.fill theme.colors[:title_bar]
+          title_y2 = margin + scaled_title_bar - 1
+          convert.draw "roundrectangle #{margin},#{margin} " \
+                       "#{margin + scaled_width - 1},#{title_y2} " \
+                       "#{scaled_radius},#{scaled_radius}"
+          convert.fill theme.colors[:title_bar]
+          convert.draw "rectangle #{margin},#{margin + scaled_radius} " \
+                       "#{margin + scaled_width - 1},#{title_y2}"
 
-        button_x, button_y = button_positions(margin, scaled_title_bar, scale)
-        button_radius = ((theme.window_decoration[:button_size] / 2) * scale).to_i
+          button_x, button_y = button_positions(margin, scaled_title_bar, scale)
+          button_radius = ((theme.window_decoration[:button_size] / 2) * scale).to_i
 
-        theme.button_colors.each_with_index do |color, i|
-          spacing = ((theme.window_decoration[:button_spacing] + theme.window_decoration[:button_size]) * scale).to_i
-          bx = button_x + i * spacing
-          convert.fill color
-          convert.draw "circle #{bx},#{button_y} #{bx + button_radius},#{button_y}"
+          theme.button_colors.each_with_index do |color, i|
+            spacing = ((theme.window_decoration[:button_spacing] + theme.window_decoration[:button_size]) * scale).to_i
+            bx = button_x + i * spacing
+            convert.fill color
+            convert.draw "circle #{bx},#{button_y} #{bx + button_radius},#{button_y}"
+          end
+
+          convert.fill theme.colors[:title_text]
+          convert.pointsize scaled_font_size
+          title_y = margin + scaled_title_bar / 2 + scaled_font_size / 3
+          title_x = margin + scaled_width / 2
+          convert.gravity "NorthWest"
+          convert.draw "text #{title_x - config.title.to_s.length * scaled_font_size / 4},#{title_y - scaled_font_size} '#{escape_text(config.title.to_s)}'"
         end
-
-        convert.fill theme.colors[:title_text]
-        convert.pointsize scaled_font_size
-        title_y = margin + scaled_title_bar / 2 + scaled_font_size / 3
-        title_x = margin + scaled_width / 2
-        convert.gravity "NorthWest"
-        convert.draw "text #{title_x - config.title.to_s.length * scaled_font_size / 4},#{title_y - scaled_font_size} '#{escape_text(config.title.to_s)}'"
 
         content_y = margin + scaled_title_bar + scaled_padding
         lines.each_with_index do |line, idx|

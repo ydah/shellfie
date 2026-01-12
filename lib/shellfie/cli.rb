@@ -73,6 +73,10 @@ module Shellfie
         opts.on("--transparent", "Transparent background") do
           @options[:transparent] = true
         end
+
+        opts.on("--no-header", "Disable window header (headless mode)") do
+          @options[:headless] = true
+        end
       end
 
       parser.parse!(@args)
@@ -83,15 +87,16 @@ module Shellfie
 
       config = Parser.parse(input_file)
 
-      if @options[:theme]
+      if @options[:theme] || @options[:width] || @options[:headless]
         config = Config.new(
-          theme: @options[:theme],
+          theme: @options[:theme] || config.theme,
           title: config.title,
           window: config.window.merge(@options[:width] ? { width: @options[:width] } : {}),
           font: config.font,
           lines: config.lines,
           animation: config.animation,
-          frames: config.frames
+          frames: config.frames,
+          headless: @options[:headless] || config.headless
         )
       end
 
@@ -191,6 +196,7 @@ module Shellfie
           -s, --scale FACTOR     Output scale (1, 2, 3)
           -w, --width PIXELS     Override width
           --no-shadow            Disable shadow effect
+          --no-header            Disable window header (headless mode)
           --transparent          Transparent background
 
         Examples:

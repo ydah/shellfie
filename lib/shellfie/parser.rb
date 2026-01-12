@@ -45,7 +45,8 @@ module Shellfie
           font: symbolize_hash(raw[:font]),
           lines: parse_lines(raw[:lines]),
           animation: symbolize_hash(raw[:animation]),
-          frames: parse_frames(raw[:frames])
+          frames: parse_frames(raw[:frames]),
+          headless: raw[:headless] || false
         }.compact
 
         Config.new(options)

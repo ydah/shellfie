@@ -1,0 +1,16 @@
+# headless.yml - Terminal output without window decoration
+theme: macos
+headless: true
+
+window:
+  width: 500
+  padding: 15
+
+lines:
+  - prompt: "$ "
+    command: "ruby -v"
+
+  - output: "ruby 3.3.0 (2024-12-25 revision 5124f9ac75) [arm64-darwin24]"
+
+  - prompt: "$ "
+    command: ""
