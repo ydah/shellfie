@@ -319,7 +319,6 @@ cd shellfie
 
 bundle install
 bundle exec rspec      # Run tests
-bundle exec rubocop    # Run linter
 ```
 
 ## Contributing
