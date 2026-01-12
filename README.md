@@ -23,15 +23,28 @@
 
 **Shellfie** (Shell + Selfie) creates stunning terminal screenshot-style images from simple YAML configuration files. Perfect for documentation, README files, tutorials, and presentations — without actually taking screenshots.
 
+<p align="center">
+  <img src="examples/demo.gif" alt="Shellfie Demo" width="550">
+</p>
+
 ## Features
 
 ### Multiple Themes
 
 Generate images with different terminal styles:
 
-| macOS | Ubuntu | Windows Terminal |
-|:-----:|:------:|:----------------:|
-| Classic traffic light buttons | GNOME-style window | Modern flat design |
+<table>
+  <tr>
+    <th>macOS</th>
+    <th>Ubuntu</th>
+    <th>Windows</th>
+  </tr>
+  <tr>
+    <td><img src="examples/theme_macos.png" width="280" alt="macOS theme"></td>
+    <td><img src="examples/theme_ubuntu.png" width="280" alt="Ubuntu theme"></td>
+    <td><img src="examples/theme_windows.png" width="280" alt="Windows theme"></td>
+  </tr>
+</table>
 
 ### Animated GIFs
 
@@ -283,6 +296,10 @@ Modern Windows Terminal design with flat styling and square corners.
 ### Headless Mode
 
 No window decorations — just the terminal content. Perfect for embedding in documentation.
+
+<p align="center">
+  <img src="examples/headless.png" alt="Headless mode" width="500">
+</p>
 
 ```bash
 shellfie generate config.yml -o output.png --no-header

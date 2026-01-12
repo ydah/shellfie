@@ -1,0 +1,31 @@
+theme: macos
+title: "Terminal — zsh"
+
+window:
+  width: 550
+  padding: 18
+  visible_lines: 7
+
+animation:
+  typing_speed: 35
+  command_delay: 400
+  loop: true
+
+frames:
+  - prompt: "$ "
+    type: "shellfie generate config.yml -o demo.png"
+    delay: 600
+
+  - output: "Generated: demo.png"
+    delay: 1200
+
+  - prompt: "$ "
+    type: "shellfie themes"
+    delay: 500
+
+  - output: |
+      Available themes:
+        macos   - macOS Terminal style
+        ubuntu  - Ubuntu Terminal style
+        windows - Windows Terminal style
+    delay: 2000
