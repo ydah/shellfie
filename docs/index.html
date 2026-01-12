@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shellfie Docs</title>
+    <meta
+      name="description"
+      content="Shellfie documentation. Generate beautiful terminal screenshots from YAML."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient-glow" aria-hidden="true"></div>
+    <div class="sun-core" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+    <div class="stars" aria-hidden="true"></div>
+    <div class="grid-floor" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__glyph">◎</span>
+        <div class="brand__stack">
+          <span class="brand__title">Shellfie</span>
+          <span class="brand__subtitle">Terminal Screenshot Generator</span>
+        </div>
+      </div>
+      <nav class="topnav">
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#usage">Usage</a>
+        <a href="#config">Config</a>
+        <a href="#themes">Themes</a>
+      </nav>
+      <a class="cta" href="https://github.com/ydah/shellfie">GitHub</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero__content">
+          <p class="eyebrow">YAML → Image → Imagination</p>
+          <h1>
+            Terminal visuals that elevate<br />
+            your documentation
+          </h1>
+          <p class="hero__lead">
+            Shellfie is a CLI that generates PNGs and animated GIFs from YAML.
+            Build documentation, tutorials, and presentations without taking screenshots.
+          </p>
+          <div class="hero__actions">
+            <a class="cta cta--primary" href="#usage">Quick Start</a>
+            <a class="cta cta--ghost" href="#config">View Config</a>
+          </div>
+          <div class="hero__meta">
+            <span>Ruby 3.0+</span>
+            <span>ImageMagick 7.0+</span>
+            <span>CLI: shellfie / shf</span>
+          </div>
+        </div>
+        <div class="hero__preview">
+          <div class="terminal-card">
+            <div class="terminal-card__bar">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="terminal-card__body">
+              <div
+                class="typewriter"
+                data-lines="$ shellfie init &gt; demo.yml||$ shellfie generate demo.yml -o neon.png||Generated: neon.png||Let the glow begin..."
+              ></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="section">
+        <div class="section__header">
+          <p class="eyebrow">Features</p>
+          <h2>Make visuals and storytelling effortless</h2>
+          <p class="section__lead">
+            Switch themes, animate typing, and support ANSI colors to level up your docs.
+          </p>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Multi Theme</h3>
+            <p>Switch between macOS, Ubuntu, and Windows terminal styles.</p>
+          </article>
+          <article class="card">
+            <h3>Animated GIF</h3>
+            <p>Create typing animations that feel like a guided walkthrough.</p>
+          </article>
+          <article class="card">
+            <h3>Full ANSI</h3>
+            <p>Support 256-color palettes, TrueColor, and text styles.</p>
+          </article>
+          <article class="card">
+            <h3>HiDPI Output</h3>
+            <p>Render crisp assets with 2x or 3x scaling for HiDPI.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="install" class="section section--alt">
+        <div class="section__header">
+          <p class="eyebrow">Install</p>
+          <h2>Install in two steps</h2>
+        </div>
+        <div class="split">
+          <div class="code-block">
+            <h3>ImageMagick</h3>
+            <pre><code>brew install imagemagick
+# Ubuntu/Debian
+sudo apt install imagemagick</code></pre>
+          </div>
+          <div class="code-block">
+            <h3>Shellfie</h3>
+            <pre><code>gem install shellfie
+# or
+bundle add shellfie</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="usage" class="section">
+        <div class="section__header">
+          <p class="eyebrow">Usage</p>
+          <h2>Quick Start</h2>
+          <p class="section__lead">
+            Create a YAML file, then generate the output.
+          </p>
+        </div>
+        <div class="split">
+          <div class="code-block">
+            <h3>terminal.yml</h3>
+            <pre><code>theme: macos
+title: "Terminal — zsh"
+
+window:
+  width: 620
+  padding: 20
+
+lines:
+  - prompt: "$ "
+    command: "echo 'Hello, Vaporwave!'"
+  - output: "Hello, Vaporwave!"</code></pre>
+          </div>
+          <div class="code-block">
+            <h3>Generate</h3>
+            <pre><code>shellfie generate terminal.yml -o output.png
+shellfie generate terminal.yml -o demo.gif --animate</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="config" class="section section--alt">
+        <div class="section__header">
+          <p class="eyebrow">Config</p>
+          <h2>Animation controls</h2>
+          <p class="section__lead">
+            Tune typing speed, delays, and looping.
+          </p>
+        </div>
+        <div class="code-block code-block--wide">
+          <pre><code>animation:
+  typing_speed: 50
+  command_delay: 500
+  cursor_blink: true
+  loop: true
+
+frames:
+  - prompt: "$ "
+    type: "ls -la"
+    delay: 400
+  - output: "docs  lib  README.md"
+    delay: 800</code></pre>
+        </div>
+      </section>
+
+      <section id="themes" class="section">
+        <div class="section__header">
+          <p class="eyebrow">Themes</p>
+          <h2>Shape the vibe with themes</h2>
+        </div>
+        <div class="theme-list">
+          <div class="theme-pill">macos</div>
+          <div class="theme-pill">ubuntu</div>
+          <div class="theme-pill">windows</div>
+          <div class="theme-pill">headless</div>
+        </div>
+        <div class="code-block code-block--wide">
+          <pre><code>shellfie themes
+shellfie generate config.yml -o neon.png -t ubuntu
+shellfie generate config.yml -o ghost.png --no-header</code></pre>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Shellfie Docs</p>
+      <p>Built for GitHub Pages + GitHub Actions</p>
+    </footer>
+
+    <script src="./scripts.js"></script>
+  </body>
+</html>
