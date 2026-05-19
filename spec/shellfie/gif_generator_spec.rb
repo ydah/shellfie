@@ -72,5 +72,33 @@ RSpec.describe Shellfie::GifGenerator do
 
       expect(delays.first).to be > delays.last
     end
+
+    it "adds eased scroll offsets when output exceeds visible lines" do
+      config = Shellfie::Config.new(
+        window: { visible_lines: 2 },
+        animation: { output_delay: 100, scroll_easing: "ease_out", final_delay: 0 },
+        frames: [Shellfie::Frame.new(output: "one\ntwo\nthree")]
+      )
+      generator = described_class.new(config)
+
+      offsets = generator.send(:build_animation_frames).filter_map { |frame| frame.dig(:window, :scroll_offset) }
+
+      expect(offsets.size).to be > 1
+      expect(offsets).to eq(offsets.sort)
+      expect(offsets.last).to eq(1.0)
+    end
+
+    it "passes per-frame window overrides into rendered frame configs" do
+      config = Shellfie::Config.new(frames: [Shellfie::Frame.new(output: "one")])
+      generator = described_class.new(config)
+
+      frame_config = generator.send(
+        :create_frame_config,
+        [Shellfie::Line.new(output: "one")],
+        window_overrides: { scroll_offset: 0.5 }
+      )
+
+      expect(frame_config.window[:scroll_offset]).to eq(0.5)
+    end
   end
 end

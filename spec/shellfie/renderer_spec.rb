@@ -92,6 +92,21 @@ RSpec.describe Shellfie::Renderer do
       expect(segments.first).to be_a(Shellfie::RenderSegment)
     end
 
+    it "keeps a hidden scroll buffer line without growing the canvas" do
+      lines = %w[one two three].map { |line| Shellfie::Line.new(output: line) }
+      config = Shellfie::Config.new(window: { visible_lines: 2, scroll_offset: 0.5 }, lines: lines)
+      renderer = described_class.new(config)
+      plain = described_class.new(Shellfie::Config.new(window: { visible_lines: 2 }, lines: lines))
+
+      geometry = renderer.send(:build_geometry, renderer.send(:build_lines), scale: 1, shadow: false)
+      plain_geometry = plain.send(:build_geometry, plain.send(:build_lines), scale: 1, shadow: false)
+
+      expect(geometry[:lines].size).to eq(3)
+      expect(geometry[:visible_line_count]).to eq(2)
+      expect(geometry[:logical_height]).to eq(plain_geometry[:logical_height])
+      expect(geometry[:scroll_offset]).to eq(0.5)
+    end
+
     it "sanitizes ImageMagick text safely" do
       renderer = described_class.new(Shellfie::Config.new)
 

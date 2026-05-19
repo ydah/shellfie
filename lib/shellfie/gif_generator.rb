@@ -65,7 +65,7 @@ module Shellfie
       images = []
 
       frames.each_with_index do |frame, idx|
-        frame_config = create_frame_config(frame[:lines])
+        frame_config = create_frame_config(frame[:lines], window_overrides: frame[:window] || {})
         renderer = Renderer.new(frame_config, chrome_cache: chrome_cache)
         output_path = File.join(temp_dir, "frame_#{format("%04d", idx)}.png")
         renderer.render(output_path, scale: scale, shadow: shadow, transparent: transparent)
@@ -75,7 +75,7 @@ module Shellfie
       images
     end
 
-    def create_frame_config(lines)
+    def create_frame_config(lines, window_overrides: {})
       Config.new(
         theme: config.theme,
         window_theme: config.window_theme,
@@ -83,7 +83,7 @@ module Shellfie
         colors: config.colors,
         window_decoration: config.window_decoration,
         title: config.title,
-        window: config.window,
+        window: config.window.merge(window_overrides),
         font: config.font,
         lines: lines,
         animation: config.animation,
@@ -94,6 +94,7 @@ module Shellfie
     end
 
     def combine_to_animation(images, output_path, format:)
+      palette = GifPalette.new(config: config, theme: theme) if format == "gif"
       ImageMagickCommandBuilder.convert do |convert|
         convert.dispose "none" if format == "gif"
         convert.loop config.animation[:loop] ? 0 : 1
@@ -103,15 +104,17 @@ module Shellfie
           convert << img[:path]
         end
 
-        configure_animation_format(convert, format)
-        convert << ImageMagickCommandBuilder.output_path(output_path, format: format)
+        configure_animation_format(convert, format, images: images, palette: palette)
+        ImageMagickCommandBuilder.output(convert, output_path, format: format)
       end
+    ensure
+      palette&.cleanup
     end
 
-    def configure_animation_format(convert, format)
+    def configure_animation_format(convert, format, images:, palette:)
       case format
       when "gif"
-        GifPalette.new(config: config, theme: theme).apply(convert)
+        palette.apply(convert, images: images)
         convert.layers "optimize"
       when "webp"
         convert.define "webp:lossless=true"

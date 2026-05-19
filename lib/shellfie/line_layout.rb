@@ -6,6 +6,8 @@ require_relative "text_metrics"
 
 module Shellfie
   class LineLayout
+    attr_reader :visible_count
+
     def initialize(config)
       @config = config
     end
@@ -15,7 +17,9 @@ module Shellfie
       mode = @config.window[:wrap] ? "wrap" : @config.window[:overflow]
       display_lines = lines.flat_map { |line| apply_overflow(line, max_cells, mode) }
       line_limit = vertical_line_limit(title_bar_height, padding, line_height)
-      line_limit ? display_lines.last(line_limit) : display_lines
+      @visible_count = line_limit || display_lines.size
+      render_limit = render_line_limit(line_limit)
+      render_limit ? display_lines.last(render_limit) : display_lines
     end
 
     private
@@ -41,6 +45,12 @@ module Shellfie
       end
 
       limits.empty? ? nil : limits.min
+    end
+
+    def render_line_limit(line_limit)
+      return nil unless line_limit
+
+      line_limit + (@config.window[:scroll_offset].to_f.positive? ? 1 : 0)
     end
 
     def wrap_line(line, max_cells)

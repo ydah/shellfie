@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "shape_helpers"
+require_relative "../image_magick_command_builder"
 require_relative "../text_metrics"
 
 module Shellfie
@@ -59,8 +60,13 @@ module Shellfie
           geometry[:scaled_radius]
         )
         convert.fill theme.colors[:title_bar]
-        convert.draw "rectangle #{margin},#{margin + geometry[:scaled_radius]} " \
-                     "#{margin + geometry[:scaled_width] - 1},#{title_y2}"
+        ImageMagickCommandBuilder.rectangle(
+          convert,
+          margin,
+          margin + geometry[:scaled_radius],
+          margin + geometry[:scaled_width] - 1,
+          title_y2
+        )
 
         draw_title_separator(convert, geometry, title_y2)
         draw_buttons(convert, geometry)
@@ -73,7 +79,7 @@ module Shellfie
 
         convert.stroke color
         convert.strokewidth 1
-        convert.draw "line #{geometry[:margin]},#{y} #{geometry[:margin] + geometry[:scaled_width] - 1},#{y}"
+        ImageMagickCommandBuilder.line(convert, geometry[:margin], y, geometry[:margin] + geometry[:scaled_width] - 1, y)
         convert.stroke "none"
       end
 
@@ -105,7 +111,7 @@ module Shellfie
           convert.fill theme.button_colors[index]
           convert.stroke "rgba(0,0,0,0.18)"
           convert.strokewidth [geometry[:scale].to_i, 1].max
-          convert.draw "circle #{x},#{y} #{x + button_radius},#{y}"
+          ImageMagickCommandBuilder.circle(convert, x, y, button_radius)
         end
         convert.stroke "none"
       end

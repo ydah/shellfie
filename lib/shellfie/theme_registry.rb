@@ -5,6 +5,7 @@ require_relative "themes/configured"
 require_relative "themes/macos"
 require_relative "themes/ubuntu"
 require_relative "themes/windows_terminal"
+require_relative "headless_theme_registry"
 require_relative "theme_data"
 
 module Shellfie
@@ -77,13 +78,15 @@ module Shellfie
         base_theme = fetch_window_theme(base_name).new
         colors = color_scheme(config.color_scheme).merge(config.colors)
 
-        Themes::Configured.new(
+        theme = Themes::Configured.new(
           base_theme,
           name: config.theme,
           colors: colors,
           window_decoration: config.window_decoration,
           font: font_overrides(config)
-        ).then { |theme| ThemeData.from_theme(theme, name: config.theme, headless: config.headless) }
+        )
+        theme_data = ThemeData.from_theme(theme, name: config.theme)
+        config.headless ? HeadlessThemeRegistry.build(theme_data) : theme_data
       end
 
       def valid_theme?(name)

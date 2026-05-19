@@ -15,15 +15,37 @@ RSpec.describe "animation output support" do
     cli.run
   end
 
-  it "applies GIF palette settings" do
+  it "applies theme GIF palettes through a remap image" do
     config = Shellfie::Config.new(animation: { palette: "theme", dither: false })
     theme = Shellfie::ThemeRegistry.build(config)
+    palette = Shellfie::GifPalette.new(config: config, theme: theme)
     convert = double("MiniMagick::Tool::Convert")
 
+    allow(palette).to receive(:build_theme_palette).and_return("theme-palette.png")
     expect(convert).to receive(:dither).with("None")
+    expect(convert).to receive(:remap).with("theme-palette.png")
     expect(convert).to receive(:colors).with(a_value_between(16, 256))
 
-    Shellfie::GifPalette.new(config: config, theme: theme).apply(convert)
+    palette.apply(convert)
+  ensure
+    palette&.cleanup
+  end
+
+  it "builds a global GIF palette from all frames" do
+    config = Shellfie::Config.new(animation: { palette: "global", dither: true })
+    theme = Shellfie::ThemeRegistry.build(config)
+    palette = Shellfie::GifPalette.new(config: config, theme: theme)
+    convert = double("MiniMagick::Tool::Convert")
+    images = [{ path: "frame-1.png" }, { path: "frame-2.png" }]
+
+    allow(palette).to receive(:build_global_palette).with(images).and_return("global-palette.png")
+    expect(convert).to receive(:dither).with("FloydSteinberg")
+    expect(convert).to receive(:remap).with("global-palette.png")
+    expect(convert).to receive(:colors).with(256)
+
+    palette.apply(convert, images: images)
+  ensure
+    palette&.cleanup
   end
 
   it "prefixes APNG outputs for ImageMagick" do

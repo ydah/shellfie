@@ -5,21 +5,16 @@ require_relative "ansi_parser"
 require_relative "dependency_checker"
 require_relative "font_resolver"
 require_relative "format_resolver"
-require_relative "image_magick_command_builder"
 require_relative "output_writer"
+require_relative "raster_painter"
 require_relative "render_chrome_cache"
 require_relative "render_geometry"
 require_relative "render_segment"
-require_relative "rendering/text_painter"
-require_relative "rendering/window_chrome"
 require_relative "svg_raster_wrapper"
 require_relative "theme_registry"
 
 module Shellfie
   class Renderer
-    include Rendering::TextPainter
-    include Rendering::WindowChrome
-
     attr_reader :config, :theme, :font_resolver
 
     def initialize(config, chrome_cache: nil)
@@ -97,9 +92,7 @@ module Shellfie
     def create_image(lines, output_path, scale:, shadow:, transparent:)
       geometry = build_geometry(lines, scale: scale, shadow: shadow)
 
-      return create_cached_content_image(geometry, output_path, transparent: transparent) if @chrome_cache
-
-      create_full_image(geometry, output_path, transparent: transparent)
+      raster_painter.paint(geometry, output_path, transparent: transparent)
     end
 
     def create_svg_image(lines, output_path, scale:, shadow:, transparent:)
@@ -110,61 +103,21 @@ module Shellfie
       geometry_builder.build(lines, scale: scale, shadow: shadow)
     end
 
-    def create_full_image(geometry, output_path, transparent:)
-      ImageMagickCommandBuilder.convert do |convert|
-        convert.size "#{geometry[:canvas_width]}x#{geometry[:canvas_height]}"
-        convert << canvas_background(transparent)
-        draw_chrome(convert, geometry, transparent: transparent)
-        draw_content(convert, geometry)
-        finish_image(convert, output_path)
-      end
-    end
-
-    def create_cached_content_image(geometry, output_path, transparent:)
-      base_path = @chrome_cache.fetch(geometry, transparent: transparent) do |path|
-        create_chrome_image(geometry, path, transparent: transparent)
-      end
-
-      ImageMagickCommandBuilder.convert do |convert|
-        convert << base_path
-        draw_content(convert, geometry)
-        finish_image(convert, output_path)
-      end
-    end
-
-    def create_chrome_image(geometry, output_path, transparent:)
-      ImageMagickCommandBuilder.convert do |convert|
-        convert.size "#{geometry[:canvas_width]}x#{geometry[:canvas_height]}"
-        convert << canvas_background(transparent)
-        draw_chrome(convert, geometry, transparent: transparent)
-        convert << output_path
-      end
-    end
-
-    def draw_chrome(convert, geometry, transparent:)
-      draw_shadow(convert, geometry) if geometry[:shadow]
-      draw_window(convert, geometry, transparent: transparent)
-      draw_title_bar(convert, geometry) unless config.headless
-    end
-
-    def finish_image(convert, output_path)
-      if config.window[:trim]
-        convert.trim
-        convert << "+repage"
-      end
-      convert << ImageMagickCommandBuilder.output_path(output_path, format: File.extname(output_path).delete_prefix("."))
-    end
-
-    def canvas_background(transparent)
-      gradient = config.window[:background_gradient]
-      return "xc:transparent" if transparent
-      return "gradient:#{gradient[0]}-#{gradient[1]}" if gradient.is_a?(Array) && gradient.size == 2
-
-      "xc:#{theme.colors[:background]}"
+    def escape_text(text)
+      raster_painter.send(:escape_text, text)
     end
 
     def geometry_builder
       @geometry_builder ||= RenderGeometry.new(config: config, theme: theme)
+    end
+
+    def raster_painter
+      @raster_painter ||= RasterPainter.new(
+        config: config,
+        theme: theme,
+        font_resolver: font_resolver,
+        chrome_cache: @chrome_cache
+      )
     end
   end
 end

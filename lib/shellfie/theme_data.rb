@@ -48,12 +48,18 @@ module Shellfie
       self.class.new(
         name: name,
         colors: colors,
-        window_decoration: self.class.deep_merge(window_decoration, title_bar_height: 0, corner_radius: 0),
-        button_colors: button_colors,
-        buttons_position: buttons_position,
-        button_style: button_style,
+        window_decoration: self.class.deep_merge(
+          window_decoration,
+          title_bar_height: 0,
+          corner_radius: 0,
+          button_size: 0,
+          button_spacing: 0
+        ),
+        button_colors: [],
+        buttons_position: :left,
+        button_style: :none,
         font: font,
-        title_alignment: title_alignment
+        title_alignment: :left
       )
     end
 

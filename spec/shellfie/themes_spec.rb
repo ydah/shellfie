@@ -112,6 +112,19 @@ RSpec.describe Shellfie::Themes do
 
       expect(theme.window_decoration[:title_bar_height]).to eq(0)
       expect(theme.window_decoration[:corner_radius]).to eq(0)
+      expect(theme.button_style).to eq(:none)
+    end
+  end
+
+  describe Shellfie::HeadlessThemeRegistry do
+    it "provides an independent headless variant registry" do
+      base = Shellfie::ThemeRegistry.build(Shellfie::Config.new(lines: [Shellfie::Line.new(output: "test")]))
+      headless = described_class.build(base)
+
+      expect(described_class.available_variants).to include("plain")
+      expect(headless.window_decoration[:title_bar_height]).to eq(0)
+      expect(headless.button_colors).to eq([])
+      expect(headless).to be_frozen
     end
   end
 end

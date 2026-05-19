@@ -93,5 +93,49 @@ RSpec.describe Shellfie::Parser do
 
       expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /Unknown window key/)
     end
+
+    it "raises ValidationError for window boundary values" do
+      yaml = <<~YAML
+        window:
+          width: 120
+          padding: 60
+          visible_lines: 0
+        lines:
+          - output: "test"
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /window.visible_lines/)
+    end
+
+    it "raises ValidationError for scroll offset bounds" do
+      yaml = <<~YAML
+        window:
+          scroll_offset: -0.01
+        lines:
+          - output: "test"
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /window.scroll_offset/)
+    end
+
+    it "raises ValidationError for animation boundary values" do
+      yaml = <<~YAML
+        animation:
+          max_frames: 0
+        frames:
+          - output: "test"
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /animation.max_frames/)
+    end
+
+    it "raises ValidationError for invalid frame delay bounds" do
+      yaml = <<~YAML
+        frames:
+          - delay: -1
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /frames\[0\].delay/)
+    end
   end
 end

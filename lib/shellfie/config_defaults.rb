@@ -23,7 +23,8 @@ module Shellfie
         trim: false,
         tab_width: 8,
         ansi_state: "persistent",
-        background_gradient: nil
+        background_gradient: nil,
+        scroll_offset: 0.0
       },
       font: {
         family: "Monaco",

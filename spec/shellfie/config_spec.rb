@@ -44,6 +44,7 @@ RSpec.describe Shellfie::Config do
 
     it "validates opacity and overflow mode" do
       expect { described_class.new(window: { opacity: 1.5 }) }.to raise_error(Shellfie::ValidationError, /window.opacity/)
+      expect { described_class.new(window: { scroll_offset: 1.1 }) }.to raise_error(Shellfie::ValidationError, /scroll_offset/)
       expect { described_class.new(window: { overflow: "spill" }) }.to raise_error(Shellfie::ValidationError, /window.overflow/)
     end
 

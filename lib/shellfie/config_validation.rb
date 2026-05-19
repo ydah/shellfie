@@ -46,7 +46,7 @@ module Shellfie
       validate_color_scheme!
       validate_positive_integer!(@window[:width], "window.width")
       validate_non_negative_integer!(@window[:padding], "window.padding")
-      validate_number_range!(@window[:opacity], "window.opacity", 0.0, 1.0)
+      %i[opacity scroll_offset].each { |key| validate_number_range!(@window[key], "window.#{key}", 0.0, 1.0) }
       validate_optional_positive_integer!(@window[:visible_lines], "window.visible_lines")
       validate_optional_positive_integer!(@window[:max_lines], "window.max_lines")
       validate_optional_positive_integer!(@window[:max_height], "window.max_height")
