@@ -2,7 +2,10 @@
 
 module Shellfie
   module ParserValidation
-    TOP_LEVEL_KEYS = %i[theme title window font animation cursor lines frames headless].freeze
+    TOP_LEVEL_KEYS = %i[
+      version include theme window_theme color_scheme colors window_decoration title window font animation cursor lines frames
+      headless limits
+    ].freeze
     WINDOW_KEYS = %i[
       width padding opacity visible_lines max_lines max_height wrap overflow margin exact_size trim tab_width
       ansi_state background_gradient
@@ -13,6 +16,7 @@ module Shellfie
       dither
     ].freeze
     CURSOR_KEYS = %i[style color].freeze
+    LIMIT_KEYS = %i[max_lines max_frames max_render_frames max_characters max_pixels].freeze
     LINE_KEYS = %i[prompt command output prompt_color command_color output_color selected].freeze
     FRAME_KEYS = %i[prompt type output delay prompt_color command_color output_color].freeze
 
@@ -27,7 +31,12 @@ module Shellfie
       validate_nested_hash!(raw, :font, FONT_KEYS)
       validate_nested_hash!(raw, :animation, ANIMATION_KEYS)
       validate_nested_hash!(raw, :cursor, CURSOR_KEYS)
+      validate_nested_hash!(raw, :limits, LIMIT_KEYS)
+      validate_nested_hash!(raw, :colors, nil)
+      validate_nested_hash!(raw, :window_decoration, nil)
       validate_theme!(raw[:theme]) if raw[:theme]
+      validate_window_theme!(raw[:window_theme]) if raw[:window_theme]
+      validate_color_scheme!(raw[:color_scheme]) if raw.key?(:color_scheme)
 
       raise ValidationError, "Configuration must have either 'lines' or 'frames'" if raw[:lines].nil? && raw[:frames].nil?
 
@@ -36,16 +45,28 @@ module Shellfie
     end
 
     def validate_theme!(theme)
-      return if Config::VALID_THEMES.include?(theme)
+      return if ThemeRegistry.valid_theme?(theme)
 
-      raise ValidationError, "Invalid theme '#{theme}'\n  → Available themes: #{Config::VALID_THEMES.join(", ")}"
+      raise ValidationError, "Invalid theme '#{theme}'\n  → Available themes: #{ThemeRegistry.available_themes.join(", ")}"
+    end
+
+    def validate_window_theme!(theme)
+      return if ThemeRegistry.valid_window_theme?(theme)
+
+      raise ValidationError, "Invalid window_theme '#{theme}'"
+    end
+
+    def validate_color_scheme!(scheme)
+      return if ThemeRegistry.valid_color_scheme?(scheme)
+
+      raise ValidationError, "Invalid color_scheme '#{scheme}'"
     end
 
     def validate_nested_hash!(raw, key, allowed_keys)
       return unless raw.key?(key)
       raise ValidationError, "#{key} must be a mapping" unless raw[key].is_a?(Hash)
 
-      validate_keys!(raw[key], allowed_keys, key.to_s)
+      validate_keys!(raw[key], allowed_keys, key.to_s) if allowed_keys
     end
 
     def validate_keys!(hash, allowed_keys, context)

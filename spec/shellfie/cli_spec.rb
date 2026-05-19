@@ -21,7 +21,7 @@ RSpec.describe Shellfie::CLI do
 
     it "lists themes" do
       cli = described_class.new(["themes"])
-      expect { cli.run }.to output(/macos/).to_stdout
+      expect { cli.run }.to output(/macos.*dracula/m).to_stdout
     end
 
     it "outputs sample config with init" do
@@ -46,6 +46,26 @@ RSpec.describe Shellfie::CLI do
       cli = described_class.new(["generate", "config.yml", "-o", "out.png", "--scale", "0"])
 
       expect { cli.run }.to output(/scale must be 1, 2, or 3/).to_stderr.and raise_error(SystemExit)
+    end
+
+    it "prints doctor checks" do
+      allow(Shellfie::DependencyChecker).to receive(:doctor).and_return([
+                                                                          { name: "Ruby", detail: "3.4.0", ok: true }
+                                                                        ])
+      cli = described_class.new(["doctor"])
+
+      expect { cli.run }.to output(/ok\s+Ruby/).to_stdout
+    end
+
+    it "inspects a config" do
+      allow(Shellfie).to receive(:inspect_config).and_return(
+        config: { version: 1, title: "Test", lines: [{}], frames: [] },
+        theme: "macos",
+        geometry: { canvas_width: 600, canvas_height: 200 }
+      )
+      cli = described_class.new(["inspect", "config.yml"])
+
+      expect { cli.run }.to output(/Estimated size: 600x200/).to_stdout
     end
   end
 end

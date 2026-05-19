@@ -53,11 +53,16 @@ module Shellfie
         :right
       end
 
+      def title_alignment
+        :left
+      end
+
       def font
         {
           family: "Cascadia Mono",
           size: 14,
-          line_height: 1.3
+          line_height: 1.3,
+          fallback_family: "Consolas"
         }
       end
     end

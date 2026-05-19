@@ -55,6 +55,29 @@ RSpec.describe Shellfie::Config do
     it "validates cursor style" do
       expect { described_class.new(cursor: { style: "box" }) }.to raise_error(Shellfie::ValidationError, /cursor.style/)
     end
+
+    it "normalizes string keys" do
+      config = described_class.new("window" => { "width" => 800 }, "lines" => [])
+
+      expect(config.window[:width]).to eq(800)
+    end
+
+    it "validates config version" do
+      expect { described_class.new(version: 2) }.to raise_error(Shellfie::ValidationError, /Unsupported config version/)
+    end
+
+    it "enforces resource limits" do
+      expect do
+        described_class.new(limits: { max_lines: 1 }, lines: [Shellfie::Line.new(output: "1"), Shellfie::Line.new(output: "2")])
+      end.to raise_error(Shellfie::ResourceLimitError, /Too many lines/)
+    end
+
+    it "keeps color customization immutable" do
+      config = described_class.new(colors: { background: "#000000" })
+
+      expect(config.colors).to be_frozen
+      expect(config.colors[:background]).to eq("#000000")
+    end
   end
 
   describe "#static?" do

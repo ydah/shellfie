@@ -49,7 +49,8 @@ module Shellfie
         {
           family: "Ubuntu Mono",
           size: 14,
-          line_height: 1.4
+          line_height: 1.4,
+          fallback_family: "DejaVu Sans Mono"
         }
       end
     end

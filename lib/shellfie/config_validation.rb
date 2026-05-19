@@ -3,23 +3,46 @@
 module Shellfie
   module ConfigValidation
     def validate!
+      validate_version!
       validate_theme!
       validate_window!
       validate_font!
       validate_animation!
       validate_cursor!
       validate_lines!
+      validate_limits!
+      validate_resource_limits!
     end
 
     private
 
-    def validate_theme!
-      return if self.class::VALID_THEMES.include?(@theme)
+    def validate_version!
+      return if @version == 1
 
-      raise ValidationError, "Invalid theme '#{@theme}'\n  → Available themes: #{self.class::VALID_THEMES.join(", ")}"
+      raise ValidationError, "Unsupported config version '#{@version}'"
+    end
+
+    def validate_theme!
+      return if ThemeRegistry.valid_theme?(@theme)
+
+      raise ValidationError, "Invalid theme '#{@theme}'\n  → Available themes: #{ThemeRegistry.available_themes.join(", ")}"
+    end
+
+    def validate_window_theme!
+      return if @window_theme.nil? || ThemeRegistry.valid_window_theme?(@window_theme)
+
+      raise ValidationError, "Invalid window_theme '#{@window_theme}'"
+    end
+
+    def validate_color_scheme!
+      return if ThemeRegistry.valid_color_scheme?(@color_scheme)
+
+      raise ValidationError, "Invalid color_scheme '#{@color_scheme}'"
     end
 
     def validate_window!
+      validate_window_theme!
+      validate_color_scheme!
       validate_positive_integer!(@window[:width], "window.width")
       validate_non_negative_integer!(@window[:padding], "window.padding")
       validate_number_range!(@window[:opacity], "window.opacity", 0.0, 1.0)
@@ -57,6 +80,22 @@ module Shellfie
     def validate_lines!
       raise ValidationError, "lines must be an Array" unless @lines.is_a?(Array)
       raise ValidationError, "frames must be an Array" unless @frames.is_a?(Array)
+    end
+
+    def validate_limits!
+      @limits.each_key do |key|
+        validate_positive_integer!(@limits[key], "limits.#{key}")
+      end
+    end
+
+    def validate_resource_limits!
+      raise ResourceLimitError, "Too many lines (max #{@limits[:max_lines]})" if @lines.size > @limits[:max_lines]
+      raise ResourceLimitError, "Too many frames (max #{@limits[:max_frames]})" if @frames.size > @limits[:max_frames]
+
+      total_characters = (@lines.sum { |line| line.to_s.length } + @frames.sum { |frame| frame.to_s.length })
+      return if total_characters <= @limits[:max_characters]
+
+      raise ResourceLimitError, "Configuration text is too large (max #{@limits[:max_characters]} characters)"
     end
 
     def validate_overflow!

@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
+require_relative "shape_helpers"
 require_relative "../text_metrics"
 
 module Shellfie
   module Rendering
     module WindowChrome
+      include ShapeHelpers
+
       def draw_shadow(convert, geometry)
         shadow = theme.window_decoration[:shadow]
         scale = geometry[:scale]
@@ -154,10 +157,21 @@ module Shellfie
         min_x = geometry[:margin] + reserve_left
         max_x = geometry[:margin] + geometry[:scaled_width] - reserve_right - title_width
         centered_x = geometry[:margin] + (geometry[:scaled_width] - title_width) / 2
-        x = [[centered_x, min_x].max, max_x].min
+        x = title_x(min_x, max_x, centered_x)
         y = geometry[:margin] + geometry[:scaled_title_bar] / 2 + scaled_font_size / 3
 
         draw_text(convert, title, x, y - scaled_font_size, theme.colors[:title_text], scaled_font_size, geometry[:font_config])
+      end
+
+      def title_x(min_x, max_x, centered_x)
+        case theme.title_alignment
+        when :left
+          min_x
+        when :right
+          max_x
+        else
+          [[centered_x, min_x].max, max_x].min
+        end
       end
 
       def button_group_width(geometry)
@@ -171,28 +185,6 @@ module Shellfie
         end
       end
 
-      def draw_roundrect(convert, x1, y1, x2, y2, radius)
-        if radius.positive?
-          convert.draw "roundrectangle #{x1},#{y1} #{x2},#{y2} #{radius},#{radius}"
-        else
-          convert.draw "rectangle #{x1},#{y1} #{x2},#{y2}"
-        end
-      end
-
-      def draw_windows_icon(convert, index, center_x, center_y, icon_size)
-        case index
-        when 0
-          convert.draw "line #{center_x - icon_size / 2},#{center_y} #{center_x + icon_size / 2},#{center_y}"
-        when 1
-          convert.draw "rectangle #{center_x - icon_size / 2},#{center_y - icon_size / 2} " \
-                       "#{center_x + icon_size / 2},#{center_y + icon_size / 2}"
-        when 2
-          convert.draw "line #{center_x - icon_size / 2},#{center_y - icon_size / 2} " \
-                       "#{center_x + icon_size / 2},#{center_y + icon_size / 2}"
-          convert.draw "line #{center_x + icon_size / 2},#{center_y - icon_size / 2} " \
-                       "#{center_x - icon_size / 2},#{center_y + icon_size / 2}"
-        end
-      end
     end
   end
 end

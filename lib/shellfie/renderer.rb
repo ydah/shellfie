@@ -2,64 +2,53 @@
 
 require "mini_magick"
 require_relative "ansi_parser"
+require_relative "dependency_checker"
 require_relative "font_resolver"
 require_relative "line_layout"
+require_relative "output_writer"
 require_relative "rendering/text_painter"
 require_relative "rendering/window_chrome"
-require_relative "themes/base"
-require_relative "themes/macos"
-require_relative "themes/ubuntu"
-require_relative "themes/windows_terminal"
+require_relative "theme_registry"
 
 module Shellfie
   class Renderer
     include Rendering::TextPainter
     include Rendering::WindowChrome
 
-    THEMES = {
-      "macos" => Themes::MacOS,
-      "ubuntu" => Themes::Ubuntu,
-      "windows" => Themes::WindowsTerminal
-    }.freeze
-
     attr_reader :config, :theme, :font_resolver
 
     def initialize(config)
       @config = config
-      @theme = load_theme(config.theme)
+      @theme = ThemeRegistry.build(config)
       @ansi_parser = AnsiParser.new(state_mode: config.window[:ansi_state] || :persistent)
       @font_resolver = FontResolver.new(-> { imagemagick_command })
     end
 
-    def render(output_path, scale: 1, shadow: true, transparent: false)
+    def render(output_path, scale: 1, shadow: true, transparent: false, format: nil)
       check_dependencies!
-
       lines = build_lines
-      create_image(lines, output_path, scale: scale, shadow: shadow, transparent: transparent)
-      output_path
+      extension = output_format(output_path, format)
+      OutputWriter.write(output_path, extension: extension) do |temporary_path|
+        create_image(lines, temporary_path, scale: scale, shadow: shadow, transparent: transparent)
+      end
+    rescue MiniMagick::Error => e
+      raise RenderError.new("ImageMagick render failed: #{e.message}", category: :render)
+    end
+
+    def estimate(scale: 1, shadow: true)
+      geometry = build_geometry(build_lines, scale: scale, shadow: shadow)
+      geometry.slice(:canvas_width, :canvas_height, :scaled_width, :scaled_height)
     end
 
     private
 
-    def load_theme(name)
-      klass = THEMES[name]
-      return klass.new if klass
-
-      raise ValidationError, "Invalid theme '#{name}'\n  → Available themes: #{THEMES.keys.join(", ")}"
-    end
-
     def check_dependencies!
-      return unless imagemagick_command.empty?
-
-      raise DependencyError, <<~MSG
-        ImageMagick not found
-          → Please install ImageMagick: brew install imagemagick
-          → Or visit: https://imagemagick.org/script/download.php
-      MSG
+      DependencyChecker.configure_mini_magick!
+      DependencyChecker.ensure_imagemagick!
     end
 
     def imagemagick_command
-      @imagemagick_command ||= `which magick 2>/dev/null || which convert 2>/dev/null`.strip
+      @imagemagick_command ||= DependencyChecker.imagemagick_path.to_s
     end
 
     def build_lines
@@ -73,15 +62,11 @@ module Shellfie
           }
         end
 
-        if line.output
-          line.output.to_s.split("\n", -1).each do |output_line|
-            rendered_lines << {
-              segments: parse_with_default(output_line, line.output_color),
-              selected: line.selected
-            }
-          end
-        end
+        next rendered_lines unless line.output
 
+        line.output.to_s.split("\n", -1).each do |output_line|
+          rendered_lines << { segments: parse_with_default(output_line, line.output_color), selected: line.selected }
+        end
         rendered_lines
       end
     end
@@ -120,7 +105,7 @@ module Shellfie
 
     def build_geometry(lines, scale:, shadow:)
       decoration = theme.window_decoration
-      font_config = config.font
+      font_config = theme.font
       padding = config.window[:padding]
       width = config.window[:width]
       font_size = font_config[:size]
@@ -141,7 +126,7 @@ module Shellfie
       shadow_enabled = shadow && !exact_size
       margin = exact_size ? 0 : scaled_margin(scale, shadow_enabled)
 
-      {
+      geometry = {
         lines: display_lines,
         font_config: font_config,
         width: width,
@@ -164,6 +149,8 @@ module Shellfie
         canvas_height: (total_height * scale).ceil + margin * 2,
         shadow: shadow_enabled
       }
+      validate_pixel_limit!(geometry)
+      geometry
     end
 
     def line_layout
@@ -189,6 +176,21 @@ module Shellfie
       return "gradient:#{gradient[0]}-#{gradient[1]}" if gradient.is_a?(Array) && gradient.size == 2
 
       "xc:#{theme.colors[:background]}"
+    end
+
+    def output_format(output_path, format)
+      return format if format
+      return "png" if output_path == "-"
+
+      ext = File.extname(output_path).delete_prefix(".")
+      ext.empty? ? "png" : ext
+    end
+
+    def validate_pixel_limit!(geometry)
+      pixels = geometry[:canvas_width] * geometry[:canvas_height]
+      return if pixels <= config.limits[:max_pixels]
+
+      raise ResourceLimitError, "Estimated image is too large (#{pixels} pixels, max #{config.limits[:max_pixels]})"
     end
   end
 end

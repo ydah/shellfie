@@ -57,11 +57,17 @@ module Shellfie
         :left
       end
 
+      def title_alignment
+        :center
+      end
+
       def font
         {
           family: "Monaco",
           size: 14,
-          line_height: 1.4
+          line_height: 1.4,
+          fallback_family: "Menlo",
+          emoji_family: "Apple Color Emoji"
         }
       end
 

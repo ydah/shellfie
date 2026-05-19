@@ -2,12 +2,13 @@
 
 require_relative "config_validation"
 require_relative "errors"
+require_relative "theme_registry"
 
 module Shellfie
   class Config
     include ConfigValidation
 
-    VALID_THEMES = %w[macos ubuntu windows].freeze
+    VALID_THEMES = ThemeRegistry.available_themes.freeze
     VALID_OVERFLOW_MODES = %w[clip wrap scroll].freeze
     VALID_CURSOR_STYLES = %w[block bar underline].freeze
 
@@ -32,10 +33,29 @@ module Shellfie
         end
         value.freeze
       end
+
+      def normalize_keys(value)
+        case value
+        when Hash
+          value.each_with_object({}) do |(key, nested_value), result|
+            normalized_key = key.is_a?(String) ? key.to_sym : key
+            result[normalized_key] = normalize_keys(nested_value)
+          end
+        when Array
+          value.map { |nested_value| normalize_keys(nested_value) }
+        else
+          value
+        end
+      end
     end
 
     DEFAULTS = deep_freeze({
+      version: 1,
       theme: "macos",
+      window_theme: nil,
+      color_scheme: nil,
+      colors: {},
+      window_decoration: {},
       window: {
         width: 600,
         padding: 20,
@@ -75,14 +95,28 @@ module Shellfie
       cursor: {
         style: "block",
         color: nil
+      },
+      limits: {
+        max_lines: 10_000,
+        max_frames: 500,
+        max_render_frames: 2_000,
+        max_characters: 200_000,
+        max_pixels: 50_000_000
       }
     })
 
-    attr_reader :theme, :title, :window, :font, :lines, :animation, :frames, :headless, :cursor
+    attr_reader :version, :theme, :window_theme, :color_scheme, :colors, :window_decoration, :title, :window, :font,
+                :lines, :animation, :frames, :headless, :cursor, :limits
 
     def initialize(options = {})
+      options = self.class.normalize_keys(options)
       merged = merge_defaults(options)
+      @version = merged[:version]
       @theme = merged[:theme]
+      @window_theme = merged[:window_theme]
+      @color_scheme = merged[:color_scheme]
+      @colors = merged[:colors]
+      @window_decoration = merged[:window_decoration]
       @title = merged[:title] || "Terminal"
       @window = merged[:window]
       @font = merged[:font]
@@ -90,6 +124,7 @@ module Shellfie
       @animation = merged[:animation]
       @frames = merged[:frames] || []
       @cursor = merged[:cursor]
+      @limits = merged[:limits]
       @headless = merged[:headless] || false
 
       validate!
@@ -102,6 +137,26 @@ module Shellfie
 
     def animated?
       !static?
+    end
+
+    def to_h
+      {
+        version: version,
+        theme: theme,
+        window_theme: window_theme,
+        color_scheme: color_scheme,
+        colors: colors,
+        window_decoration: window_decoration,
+        title: title,
+        window: window,
+        font: font,
+        animation: animation,
+        cursor: cursor,
+        limits: limits,
+        headless: headless,
+        lines: lines.map(&:to_h),
+        frames: frames.map(&:to_h)
+      }
     end
 
     private
@@ -125,14 +180,19 @@ module Shellfie
     end
 
     def freeze_state!
+      @colors = self.class.deep_freeze(@colors)
+      @window_decoration = self.class.deep_freeze(@window_decoration)
       @window = self.class.deep_freeze(@window)
       @font = self.class.deep_freeze(@font)
       @animation = self.class.deep_freeze(@animation)
       @cursor = self.class.deep_freeze(@cursor)
+      @limits = self.class.deep_freeze(@limits)
       @lines = self.class.deep_freeze(@lines)
       @frames = self.class.deep_freeze(@frames)
       @title.freeze
       @theme.freeze
+      @window_theme.freeze if @window_theme
+      @color_scheme.freeze if @color_scheme
       freeze
     end
   end

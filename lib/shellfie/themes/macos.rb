@@ -43,7 +43,9 @@ module Shellfie
         {
           family: "SF Mono",
           size: 14,
-          line_height: 1.4
+          line_height: 1.4,
+          fallback_family: "Menlo",
+          emoji_family: "Apple Color Emoji"
         }
       end
     end

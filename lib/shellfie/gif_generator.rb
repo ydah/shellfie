@@ -3,6 +3,8 @@
 require "mini_magick"
 require "tmpdir"
 require_relative "animation_frame_builder"
+require_relative "dependency_checker"
+require_relative "output_writer"
 require_relative "renderer"
 
 module Shellfie
@@ -16,32 +18,30 @@ module Shellfie
       @frame_builder = AnimationFrameBuilder.new(config)
     end
 
-    def generate(output_path, scale: 1, shadow: true, transparent: false)
+    def generate(output_path, scale: 1, shadow: true, transparent: false, format: nil)
       check_dependencies!
 
       images = []
       begin
         frames = build_animation_frames
+        validate_frame_limit!(frames)
         warn_frame_count(frames)
         images = render_frames(frames, scale: scale, shadow: shadow, transparent: transparent)
-        combine_to_gif(images, output_path)
+        OutputWriter.write(output_path, extension: output_format(output_path, format)) do |temporary_path|
+          combine_to_animation(images, temporary_path)
+        end
       ensure
         cleanup_temp_files(images)
       end
-      output_path
+    rescue MiniMagick::Error => e
+      raise RenderError.new("ImageMagick animation render failed: #{e.message}", category: :render)
     end
 
     private
 
     def check_dependencies!
-      result = `which magick 2>/dev/null || which convert 2>/dev/null`.strip
-      if result.empty?
-        raise DependencyError, <<~MSG
-          ImageMagick not found
-            → Please install ImageMagick: brew install imagemagick
-            → Or visit: https://imagemagick.org/script/download.php
-        MSG
-      end
+      DependencyChecker.configure_mini_magick!
+      DependencyChecker.ensure_imagemagick!
     end
 
     def build_animation_frames
@@ -70,17 +70,22 @@ module Shellfie
     def create_frame_config(lines)
       Config.new(
         theme: config.theme,
+        window_theme: config.window_theme,
+        color_scheme: config.color_scheme,
+        colors: config.colors,
+        window_decoration: config.window_decoration,
         title: config.title,
         window: config.window,
         font: config.font,
         lines: lines,
         animation: config.animation,
         cursor: config.cursor,
+        limits: config.limits,
         headless: config.headless
       )
     end
 
-    def combine_to_gif(images, output_path)
+    def combine_to_animation(images, output_path)
       MiniMagick.convert do |convert|
         convert.dispose "none"
         convert.loop config.animation[:loop] ? 0 : 1
@@ -112,6 +117,20 @@ module Shellfie
       return unless max_frames && frames.size > max_frames
 
       $stderr.puts "Warning: animation will generate #{frames.size} frames (max_frames is #{max_frames})"
+    end
+
+    def validate_frame_limit!(frames)
+      return if frames.size <= config.limits[:max_render_frames]
+
+      raise ResourceLimitError, "Animation would generate #{frames.size} frames (max #{config.limits[:max_render_frames]})"
+    end
+
+    def output_format(output_path, format)
+      return format if format
+      return "gif" if output_path == "-"
+
+      ext = File.extname(output_path).delete_prefix(".")
+      ext.empty? ? "gif" : ext
     end
   end
 end

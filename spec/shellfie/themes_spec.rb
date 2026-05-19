@@ -77,5 +77,31 @@ RSpec.describe Shellfie::Themes do
     it "uses icon button style" do
       expect(theme.button_style).to eq(:icons)
     end
+
+    it "left-aligns titles" do
+      expect(theme.title_alignment).to eq(:left)
+    end
+  end
+
+  describe Shellfie::ThemeRegistry do
+    it "lists registered themes and color schemes" do
+      expect(described_class.available_themes).to include("macos", "ubuntu", "windows", "custom")
+      expect(described_class.available_color_schemes).to include("dracula")
+    end
+
+    it "builds custom themes from config overrides" do
+      config = Shellfie::Config.new(
+        theme: "custom",
+        window_theme: "windows",
+        color_scheme: "dracula",
+        colors: { background: "#111111" },
+        window_decoration: { corner_radius: 4 }
+      )
+      theme = described_class.build(config)
+
+      expect(theme.button_style).to eq(:icons)
+      expect(theme.colors[:background]).to eq("#111111")
+      expect(theme.window_decoration[:corner_radius]).to eq(4)
+    end
   end
 end
