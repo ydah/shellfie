@@ -4,10 +4,12 @@ require "mini_magick"
 require_relative "ansi_parser"
 require_relative "dependency_checker"
 require_relative "font_resolver"
+require_relative "format_resolver"
 require_relative "line_layout"
 require_relative "output_writer"
 require_relative "rendering/text_painter"
 require_relative "rendering/window_chrome"
+require_relative "svg_raster_wrapper"
 require_relative "theme_registry"
 
 module Shellfie
@@ -27,9 +29,10 @@ module Shellfie
     def render(output_path, scale: 1, shadow: true, transparent: false, format: nil)
       check_dependencies!
       lines = build_lines
-      extension = output_format(output_path, format)
+      extension = FormatResolver.resolve(output_path, explicit: format, default: "png")
       OutputWriter.write(output_path, extension: extension) do |temporary_path|
-        create_image(lines, temporary_path, scale: scale, shadow: shadow, transparent: transparent)
+        render_method = (extension == "svg") ? :create_svg_image : :create_image
+        send(render_method, lines, temporary_path, scale: scale, shadow: shadow, transparent: transparent)
       end
     rescue MiniMagick::Error => e
       raise RenderError.new("ImageMagick render failed: #{e.message}", category: :render)
@@ -101,6 +104,10 @@ module Shellfie
 
         convert << output_path
       end
+    end
+
+    def create_svg_image(lines, output_path, scale:, shadow:, transparent:)
+      SvgRasterWrapper.write(output_path) { |png_path| create_image(lines, png_path, scale: scale, shadow: shadow, transparent: transparent) }
     end
 
     def build_geometry(lines, scale:, shadow:)
@@ -176,14 +183,6 @@ module Shellfie
       return "gradient:#{gradient[0]}-#{gradient[1]}" if gradient.is_a?(Array) && gradient.size == 2
 
       "xc:#{theme.colors[:background]}"
-    end
-
-    def output_format(output_path, format)
-      return format if format
-      return "png" if output_path == "-"
-
-      ext = File.extname(output_path).delete_prefix(".")
-      ext.empty? ? "png" : ext
     end
 
     def validate_pixel_limit!(geometry)

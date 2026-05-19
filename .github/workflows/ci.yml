@@ -54,7 +54,11 @@ jobs:
           bundle exec ruby -Ilib exe/shellfie validate examples/simple.yml
           bundle exec ruby -Ilib exe/shellfie inspect examples/simple.yml
           bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/ci/simple.png --no-shadow --force
+          bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/ci/simple.svg --format svg --no-shadow --force
           bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/ci/animation.gif --animate --no-shadow --force
           bundle exec ruby -Ilib exe/shf version
           bundle exec ruby -Ilib -rshellfie -e "Dir['examples/*.yml'].sort.each { |path| Shellfie.validate(path) }"
+          bundle exec ruby -Ilib -rshellfie -e "Dir['examples/*.yml'].sort.each { |path| config = Shellfie.parse(path); format = config.animated? ? 'gif' : 'png'; Shellfie.render(config, output: File.join('tmp/ci/examples', File.basename(path, '.yml') + '.' + format), animate: config.animated?, shadow: false, format: format) }"
           gem build shellfie.gemspec
+          gem install --local shellfie-*.gem --no-document
+          shellfie version

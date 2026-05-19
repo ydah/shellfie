@@ -116,7 +116,7 @@ module Shellfie
           --overflow MODE        Line overflow mode: clip, wrap, scroll
           --wrap, --no-wrap      Enable or disable long-line wrapping
           --exact-size           Match canvas to configured window size
-          --format FORMAT        Output format: png, gif, webp
+          --format FORMAT        Output format: png, gif, svg, webp
           --force                Overwrite existing output files
           --quiet                Suppress non-error output
           --verbose              Print progress details

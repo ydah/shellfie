@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
 require "mini_magick"
+require "fileutils"
 require "tmpdir"
 require_relative "animation_frame_builder"
 require_relative "dependency_checker"
+require_relative "format_resolver"
 require_relative "output_writer"
 require_relative "renderer"
 
@@ -27,7 +29,8 @@ module Shellfie
         validate_frame_limit!(frames)
         warn_frame_count(frames)
         images = render_frames(frames, scale: scale, shadow: shadow, transparent: transparent)
-        OutputWriter.write(output_path, extension: output_format(output_path, format)) do |temporary_path|
+        extension = FormatResolver.resolve(output_path, explicit: format, default: "gif")
+        OutputWriter.write(output_path, extension: extension) do |temporary_path|
           combine_to_animation(images, temporary_path)
         end
       ensure
@@ -103,9 +106,8 @@ module Shellfie
     end
 
     def cleanup_temp_files(images)
-      images.each { |img| File.delete(img[:path]) if File.exist?(img[:path]) }
       temp_dir = File.dirname(images.first[:path]) if images.any?
-      Dir.rmdir(temp_dir) if temp_dir && Dir.exist?(temp_dir) && Dir.empty?(temp_dir)
+      FileUtils.rm_rf(temp_dir) if temp_dir && Dir.exist?(temp_dir)
     end
 
     def gif_delay(milliseconds)
@@ -125,12 +127,5 @@ module Shellfie
       raise ResourceLimitError, "Animation would generate #{frames.size} frames (max #{config.limits[:max_render_frames]})"
     end
 
-    def output_format(output_path, format)
-      return format if format
-      return "gif" if output_path == "-"
-
-      ext = File.extname(output_path).delete_prefix(".")
-      ext.empty? ? "gif" : ext
-    end
   end
 end

@@ -6,8 +6,8 @@ require "optparse"
 module Shellfie
   module CLIGenerate
     ANIMATED_FORMATS = %w[gif webp].freeze
-    STATIC_FORMATS = %w[png webp].freeze
-    SUPPORTED_FORMATS = (ANIMATED_FORMATS + STATIC_FORMATS).uniq.freeze
+    STATIC_FORMATS = %w[png svg webp].freeze
+    SUPPORTED_FORMATS = %w[png gif svg webp].freeze
 
     private
 
@@ -45,7 +45,7 @@ module Shellfie
         opts.on("--no-shadow", "Disable shadow effect") { @options[:shadow] = false }
         opts.on("--transparent", "Transparent background") { @options[:transparent] = true }
         opts.on("--no-header", "Disable window header (headless mode)") { @options[:headless] = true }
-        opts.on("--format FORMAT", "Output format (png, gif, webp)") { |format| @options[:format] = parse_format(format) }
+        opts.on("--format FORMAT", "Output format (png, gif, svg, webp)") { |format| @options[:format] = parse_format(format) }
         opts.on("--force", "Overwrite existing output files") { @options[:force] = true }
         opts.on("--quiet", "Suppress non-error output") { @options[:quiet] = true }
         opts.on("--verbose", "Print extra progress information") { @options[:verbose] = true }
@@ -91,17 +91,15 @@ module Shellfie
                        window_overrides.empty? &&
                        animation_overrides.empty?
 
-      Config.new(
+      options = config.to_h.merge(
         theme: @options[:theme] || config.theme,
-        title: config.title,
         window: config.window.merge(window_overrides),
-        font: config.font,
-        lines: config.lines,
         animation: config.animation.merge(animation_overrides),
-        cursor: config.cursor,
+        lines: config.lines,
         frames: config.frames,
         headless: @options[:headless] || config.headless
       )
+      Config.new(options)
     end
 
     def build_window_overrides

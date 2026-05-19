@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "tmpdir"
 
 RSpec.describe Shellfie::Renderer do
   describe "line preparation" do
@@ -67,6 +68,50 @@ RSpec.describe Shellfie::Renderer do
 
       expect(geometry[:margin]).to eq(0)
       expect(geometry[:canvas_width]).to eq(config.window[:width])
+    end
+
+    it "sanitizes ImageMagick text safely" do
+      renderer = described_class.new(Shellfie::Config.new)
+
+      escaped = renderer.send(:escape_text, "it's\\ok\nnow")
+
+      expect(escaped).to eq("it's\\ok now")
+    end
+  end
+
+  describe "rendering", :integration do
+    it "renders a PNG file" do
+      skip "ImageMagick is not available" unless Shellfie::DependencyChecker.imagemagick_available?
+
+      Dir.mktmpdir("shellfie-spec") do |dir|
+        output = File.join(dir, "terminal.png")
+        config = Shellfie::Config.new(
+          window: { width: 320, exact_size: true },
+          lines: [Shellfie::Line.new(prompt: "$ ", command: "printf 'ok'", output: "\e[32mok\e[0m")]
+        )
+
+        described_class.new(config).render(output, shadow: false)
+
+        image = MiniMagick::Image.open(output)
+        expect(image.width).to eq(320)
+        expect(image.height).to be > 0
+        expect(File.size(output)).to be > 0
+      end
+    end
+
+    it "renders SVG output with an embedded PNG image" do
+      skip "ImageMagick is not available" unless Shellfie::DependencyChecker.imagemagick_available?
+
+      Dir.mktmpdir("shellfie-spec") do |dir|
+        output = File.join(dir, "terminal.svg")
+        config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "svg")])
+
+        described_class.new(config).render(output, shadow: false, format: "svg")
+
+        svg = File.read(output)
+        expect(svg).to include("<svg")
+        expect(svg).to include("data:image/png;base64,")
+      end
     end
   end
 end

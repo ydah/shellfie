@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "tmpdir"
 
 RSpec.describe Shellfie::CLI do
   describe "#run" do
@@ -46,6 +47,28 @@ RSpec.describe Shellfie::CLI do
       cli = described_class.new(["generate", "config.yml", "-o", "out.png", "--scale", "0"])
 
       expect { cli.run }.to output(/scale must be 1, 2, or 3/).to_stderr.and raise_error(SystemExit)
+    end
+
+    it "preserves custom config fields while applying generate overrides" do
+      config = Shellfie::Config.new(
+        colors: { foreground: "#123456" },
+        limits: { max_pixels: 2_000_000 },
+        lines: [Shellfie::Line.new(output: "ok")]
+      )
+      renderer = instance_double(Shellfie::Renderer, render: "out.png")
+      allow(Shellfie::Parser).to receive(:parse).with("config.yml").and_return(config)
+      expect(Shellfie::Renderer).to receive(:new) do |render_config|
+        expect(render_config.colors[:foreground]).to eq("#123456")
+        expect(render_config.limits[:max_pixels]).to eq(2_000_000)
+        expect(render_config.window[:width]).to eq(420)
+        renderer
+      end
+
+      Dir.mktmpdir("shellfie-cli-spec") do |dir|
+        output = File.join(dir, "out.png")
+        cli = described_class.new(["generate", "config.yml", "-o", output, "--width", "420", "--quiet"])
+        cli.run
+      end
     end
 
     it "prints doctor checks" do

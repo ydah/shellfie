@@ -76,7 +76,7 @@ module Shellfie
         convert.pointsize font_size
         convert.weight(bold ? 700 : 400)
         convert.style(italic ? "Italic" : "Normal")
-        convert.draw "text #{x},#{y} '#{escape_text(text)}'"
+        convert.annotate "+#{x}+#{y}", escape_text(text)
       end
 
       def draw_text_decoration(convert, segment, x, width, baseline, geometry)
@@ -124,7 +124,9 @@ module Shellfie
       end
 
       def escape_text(text)
-        text.to_s.gsub("\\", "\\\\\\\\").gsub("'", "\\\\'")
+        text.to_s
+          .encode("UTF-8", invalid: :replace, undef: :replace, replace: "?")
+          .gsub(/[\u0000-\u001f\u007f]/, " ")
       end
     end
   end
