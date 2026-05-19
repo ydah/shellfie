@@ -11,11 +11,11 @@ lines:
     command: "gem install shellfie"
 
   - output: |
-      Fetching shellfie-0.1.0.gem
-      Successfully installed shellfie-0.1.0
+      Fetching shellfie-1.0.0.gem
+      Successfully installed shellfie-1.0.0
       1 gem installed
 
   - prompt: "$ "
     command: "shellfie --version"
 
-  - output: "shellfie 0.1.0"
+  - output: "shellfie 1.0.0"
