@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "ansi_parser"
+require_relative "render_segment"
 require_relative "text_metrics"
 
 module Shellfie
@@ -106,18 +107,7 @@ module Shellfie
     end
 
     def copy_segment(segment, text)
-      Segment.new(
-        text: text.dup,
-        foreground: segment.foreground,
-        background: segment.background,
-        bold: segment.bold,
-        italic: segment.italic,
-        underline: segment.underline,
-        dim: segment.dim,
-        reverse: segment.reverse,
-        strikethrough: segment.strikethrough,
-        overline: segment.overline
-      )
+      RenderSegment.copy(segment, text)
     end
 
     def segment_style_key(segment)

@@ -60,5 +60,17 @@ RSpec.describe Shellfie::GifGenerator do
       expect(command_line.prompt_color).to eq("green")
       expect(command_line.command_color).to eq("#ff00ff")
     end
+
+    it "eases output delays for scrolling output" do
+      config = Shellfie::Config.new(
+        animation: { output_delay: 100, scroll_easing: "ease_out", final_delay: 0 },
+        frames: [Shellfie::Frame.new(output: "one\ntwo\nthree")]
+      )
+      generator = described_class.new(config)
+
+      delays = generator.send(:build_animation_frames).map { |frame| frame[:delay] }
+
+      expect(delays.first).to be > delays.last
+    end
   end
 end

@@ -6,7 +6,10 @@ require "tmpdir"
 require_relative "animation_frame_builder"
 require_relative "dependency_checker"
 require_relative "format_resolver"
+require_relative "gif_palette"
+require_relative "image_magick_command_builder"
 require_relative "output_writer"
+require_relative "render_chrome_cache"
 require_relative "renderer"
 
 module Shellfie
@@ -24,17 +27,19 @@ module Shellfie
       check_dependencies!
 
       images = []
+      chrome_cache = RenderChromeCache.new
       begin
         frames = build_animation_frames
         validate_frame_limit!(frames)
         warn_frame_count(frames)
-        images = render_frames(frames, scale: scale, shadow: shadow, transparent: transparent)
+        images = render_frames(frames, scale: scale, shadow: shadow, transparent: transparent, chrome_cache: chrome_cache)
         extension = FormatResolver.resolve(output_path, explicit: format, default: "gif")
         OutputWriter.write(output_path, extension: extension) do |temporary_path|
-          combine_to_animation(images, temporary_path)
+          combine_to_animation(images, temporary_path, format: extension)
         end
       ensure
         cleanup_temp_files(images)
+        chrome_cache.cleanup
       end
     rescue MiniMagick::Error => e
       raise RenderError.new("ImageMagick animation render failed: #{e.message}", category: :render)
@@ -55,13 +60,13 @@ module Shellfie
       @frame_builder.cursor_text
     end
 
-    def render_frames(frames, scale:, shadow:, transparent:)
+    def render_frames(frames, scale:, shadow:, transparent:, chrome_cache:)
       temp_dir = Dir.mktmpdir("shellfie")
       images = []
 
       frames.each_with_index do |frame, idx|
         frame_config = create_frame_config(frame[:lines])
-        renderer = Renderer.new(frame_config)
+        renderer = Renderer.new(frame_config, chrome_cache: chrome_cache)
         output_path = File.join(temp_dir, "frame_#{format("%04d", idx)}.png")
         renderer.render(output_path, scale: scale, shadow: shadow, transparent: transparent)
         images << { path: output_path, delay: frame[:delay] }
@@ -88,9 +93,9 @@ module Shellfie
       )
     end
 
-    def combine_to_animation(images, output_path)
-      MiniMagick.convert do |convert|
-        convert.dispose "none"
+    def combine_to_animation(images, output_path, format:)
+      ImageMagickCommandBuilder.convert do |convert|
+        convert.dispose "none" if format == "gif"
         convert.loop config.animation[:loop] ? 0 : 1
 
         images.each do |img|
@@ -98,10 +103,18 @@ module Shellfie
           convert << img[:path]
         end
 
-        convert.dither "FloydSteinberg" if config.animation[:dither]
-        convert.colors 256
+        configure_animation_format(convert, format)
+        convert << ImageMagickCommandBuilder.output_path(output_path, format: format)
+      end
+    end
+
+    def configure_animation_format(convert, format)
+      case format
+      when "gif"
+        GifPalette.new(config: config, theme: theme).apply(convert)
         convert.layers "optimize"
-        convert << output_path
+      when "webp"
+        convert.define "webp:lossless=true"
       end
     end
 

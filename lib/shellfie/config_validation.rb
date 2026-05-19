@@ -81,6 +81,8 @@ module Shellfie
       validate_boolean!(@animation[:cursor_blink], "animation.cursor_blink")
       validate_boolean!(@animation[:loop], "animation.loop")
       validate_boolean!(@animation[:dither], "animation.dither")
+      validate_inclusion!(@animation[:palette], "animation.palette", self.class::VALID_PALETTES)
+      validate_inclusion!(@animation[:scroll_easing], "animation.scroll_easing", self.class::VALID_SCROLL_EASINGS)
     end
 
     def validate_cursor!
@@ -181,6 +183,12 @@ module Shellfie
       return if value.is_a?(Numeric) && value >= min && value <= max
 
       raise ValidationError, "#{name} must be between #{min} and #{max}"
+    end
+
+    def validate_inclusion!(value, name, allowed)
+      return if allowed.include?(value)
+
+      raise ValidationError, "#{name} must be one of: #{allowed.join(", ")}"
     end
 
     def validate_boolean!(value, name)

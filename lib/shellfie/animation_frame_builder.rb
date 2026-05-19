@@ -107,9 +107,9 @@ module Shellfie
       output_delay = @config.animation[:output_delay]
 
       if output_delay.positive?
-        output_lines.map do |line|
+        output_lines.each_with_index.map do |line, index|
           current_lines << { output: line, output_color: frame.output_color }
-          { lines: build_display_lines(current_lines), delay: output_delay }
+          { lines: build_display_lines(current_lines), delay: eased_output_delay(output_delay, index, output_lines.size) }
         end
       else
         output_lines.each { |line| current_lines << { output: line, output_color: frame.output_color } }
@@ -163,6 +163,27 @@ module Shellfie
 
       factor = 1.0 + @random.rand(-jitter..jitter)
       [(base_delay * factor).round, 1].max
+    end
+
+    def eased_output_delay(base_delay, index, total)
+      return base_delay if total <= 1 || @config.animation[:scroll_easing] == "linear"
+
+      progress = index.to_f / (total - 1)
+      factor = easing_factor(progress)
+      [(base_delay * factor).round, 1].max
+    end
+
+    def easing_factor(progress)
+      case @config.animation[:scroll_easing]
+      when "ease_in"
+        0.75 + progress * 0.5
+      when "ease_out"
+        1.25 - progress * 0.5
+      when "ease_in_out"
+        0.75 + (0.5 - (progress - 0.5).abs) * 1.0
+      else
+        1.0
+      end
     end
   end
 end

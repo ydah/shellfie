@@ -5,6 +5,7 @@ require_relative "themes/configured"
 require_relative "themes/macos"
 require_relative "themes/ubuntu"
 require_relative "themes/windows_terminal"
+require_relative "theme_data"
 
 module Shellfie
   class ThemeRegistry
@@ -82,7 +83,7 @@ module Shellfie
           colors: colors,
           window_decoration: config.window_decoration,
           font: font_overrides(config)
-        )
+        ).then { |theme| ThemeData.from_theme(theme, name: config.theme, headless: config.headless) }
       end
 
       def valid_theme?(name)

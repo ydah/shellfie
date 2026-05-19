@@ -63,6 +63,8 @@ RSpec.describe Shellfie::Config do
     it "validates animation settings" do
       expect { described_class.new(animation: { typing_chunk_size: 0 }) }.to raise_error(Shellfie::ValidationError, /typing_chunk_size/)
       expect { described_class.new(animation: { typing_jitter: 2.0 }) }.to raise_error(Shellfie::ValidationError, /typing_jitter/)
+      expect { described_class.new(animation: { palette: "bad" }) }.to raise_error(Shellfie::ValidationError, /animation.palette/)
+      expect { described_class.new(animation: { scroll_easing: "bad" }) }.to raise_error(Shellfie::ValidationError, /scroll_easing/)
     end
 
     it "validates cursor style" do

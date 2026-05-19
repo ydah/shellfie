@@ -13,7 +13,7 @@ module Shellfie
     FONT_KEYS = %i[family size line_height fallback_family italic_family emoji_family].freeze
     ANIMATION_KEYS = %i[
       typing_speed command_delay cursor_blink loop typing_jitter typing_chunk_size output_delay final_delay max_frames
-      dither
+      dither palette scroll_easing
     ].freeze
     CURSOR_KEYS = %i[style color].freeze
     LIMIT_KEYS = %i[max_lines max_frames max_render_frames max_characters max_pixels].freeze

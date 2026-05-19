@@ -55,6 +55,7 @@ module Shellfie
       puts "  Estimated render frames: #{AnimationFrameBuilder.new(config).build.size}" if config.animated?
       geometry = Renderer.new(config).estimate
       puts "  Estimated size: #{geometry[:canvas_width]}x#{geometry[:canvas_height]}"
+      puts "  Logical size: #{geometry[:logical_width]}x#{geometry[:logical_height]} @#{geometry[:scale]}x"
     end
 
     def run_inspect
@@ -70,6 +71,7 @@ module Shellfie
       puts "  Lines: #{info[:config][:lines].size}"
       puts "  Frames: #{info[:config][:frames].size}"
       puts "  Estimated size: #{info[:geometry][:canvas_width]}x#{info[:geometry][:canvas_height]}"
+      puts "  Logical size: #{info[:geometry][:logical_width]}x#{info[:geometry][:logical_height]} @#{info[:geometry][:scale]}x"
     end
 
     def run_doctor
@@ -116,7 +118,7 @@ module Shellfie
           --overflow MODE        Line overflow mode: clip, wrap, scroll
           --wrap, --no-wrap      Enable or disable long-line wrapping
           --exact-size           Match canvas to configured window size
-          --format FORMAT        Output format: png, gif, svg, webp
+          --format FORMAT        Output format: png, gif, svg, webp, apng
           --force                Overwrite existing output files
           --quiet                Suppress non-error output
           --verbose              Print progress details

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "config_validation"
+require_relative "config_defaults"
 require_relative "errors"
 require_relative "theme_registry"
 
@@ -11,6 +12,8 @@ module Shellfie
     VALID_THEMES = ThemeRegistry.available_themes.freeze
     VALID_OVERFLOW_MODES = %w[clip wrap scroll].freeze
     VALID_CURSOR_STYLES = %w[block bar underline].freeze
+    VALID_PALETTES = %w[global adaptive theme].freeze
+    VALID_SCROLL_EASINGS = %w[linear ease_in ease_out ease_in_out].freeze
 
     class << self
       def deep_dup(value)
@@ -49,61 +52,7 @@ module Shellfie
       end
     end
 
-    DEFAULTS = deep_freeze({
-      version: 1,
-      theme: "macos",
-      window_theme: nil,
-      color_scheme: nil,
-      colors: {},
-      window_decoration: {},
-      window: {
-        width: 600,
-        padding: 20,
-        opacity: 1.0,
-        visible_lines: nil,
-        max_lines: nil,
-        max_height: nil,
-        wrap: false,
-        overflow: "clip",
-        margin: nil,
-        exact_size: false,
-        trim: false,
-        tab_width: 8,
-        ansi_state: "persistent",
-        background_gradient: nil
-      },
-      font: {
-        family: "Monaco",
-        size: 14,
-        line_height: 1.4,
-        fallback_family: nil,
-        italic_family: nil,
-        emoji_family: nil
-      },
-      animation: {
-        typing_speed: 80,
-        command_delay: 500,
-        cursor_blink: true,
-        loop: false,
-        typing_jitter: 0.0,
-        typing_chunk_size: 1,
-        output_delay: 0,
-        final_delay: 1_000,
-        max_frames: nil,
-        dither: true
-      },
-      cursor: {
-        style: "block",
-        color: nil
-      },
-      limits: {
-        max_lines: 10_000,
-        max_frames: 500,
-        max_render_frames: 2_000,
-        max_characters: 200_000,
-        max_pixels: 50_000_000
-      }
-    })
+    DEFAULTS = deep_freeze(deep_dup(ConfigDefaults::VALUES))
 
     attr_reader :version, :theme, :window_theme, :color_scheme, :colors, :window_decoration, :title, :window, :font,
                 :lines, :animation, :frames, :headless, :cursor, :limits

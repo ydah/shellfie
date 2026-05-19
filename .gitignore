@@ -29,5 +29,7 @@ Gemfile.lock
 # Testing outputs
 *.png
 *.gif
+*.webp
+*.apng
 !/examples/*.png
 !/examples/*.gif

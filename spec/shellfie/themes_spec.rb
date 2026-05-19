@@ -102,6 +102,16 @@ RSpec.describe Shellfie::Themes do
       expect(theme.button_style).to eq(:icons)
       expect(theme.colors[:background]).to eq("#111111")
       expect(theme.window_decoration[:corner_radius]).to eq(4)
+      expect(theme).to be_frozen
+      expect(theme.colors).to be_frozen
+    end
+
+    it "builds a headless theme snapshot" do
+      config = Shellfie::Config.new(headless: true, lines: [Shellfie::Line.new(output: "test")])
+      theme = described_class.build(config)
+
+      expect(theme.window_decoration[:title_bar_height]).to eq(0)
+      expect(theme.window_decoration[:corner_radius]).to eq(0)
     end
   end
 end

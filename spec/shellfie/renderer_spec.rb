@@ -70,6 +70,28 @@ RSpec.describe Shellfie::Renderer do
       expect(geometry[:canvas_width]).to eq(config.window[:width])
     end
 
+    it "returns logical dimensions separately from scaled canvas size" do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "test")])
+      renderer = described_class.new(config)
+
+      estimate = renderer.estimate(scale: 2, shadow: false)
+
+      expect(estimate[:scale]).to eq(2)
+      expect(estimate[:logical_width]).to eq(config.window[:width])
+      expect(estimate[:canvas_width]).to be > estimate[:logical_width]
+    end
+
+    it "coalesces adjacent render-ready segments with matching style" do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(prompt: "$ ", command: "echo")])
+      renderer = described_class.new(config)
+
+      segments = renderer.send(:build_lines).first[:segments]
+
+      expect(segments.size).to eq(1)
+      expect(segments.first.text).to eq("$ echo")
+      expect(segments.first).to be_a(Shellfie::RenderSegment)
+    end
+
     it "sanitizes ImageMagick text safely" do
       renderer = described_class.new(Shellfie::Config.new)
 
