@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "animation_timeline"
+
 module Shellfie
   class AnimationFrameBuilder
     def initialize(config)
@@ -12,11 +14,14 @@ module Shellfie
 
       frames = []
       current_lines = []
-      @config.frames.each do |frame|
-        frames.concat(command_frames(current_lines, frame)) if frame.type
-        frames.concat(output_frames(current_lines, frame)) if frame.output
-        if frame.delay&.positive? && !frame.output && !frame.type
-          frames << { lines: build_display_lines(current_lines), delay: frame.delay }
+      AnimationTimeline.new(@config).each do |event|
+        case event.kind
+        when :command
+          frames.concat(command_frames(current_lines, event.frame))
+        when :output
+          frames.concat(output_frames(current_lines, event.frame))
+        when :pause
+          frames << { lines: build_display_lines(current_lines), delay: event.frame.delay }
         end
       end
 
@@ -45,46 +50,54 @@ module Shellfie
 
     def command_frames(current_lines, frame)
       prompt = frame.prompt || ""
-      frames = build_typing_frames(current_lines.dup, prompt, frame.type)
-      current_lines << command_line(frame.prompt, frame.type)
-      frames.concat(command_pause_frames(current_lines, prompt, frame.type))
+      frames = build_typing_frames(current_lines.dup, frame)
+      current_lines << command_line(prompt, frame.type, prompt_color: frame.prompt_color, command_color: frame.command_color)
+      frames.concat(command_pause_frames(current_lines, frame))
       frames
     end
 
-    def build_typing_frames(base_lines, prompt, command)
+    def build_typing_frames(base_lines, frame)
       frames = []
+      prompt = frame.prompt || ""
+      command = frame.type
       chars = command.chars
       chunk_size = @config.animation[:typing_chunk_size]
 
       (chunk_size..chars.length).step(chunk_size).each do |index|
         typed = chars.first(index).join
-        frames << typing_frame(base_lines, prompt, typed)
+        frames << typing_frame(base_lines, frame, typed)
       end
 
-      frames << typing_frame(base_lines, prompt, command) if chars.length % chunk_size != 0 || frames.empty?
+      frames << typing_frame(base_lines, frame, command) if chars.length % chunk_size != 0 || frames.empty?
       final_lines = base_lines.dup
-      final_lines << command_line(prompt, command)
+      final_lines << command_line(prompt, command, prompt_color: frame.prompt_color, command_color: frame.command_color)
       frames << { lines: build_display_lines(final_lines), delay: @config.animation[:typing_speed] }
       frames
     end
 
-    def typing_frame(base_lines, prompt, typed)
+    def typing_frame(base_lines, frame, typed)
       lines = base_lines.dup
-      lines << command_line(prompt, typed, cursor: true)
+      lines << command_line(
+        frame.prompt || "",
+        typed,
+        cursor: true,
+        prompt_color: frame.prompt_color,
+        command_color: frame.command_color
+      )
       {
         lines: build_display_lines(lines),
         delay: jittered_delay(@config.animation[:typing_speed], @config.animation[:typing_jitter])
       }
     end
 
-    def command_pause_frames(current_lines, prompt, command)
+    def command_pause_frames(current_lines, frame)
       delay = @config.animation[:command_delay]
       return [] unless delay.positive?
       return [{ lines: build_display_lines(current_lines), delay: delay }] unless @config.animation[:cursor_blink]
 
       half_delay = [delay / 2, 1].max
       [
-        { lines: build_display_lines(current_lines[0...-1] + [command_line(prompt, command, cursor: true)]), delay: half_delay },
+        { lines: build_display_lines(current_lines[0...-1] + [cursor_command_line(frame)]), delay: half_delay },
         { lines: build_display_lines(current_lines), delay: delay - half_delay }
       ]
     end
@@ -104,16 +117,32 @@ module Shellfie
       end
     end
 
-    def command_line(prompt, command, cursor: false)
-      { prompt: prompt, command: command, cursor: cursor }
+    def command_line(prompt, command, cursor: false, prompt_color: nil, command_color: nil)
+      { prompt: prompt, command: command, cursor: cursor, prompt_color: prompt_color, command_color: command_color }
+    end
+
+    def cursor_command_line(frame)
+      command_line(
+        frame.prompt || "",
+        frame.type,
+        cursor: true,
+        prompt_color: frame.prompt_color,
+        command_color: frame.command_color
+      )
     end
 
     def build_display_lines(lines_data)
       lines_data.map do |line_data|
         if line_data[:prompt]
-          text = "#{line_data[:prompt]}#{line_data[:command]}"
-          text += cursor_text if line_data[:cursor]
-          Line.new(prompt: text, command: nil, output: nil)
+          command = line_data[:command].to_s
+          command += cursor_text if line_data[:cursor]
+          Line.new(
+            prompt: line_data[:prompt],
+            command: command,
+            output: nil,
+            prompt_color: line_data[:prompt_color],
+            command_color: line_data[:command_color]
+          )
         else
           Line.new(prompt: nil, command: nil, output: line_data[:output], output_color: line_data[:output_color])
         end

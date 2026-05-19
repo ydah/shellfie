@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "strscan"
+require_relative "ansi_line_buffer"
 
 module Shellfie
   module AnsiNormalizer
@@ -17,62 +18,34 @@ module Shellfie
     end
 
     def apply_line_controls(text)
-      buffer = []
-      column = 0
-      pending_escape = +""
+      buffer = AnsiLineBuffer.new
       scanner = StringScanner.new(text)
 
       until scanner.eos?
         if scanner.scan(ANSI_REGEX)
-          pending_escape << scanner.matched
+          buffer.write_escape(scanner.matched)
           next
         end
 
-        if scanner.scan(/\e\[[0-9;?]*[JK]/)
-          buffer.clear
-          column = 0
+        if scanner.scan(/\e\[([0-9;?]*)[JK]/)
+          buffer.clear(scanner.matched[-1], scanner[1])
           next
         end
 
         if scanner.scan(/\e\[([0-9;?]*)[CDG]/)
-          column = apply_cursor_movement(scanner.matched[-1], scanner[1], column)
+          buffer.move(scanner.matched[-1], scanner[1])
           next
         end
 
-        column, pending_escape = apply_character(scanner.getch, buffer, column, pending_escape)
+        if scanner.scan(/\e\[([0-9;?]*)[Hf]/)
+          buffer.position(scanner[1])
+          next
+        end
+
+        buffer.write_character(scanner.getch)
       end
 
-      buffer.compact.join + pending_escape
-    end
-
-    def apply_character(char, buffer, column, pending_escape)
-      case char
-      when "\r"
-        [0, pending_escape]
-      when "\b"
-        column = [column - 1, 0].max
-        buffer[column] = nil
-        [column, pending_escape]
-      when "\a"
-        [column, pending_escape]
-      else
-        buffer[column] = "#{pending_escape}#{char}"
-        [column + 1, +""]
-      end
-    end
-
-    def apply_cursor_movement(command, params, column)
-      amount = params.to_s.split(";").first.to_i
-      amount = 1 if amount <= 0
-
-      case command
-      when "C"
-        column + amount
-      when "D"
-        [column - amount, 0].max
-      when "G"
-        [amount - 1, 0].max
-      end
+      buffer.to_s
     end
   end
 end

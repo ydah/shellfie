@@ -47,6 +47,19 @@ RSpec.describe Shellfie::Config do
       expect { described_class.new(window: { overflow: "spill" }) }.to raise_error(Shellfie::ValidationError, /window.overflow/)
     end
 
+    it "validates boolean settings" do
+      expect { described_class.new(window: { wrap: "yes" }) }.to raise_error(Shellfie::ValidationError, /window.wrap/)
+      expect { described_class.new(animation: { loop: "yes" }) }.to raise_error(Shellfie::ValidationError, /animation.loop/)
+      expect { described_class.new(headless: "yes") }.to raise_error(Shellfie::ValidationError, /headless/)
+    end
+
+    it "validates font names and gradients" do
+      expect { described_class.new(font: { family: 123 }) }.to raise_error(Shellfie::ValidationError, /font.family/)
+      expect do
+        described_class.new(window: { background_gradient: ["#000000"] })
+      end.to raise_error(Shellfie::ValidationError, /background_gradient/)
+    end
+
     it "validates animation settings" do
       expect { described_class.new(animation: { typing_chunk_size: 0 }) }.to raise_error(Shellfie::ValidationError, /typing_chunk_size/)
       expect { described_class.new(animation: { typing_jitter: 2.0 }) }.to raise_error(Shellfie::ValidationError, /typing_jitter/)

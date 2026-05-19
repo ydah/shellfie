@@ -86,6 +86,7 @@ module Shellfie
         if line.values_at(:prompt, :command, :output).all?(&:nil?)
           raise ValidationError, "lines[#{index}] must include at least one of prompt, command, or output"
         end
+        validate_line_values!(line, index)
       end
     end
 
@@ -100,6 +101,13 @@ module Shellfie
       end
     end
 
+    def validate_line_values!(line, index)
+      %i[prompt command output prompt_color command_color output_color].each do |key|
+        validate_string_value!(line[key], "lines[#{index}].#{key}") if line.key?(key)
+      end
+      validate_boolean_value!(line[:selected], "lines[#{index}].selected") if line.key?(:selected)
+    end
+
     def validate_frame_shape!(frame, index)
       raise ValidationError, "frames[#{index}].prompt requires type" if frame[:prompt] && frame[:type].nil?
 
@@ -107,8 +115,12 @@ module Shellfie
         raise ValidationError, "frames[#{index}] must include type, output, or delay"
       end
 
+      validate_string_value!(frame[:prompt], "frames[#{index}].prompt") if frame.key?(:prompt)
       validate_string_value!(frame[:type], "frames[#{index}].type") if frame.key?(:type)
       validate_string_value!(frame[:output], "frames[#{index}].output") if frame.key?(:output)
+      validate_string_value!(frame[:prompt_color], "frames[#{index}].prompt_color") if frame.key?(:prompt_color)
+      validate_string_value!(frame[:command_color], "frames[#{index}].command_color") if frame.key?(:command_color)
+      validate_string_value!(frame[:output_color], "frames[#{index}].output_color") if frame.key?(:output_color)
       validate_non_negative_integer!(frame[:delay], "frames[#{index}].delay") if frame.key?(:delay)
     end
 
@@ -116,6 +128,12 @@ module Shellfie
       return if value.is_a?(String)
 
       raise ValidationError, "#{name} must be a string"
+    end
+
+    def validate_boolean_value!(value, name)
+      return if value == true || value == false
+
+      raise ValidationError, "#{name} must be true or false"
     end
 
     def validate_non_negative_integer!(value, name)

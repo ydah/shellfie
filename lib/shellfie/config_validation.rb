@@ -11,6 +11,7 @@ module Shellfie
       validate_cursor!
       validate_lines!
       validate_limits!
+      validate_headless!
       validate_resource_limits!
     end
 
@@ -51,12 +52,20 @@ module Shellfie
       validate_optional_positive_integer!(@window[:max_height], "window.max_height")
       validate_optional_non_negative_integer!(@window[:margin], "window.margin")
       validate_positive_integer!(@window[:tab_width], "window.tab_width")
+      validate_boolean!(@window[:wrap], "window.wrap")
+      validate_boolean!(@window[:exact_size], "window.exact_size")
+      validate_boolean!(@window[:trim], "window.trim")
       validate_overflow!
       validate_ansi_state!
+      validate_background_gradient!
       validate_minimum_width!
     end
 
     def validate_font!
+      validate_optional_string!(@font[:family], "font.family")
+      validate_optional_string!(@font[:fallback_family], "font.fallback_family")
+      validate_optional_string!(@font[:italic_family], "font.italic_family")
+      validate_optional_string!(@font[:emoji_family], "font.emoji_family")
       validate_positive_number!(@font[:size], "font.size")
       validate_positive_number!(@font[:line_height], "font.line_height")
     end
@@ -69,6 +78,9 @@ module Shellfie
       validate_non_negative_integer!(@animation[:output_delay], "animation.output_delay")
       validate_non_negative_integer!(@animation[:final_delay], "animation.final_delay")
       validate_optional_positive_integer!(@animation[:max_frames], "animation.max_frames")
+      validate_boolean!(@animation[:cursor_blink], "animation.cursor_blink")
+      validate_boolean!(@animation[:loop], "animation.loop")
+      validate_boolean!(@animation[:dither], "animation.dither")
     end
 
     def validate_cursor!
@@ -86,6 +98,10 @@ module Shellfie
       @limits.each_key do |key|
         validate_positive_integer!(@limits[key], "limits.#{key}")
       end
+    end
+
+    def validate_headless!
+      validate_boolean!(@headless, "headless")
     end
 
     def validate_resource_limits!
@@ -110,6 +126,14 @@ module Shellfie
       raise ValidationError, "window.ansi_state must be persistent or line"
     end
 
+    def validate_background_gradient!
+      gradient = @window[:background_gradient]
+      return if gradient.nil?
+      return if gradient.is_a?(Array) && gradient.size == 2 && gradient.all? { |color| color.is_a?(String) }
+
+      raise ValidationError, "window.background_gradient must be an array of two colors"
+    end
+
     def validate_minimum_width!
       min_width = [120, (@window[:padding] * 2) + 40].max
       return if @window[:width] >= min_width
@@ -127,6 +151,12 @@ module Shellfie
       return if value.nil?
 
       validate_non_negative_integer!(value, name)
+    end
+
+    def validate_optional_string!(value, name)
+      return if value.nil? || value.is_a?(String)
+
+      raise ValidationError, "#{name} must be a string"
     end
 
     def validate_positive_integer!(value, name)
@@ -151,6 +181,12 @@ module Shellfie
       return if value.is_a?(Numeric) && value >= min && value <= max
 
       raise ValidationError, "#{name} must be between #{min} and #{max}"
+    end
+
+    def validate_boolean!(value, name)
+      return if value == true || value == false
+
+      raise ValidationError, "#{name} must be true or false"
     end
   end
 end

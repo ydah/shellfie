@@ -125,6 +125,20 @@ RSpec.describe Shellfie::AnsiParser do
       expect(parser.parse("abc\e[1GX").first.text).to eq("Xbc")
     end
 
+    it "preserves cursor-right gaps as spaces" do
+      expect(parser.parse("a\e[3CX").first.text).to eq("a   X")
+    end
+
+    it "handles ANSI clear line controls" do
+      expect(parser.parse("abc\e[1G\e[KX").first.text).to eq("X")
+      expect(parser.parse("abc\e[2K\e[1GX").first.text).to eq("X")
+    end
+
+    it "handles ANSI clear screen with cursor home" do
+      expect(parser.parse("old\e[2J\e[HX").first.text).to eq("X")
+      expect(parser.parse("old\e[2J\e[2HX").first.text).to eq("X")
+    end
+
     it "ignores OSC hyperlinks and terminal bell" do
       segments = parser.parse("\e]8;;https://example.com\aLink\e]8;;\a\a")
 
