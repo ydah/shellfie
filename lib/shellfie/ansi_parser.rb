@@ -1,61 +1,40 @@
 # frozen_string_literal: true
 
 require "strscan"
+require_relative "ansi_colors"
+require_relative "ansi_normalizer"
 
 module Shellfie
-  Segment = Struct.new(:text, :foreground, :background, :bold, :italic, :underline, keyword_init: true)
+  Segment = Struct.new(
+    :text,
+    :foreground,
+    :background,
+    :bold,
+    :italic,
+    :underline,
+    :dim,
+    :reverse,
+    :strikethrough,
+    :overline,
+    keyword_init: true
+  )
 
   class AnsiParser
     ANSI_REGEX = /\e\[([0-9;]*)m/
 
-    COLORS = {
-      30 => :black,
-      31 => :red,
-      32 => :green,
-      33 => :yellow,
-      34 => :blue,
-      35 => :magenta,
-      36 => :cyan,
-      37 => :white,
-      90 => :bright_black,
-      91 => :bright_red,
-      92 => :bright_green,
-      93 => :bright_yellow,
-      94 => :bright_blue,
-      95 => :bright_magenta,
-      96 => :bright_cyan,
-      97 => :bright_white
-    }.freeze
-
-    BG_COLORS = {
-      40 => :black,
-      41 => :red,
-      42 => :green,
-      43 => :yellow,
-      44 => :blue,
-      45 => :magenta,
-      46 => :cyan,
-      47 => :white,
-      100 => :bright_black,
-      101 => :bright_red,
-      102 => :bright_green,
-      103 => :bright_yellow,
-      104 => :bright_blue,
-      105 => :bright_magenta,
-      106 => :bright_cyan,
-      107 => :bright_white
-    }.freeze
-
-    def initialize
+    def initialize(state_mode: :persistent)
+      @state_mode = state_mode.to_sym
       reset_state
     end
 
     def parse(text)
+      reset_state if @state_mode == :line
+
       segments = []
-      scanner = StringScanner.new(text)
+      scanner = StringScanner.new(AnsiNormalizer.normalize(text.to_s))
       current_text = +""
 
-      while !scanner.eos?
+      until scanner.eos?
         if scanner.scan(ANSI_REGEX)
           unless current_text.empty?
             segments << create_segment(current_text)
@@ -79,6 +58,10 @@ module Shellfie
       @bold = false
       @italic = false
       @underline = false
+      @dim = false
+      @reverse = false
+      @strikethrough = false
+      @overline = false
     end
 
     def create_segment(text)
@@ -88,14 +71,18 @@ module Shellfie
         background: @background,
         bold: @bold,
         italic: @italic,
-        underline: @underline
+        underline: @underline,
+        dim: @dim,
+        reverse: @reverse,
+        strikethrough: @strikethrough,
+        overline: @overline
       )
     end
 
     def process_codes(codes_str)
       return reset_state if codes_str.empty?
 
-      codes = codes_str.split(";").map(&:to_i)
+      codes = codes_str.split(";").map { |code| code.empty? ? 0 : code.to_i }
       i = 0
 
       while i < codes.length
@@ -106,69 +93,48 @@ module Shellfie
           reset_state
         when 1
           @bold = true
+        when 2
+          @dim = true
         when 3
           @italic = true
         when 4
           @underline = true
+        when 7
+          @reverse = true
+        when 9
+          @strikethrough = true
         when 22
           @bold = false
+          @dim = false
         when 23
           @italic = false
         when 24
           @underline = false
+        when 27
+          @reverse = false
+        when 29
+          @strikethrough = false
         when 30..37, 90..97
-          @foreground = COLORS[code]
+          @foreground = AnsiColors::COLORS[code]
         when 38
-          i, @foreground = parse_extended_color(codes, i)
+          i, @foreground = AnsiColors.parse_extended_color(codes, i)
         when 39
           @foreground = nil
         when 40..47, 100..107
-          @background = BG_COLORS[code]
+          @background = AnsiColors::BG_COLORS[code]
         when 48
-          i, @background = parse_extended_color(codes, i)
+          i, @background = AnsiColors.parse_extended_color(codes, i)
         when 49
           @background = nil
+        when 53
+          @overline = true
+        when 55
+          @overline = false
         end
 
         i += 1
       end
     end
 
-    def parse_extended_color(codes, i)
-      return [i, nil] if codes[i + 1].nil?
-
-      case codes[i + 1]
-      when 5
-        color_index = codes[i + 2]
-        [i + 2, color_256(color_index)]
-      when 2
-        r, g, b = codes[i + 2], codes[i + 3], codes[i + 4]
-        [i + 4, format("#%02x%02x%02x", r, g, b)]
-      else
-        [i, nil]
-      end
-    end
-
-    def color_256(index)
-      return nil unless index
-
-      if index < 16
-        standard_colors = %i[
-          black red green yellow blue magenta cyan white
-          bright_black bright_red bright_green bright_yellow
-          bright_blue bright_magenta bright_cyan bright_white
-        ]
-        standard_colors[index]
-      elsif index < 232
-        index -= 16
-        r = (index / 36) * 51
-        g = ((index % 36) / 6) * 51
-        b = (index % 6) * 51
-        format("#%02x%02x%02x", r, g, b)
-      else
-        gray = (index - 232) * 10 + 8
-        format("#%02x%02x%02x", gray, gray, gray)
-      end
-    end
   end
 end

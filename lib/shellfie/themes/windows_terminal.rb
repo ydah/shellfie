@@ -13,6 +13,7 @@ module Shellfie
         {
           title_bar_height: 32,
           button_size: 10,
+          button_width: 46,
           button_spacing: 0,
           corner_radius: 0,
           shadow: { blur: 15, offset_x: 0, offset_y: 5, color: "rgba(0,0,0,0.25)" }

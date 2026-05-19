@@ -3,10 +3,13 @@
 require "yaml"
 require_relative "config"
 require_relative "errors"
+require_relative "parser_validation"
 
 module Shellfie
   class Parser
     class << self
+      include ParserValidation
+
       def parse(path)
         raise ParseError, "Configuration file not found: #{path}" unless File.exist?(path)
 
@@ -24,19 +27,6 @@ module Shellfie
 
       private
 
-      def validate_config(raw)
-        raise ValidationError, "Empty configuration" if raw.nil? || raw.empty?
-
-        valid_themes = %w[macos ubuntu windows]
-        if raw[:theme] && !valid_themes.include?(raw[:theme])
-          raise ValidationError, "Invalid theme '#{raw[:theme]}'\n  → Available themes: #{valid_themes.join(", ")}"
-        end
-
-        if raw[:lines].nil? && raw[:frames].nil?
-          raise ValidationError, "Configuration must have either 'lines' or 'frames'"
-        end
-      end
-
       def build_config(raw)
         options = {
           theme: raw[:theme],
@@ -45,6 +35,7 @@ module Shellfie
           font: symbolize_hash(raw[:font]),
           lines: parse_lines(raw[:lines]),
           animation: symbolize_hash(raw[:animation]),
+          cursor: symbolize_hash(raw[:cursor]),
           frames: parse_frames(raw[:frames]),
           headless: raw[:headless] || false
         }.compact
@@ -59,32 +50,57 @@ module Shellfie
       end
 
       def parse_lines(lines)
-        return [] unless lines.is_a?(Array)
+        return [] if lines.nil?
 
         lines.map do |line|
           Line.new(
             prompt: line[:prompt],
             command: line[:command],
-            output: line[:output]
+            output: line[:output],
+            prompt_color: line[:prompt_color],
+            command_color: line[:command_color],
+            output_color: line[:output_color],
+            selected: line[:selected] || false
           )
         end
       end
 
       def parse_frames(frames)
-        return [] unless frames.is_a?(Array)
+        return [] if frames.nil?
 
         frames.map do |frame|
           Frame.new(
             prompt: frame[:prompt],
             type: frame[:type],
             output: frame[:output],
-            delay: frame[:delay] || 0
+            delay: frame[:delay] || 0,
+            prompt_color: frame[:prompt_color],
+            command_color: frame[:command_color],
+            output_color: frame[:output_color]
           )
         end
       end
     end
   end
 
-  Line = Struct.new(:prompt, :command, :output, keyword_init: true)
-  Frame = Struct.new(:prompt, :type, :output, :delay, keyword_init: true)
+  Line = Struct.new(
+    :prompt,
+    :command,
+    :output,
+    :prompt_color,
+    :command_color,
+    :output_color,
+    :selected,
+    keyword_init: true
+  )
+  Frame = Struct.new(
+    :prompt,
+    :type,
+    :output,
+    :delay,
+    :prompt_color,
+    :command_color,
+    :output_color,
+    keyword_init: true
+  )
 end

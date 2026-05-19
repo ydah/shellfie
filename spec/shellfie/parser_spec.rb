@@ -60,6 +60,63 @@ RSpec.describe Shellfie::Parser do
       expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /Invalid theme/)
     end
 
+    it "raises ValidationError for non-mapping YAML" do
+      yaml = <<~YAML
+        - lines
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /YAML mapping/)
+    end
+
+    it "raises ValidationError for unknown top-level keys" do
+      yaml = <<~YAML
+        commnad: typo
+        lines:
+          - prompt: "$ "
+            command: "test"
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /Unknown configuration key/)
+    end
+
+    it "raises ValidationError for invalid line keys" do
+      yaml = <<~YAML
+        lines:
+          - commnad: "test"
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /Unknown lines\[0\] key/)
+    end
+
+    it "raises ValidationError when lines is not an array" do
+      yaml = <<~YAML
+        lines:
+          prompt: "$ "
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /lines must be an array/)
+    end
+
+    it "raises ValidationError for invalid frame shape" do
+      yaml = <<~YAML
+        frames:
+          - prompt: "$ "
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /prompt requires type/)
+    end
+
+    it "raises ValidationError for unknown nested keys" do
+      yaml = <<~YAML
+        window:
+          widht: 600
+        lines:
+          - output: "test"
+      YAML
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /Unknown window key/)
+    end
+
     it "parses output lines" do
       yaml = <<~YAML
         title: "Test"
@@ -93,6 +150,23 @@ RSpec.describe Shellfie::Parser do
       expect(config.frames.size).to eq(1)
       expect(config.frames.first.type).to eq("echo test")
       expect(config.frames.first.delay).to eq(500)
+    end
+
+    it "parses semantic line colors and selection" do
+      yaml = <<~YAML
+        lines:
+          - prompt: "$ "
+            command: "echo test"
+            prompt_color: green
+            command_color: "#ff00ff"
+            selected: true
+      YAML
+
+      config = described_class.parse_string(yaml)
+
+      expect(config.lines.first.prompt_color).to eq("green")
+      expect(config.lines.first.command_color).to eq("#ff00ff")
+      expect(config.lines.first.selected).to be true
     end
   end
 

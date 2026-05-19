@@ -24,6 +24,37 @@ RSpec.describe Shellfie::Config do
       expect(config.window[:width]).to eq(800)
       expect(config.window[:padding]).to eq(20)
     end
+
+    it "deep-freezes defaults and instance state" do
+      config = described_class.new
+
+      expect(config.window).to be_frozen
+      expect { config.window[:width] = 700 }.to raise_error(FrozenError)
+      expect(described_class.new.window[:width]).to eq(600)
+    end
+
+    it "validates themes" do
+      expect { described_class.new(theme: "missing") }.to raise_error(Shellfie::ValidationError, /Invalid theme/)
+    end
+
+    it "validates window dimensions" do
+      expect { described_class.new(window: { width: 0 }) }.to raise_error(Shellfie::ValidationError, /window.width/)
+      expect { described_class.new(window: { padding: -1 }) }.to raise_error(Shellfie::ValidationError, /window.padding/)
+    end
+
+    it "validates opacity and overflow mode" do
+      expect { described_class.new(window: { opacity: 1.5 }) }.to raise_error(Shellfie::ValidationError, /window.opacity/)
+      expect { described_class.new(window: { overflow: "spill" }) }.to raise_error(Shellfie::ValidationError, /window.overflow/)
+    end
+
+    it "validates animation settings" do
+      expect { described_class.new(animation: { typing_chunk_size: 0 }) }.to raise_error(Shellfie::ValidationError, /typing_chunk_size/)
+      expect { described_class.new(animation: { typing_jitter: 2.0 }) }.to raise_error(Shellfie::ValidationError, /typing_jitter/)
+    end
+
+    it "validates cursor style" do
+      expect { described_class.new(cursor: { style: "box" }) }.to raise_error(Shellfie::ValidationError, /cursor.style/)
+    end
   end
 
   describe "#static?" do

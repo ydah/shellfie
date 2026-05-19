@@ -2,13 +2,16 @@
 
 require "optparse"
 require_relative "../shellfie"
+require_relative "cli_generate"
 
 module Shellfie
   class CLI
+    include CLIGenerate
+
     COMMANDS = %w[generate init themes validate version help].freeze
 
     def initialize(args)
-      @args = args
+      @args = args.dup
       @options = {}
     end
 
@@ -31,94 +34,19 @@ module Shellfie
       when "help", "-h", "--help"
         show_help
       else
-        puts "Unknown command: #{command}"
-        puts "Run 'shellfie help' for usage information."
+        warn_error "Unknown command: #{command}"
+        warn_error "Run 'shellfie help' for usage information."
         exit 1
       end
     rescue Shellfie::Error => e
-      puts "Error: #{e.message}"
+      warn_error "Error: #{e.message}"
       exit determine_exit_code(e)
+    rescue OptionParser::ParseError => e
+      warn_error "Error: #{e.message}"
+      exit 1
     end
 
     private
-
-    def run_generate
-      parser = OptionParser.new do |opts|
-        opts.banner = "Usage: shellfie generate INPUT_FILE [options]"
-
-        opts.on("-o", "--output PATH", "Output file path (required)") do |path|
-          @options[:output] = path
-        end
-
-        opts.on("-t", "--theme NAME", "Override theme (macos, ubuntu, windows)") do |theme|
-          @options[:theme] = theme
-        end
-
-        opts.on("-a", "--animate", "Generate animated GIF") do
-          @options[:animate] = true
-        end
-
-        opts.on("-s", "--scale FACTOR", "Output scale (1, 2, 3)") do |scale|
-          @options[:scale] = scale.to_i
-        end
-
-        opts.on("-w", "--width PIXELS", Integer, "Override width") do |width|
-          @options[:width] = width
-        end
-
-        opts.on("--no-shadow", "Disable shadow effect") do
-          @options[:shadow] = false
-        end
-
-        opts.on("--transparent", "Transparent background") do
-          @options[:transparent] = true
-        end
-
-        opts.on("--no-header", "Disable window header (headless mode)") do
-          @options[:headless] = true
-        end
-      end
-
-      parser.parse!(@args)
-
-      input_file = @args.shift
-      raise ConfigError, "Input file is required" unless input_file
-      raise ConfigError, "Output file is required (use -o option)" unless @options[:output]
-
-      config = Parser.parse(input_file)
-
-      if @options[:theme] || @options[:width] || @options[:headless]
-        config = Config.new(
-          theme: @options[:theme] || config.theme,
-          title: config.title,
-          window: config.window.merge(@options[:width] ? { width: @options[:width] } : {}),
-          font: config.font,
-          lines: config.lines,
-          animation: config.animation,
-          frames: config.frames,
-          headless: @options[:headless] || config.headless
-        )
-      end
-
-      if @options[:animate] || config.animated?
-        generator = GifGenerator.new(config)
-        output = generator.generate(
-          @options[:output],
-          scale: @options[:scale] || 1,
-          shadow: @options[:shadow] != false
-        )
-      else
-        renderer = Renderer.new(config)
-        output = renderer.render(
-          @options[:output],
-          scale: @options[:scale] || 1,
-          shadow: @options[:shadow] != false,
-          transparent: @options[:transparent] || false
-        )
-      end
-
-      puts "Generated: #{output}"
-    end
 
     def run_init
       sample_config = <<~YAML
@@ -198,6 +126,10 @@ module Shellfie
           --no-shadow            Disable shadow effect
           --no-header            Disable window header (headless mode)
           --transparent          Transparent background
+          --fps FPS              Override animation typing FPS
+          --overflow MODE        Line overflow mode: clip, wrap, scroll
+          --wrap, --no-wrap      Enable or disable long-line wrapping
+          --exact-size           Match canvas to configured window size
 
         Examples:
           shellfie generate config.yml -o terminal.png
@@ -210,6 +142,10 @@ module Shellfie
           shf generate config.yml -o terminal.png
           shf init > config.yml
       HELP
+    end
+
+    def warn_error(message)
+      $stderr.puts message
     end
 
     def determine_exit_code(error)

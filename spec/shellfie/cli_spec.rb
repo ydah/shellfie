@@ -31,7 +31,21 @@ RSpec.describe Shellfie::CLI do
 
     it "exits with error for unknown command" do
       cli = described_class.new(["unknown"])
-      expect { cli.run }.to output(/Unknown command/).to_stdout.and raise_error(SystemExit)
+      expect { cli.run }.to output(/Unknown command/).to_stderr.and raise_error(SystemExit)
+    end
+
+    it "does not mutate the provided args array" do
+      args = ["version"]
+      cli = described_class.new(args)
+
+      expect { cli.run }.to output(/shellfie #{Shellfie::VERSION}/).to_stdout
+      expect(args).to eq(["version"])
+    end
+
+    it "rejects invalid scale values" do
+      cli = described_class.new(["generate", "config.yml", "-o", "out.png", "--scale", "0"])
+
+      expect { cli.run }.to output(/scale must be 1, 2, or 3/).to_stderr.and raise_error(SystemExit)
     end
   end
 end

@@ -77,10 +77,26 @@ RSpec.describe Shellfie::AnsiParser do
       expect(segments.first.foreground).to start_with("#")
     end
 
+    it "uses xterm 256-color cube values" do
+      segments = parser.parse("\e[38;5;17mColor\e[0m")
+
+      expect(segments.first.foreground).to eq("#00005f")
+    end
+
+    it "ignores out-of-range 256 colors" do
+      segments = parser.parse("\e[38;5;999mColor\e[0m")
+
+      expect(segments.first.foreground).to be_nil
+    end
+
     it "handles RGB colors" do
       segments = parser.parse("\e[38;2;255;128;64mRGB\e[0m")
 
       expect(segments.first.foreground).to eq("#ff8040")
+    end
+
+    it "safely ignores incomplete RGB colors" do
+      expect { parser.parse("\e[38;2;255mRGB") }.not_to raise_error
     end
 
     it "handles nested styles" do
@@ -88,6 +104,40 @@ RSpec.describe Shellfie::AnsiParser do
 
       expect(segments.first.bold).to be true
       expect(segments.first.foreground).to eq(:red)
+    end
+
+    it "parses dim reverse strikethrough and overline" do
+      segments = parser.parse("\e[2;7;9;53mStyled\e[0m")
+
+      expect(segments.first.dim).to be true
+      expect(segments.first.reverse).to be true
+      expect(segments.first.strikethrough).to be true
+      expect(segments.first.overline).to be true
+    end
+
+    it "applies carriage returns and backspaces" do
+      expect(parser.parse("old\rnew").first.text).to eq("new")
+      expect(parser.parse("abc\bX").first.text).to eq("abX")
+    end
+
+    it "applies simple cursor movement" do
+      expect(parser.parse("abc\e[2DX").first.text).to eq("aXc")
+      expect(parser.parse("abc\e[1GX").first.text).to eq("Xbc")
+    end
+
+    it "ignores OSC hyperlinks and terminal bell" do
+      segments = parser.parse("\e]8;;https://example.com\aLink\e]8;;\a\a")
+
+      expect(segments.first.text).to eq("Link")
+    end
+
+    it "can reset ANSI state for each line" do
+      line_parser = described_class.new(state_mode: :line)
+
+      line_parser.parse("\e[31mRed")
+      segments = line_parser.parse("Plain")
+
+      expect(segments.first.foreground).to be_nil
     end
   end
 end

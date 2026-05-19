@@ -2,6 +2,10 @@
 
 require "mini_magick"
 require_relative "ansi_parser"
+require_relative "font_resolver"
+require_relative "line_layout"
+require_relative "rendering/text_painter"
+require_relative "rendering/window_chrome"
 require_relative "themes/base"
 require_relative "themes/macos"
 require_relative "themes/ubuntu"
@@ -9,18 +13,22 @@ require_relative "themes/windows_terminal"
 
 module Shellfie
   class Renderer
+    include Rendering::TextPainter
+    include Rendering::WindowChrome
+
     THEMES = {
       "macos" => Themes::MacOS,
       "ubuntu" => Themes::Ubuntu,
       "windows" => Themes::WindowsTerminal
     }.freeze
 
-    attr_reader :config, :theme
+    attr_reader :config, :theme, :font_resolver
 
     def initialize(config)
       @config = config
       @theme = load_theme(config.theme)
-      @ansi_parser = AnsiParser.new
+      @ansi_parser = AnsiParser.new(state_mode: config.window[:ansi_state] || :persistent)
+      @font_resolver = FontResolver.new(-> { imagemagick_command })
     end
 
     def render(output_path, scale: 1, shadow: true, transparent: false)
@@ -34,160 +42,153 @@ module Shellfie
     private
 
     def load_theme(name)
-      klass = THEMES[name] || THEMES["macos"]
-      klass.new
+      klass = THEMES[name]
+      return klass.new if klass
+
+      raise ValidationError, "Invalid theme '#{name}'\n  → Available themes: #{THEMES.keys.join(", ")}"
     end
 
     def check_dependencies!
-      result = `which magick 2>/dev/null || which convert 2>/dev/null`.strip
-      if result.empty?
-        raise DependencyError, <<~MSG
-          ImageMagick not found
-            → Please install ImageMagick: brew install imagemagick
-            → Or visit: https://imagemagick.org/script/download.php
-        MSG
-      end
+      return unless imagemagick_command.empty?
+
+      raise DependencyError, <<~MSG
+        ImageMagick not found
+          → Please install ImageMagick: brew install imagemagick
+          → Or visit: https://imagemagick.org/script/download.php
+      MSG
+    end
+
+    def imagemagick_command
+      @imagemagick_command ||= `which magick 2>/dev/null || which convert 2>/dev/null`.strip
     end
 
     def build_lines
       config.lines.flat_map do |line|
-        result = []
-        if line.prompt
-          prompt_segments = @ansi_parser.parse(line.prompt)
-          command_segments = line.command ? @ansi_parser.parse(line.command) : []
-          result << { segments: prompt_segments + command_segments }
+        rendered_lines = []
+        if line.prompt || line.command
+          rendered_lines << {
+            segments: parse_with_default(line.prompt.to_s, line.prompt_color) +
+              parse_with_default(line.command.to_s, line.command_color),
+            selected: line.selected
+          }
         end
+
         if line.output
-          line.output.split("\n").each do |output_line|
-            result << { segments: @ansi_parser.parse(output_line) }
+          line.output.to_s.split("\n", -1).each do |output_line|
+            rendered_lines << {
+              segments: parse_with_default(output_line, line.output_color),
+              selected: line.selected
+            }
           end
         end
-        result
+
+        rendered_lines
       end
     end
 
-    def create_image(lines, output_path, scale:, shadow:, transparent:)
-      decoration = theme.window_decoration
-      font_config = config.font.is_a?(Hash) ? config.font : theme.font
-      padding = config.window[:padding] || 20
-      width = config.window[:width] || 600
-      line_height = (font_config[:size] || 14) * (font_config[:line_height] || 1.4)
-      title_bar_height = config.headless ? 0 : decoration[:title_bar_height]
-      visible_lines = config.window[:visible_lines]
-
-      display_line_count = visible_lines || lines.size
-      content_height = display_line_count * line_height + padding * 2
-      total_height = title_bar_height + content_height
-      corner_radius = decoration[:corner_radius]
-
-      if visible_lines && lines.size > visible_lines
-        lines = lines.last(visible_lines)
+    def parse_with_default(text, default_color)
+      @ansi_parser.parse(expand_tabs(text)).map do |segment|
+        segment.foreground ||= default_color
+        segment
       end
+    end
 
-      scaled_width = (width * scale).to_i
-      scaled_height = (total_height * scale).to_i
-      scaled_padding = (padding * scale).to_i
-      scaled_title_bar = (title_bar_height * scale).to_i
-      scaled_line_height = (line_height * scale).to_i
-      scaled_font_size = ((font_config[:size] || 14) * scale).to_i
-      scaled_radius = (corner_radius * scale).to_i
+    def expand_tabs(text)
+      text.to_s.gsub("\t", " " * config.window[:tab_width])
+    end
 
-      margin = shadow ? (50 * scale).to_i : (10 * scale).to_i
-      canvas_width = scaled_width + margin * 2
-      canvas_height = scaled_height + margin * 2
+    def create_image(lines, output_path, scale:, shadow:, transparent:)
+      geometry = build_geometry(lines, scale: scale, shadow: shadow)
 
       MiniMagick.convert do |convert|
-        convert.size "#{canvas_width}x#{canvas_height}"
-        convert << "xc:transparent"
+        convert.size "#{geometry[:canvas_width]}x#{geometry[:canvas_height]}"
+        convert << canvas_background(transparent)
 
-        if shadow
-          convert.fill "rgba(0,0,0,0.3)"
-          shadow_offset = (10 * scale).to_i
-          convert.draw "roundrectangle #{margin + shadow_offset},#{margin + shadow_offset} " \
-                       "#{margin + scaled_width - 1 + shadow_offset},#{margin + scaled_height - 1 + shadow_offset} " \
-                       "#{scaled_radius},#{scaled_radius}"
-          convert.blur "0x#{(15 * scale).to_i}"
-        end
+        draw_shadow(convert, geometry) if geometry[:shadow]
+        draw_window(convert, geometry, transparent: transparent)
+        draw_title_bar(convert, geometry) unless config.headless
+        draw_content(convert, geometry)
 
-        convert.fill theme.colors[:background]
-        convert.draw "roundrectangle #{margin},#{margin} " \
-                     "#{margin + scaled_width - 1},#{margin + scaled_height - 1} " \
-                     "#{scaled_radius},#{scaled_radius}"
-
-        unless config.headless
-          convert.fill theme.colors[:title_bar]
-          title_y2 = margin + scaled_title_bar - 1
-          convert.draw "roundrectangle #{margin},#{margin} " \
-                       "#{margin + scaled_width - 1},#{title_y2} " \
-                       "#{scaled_radius},#{scaled_radius}"
-          convert.fill theme.colors[:title_bar]
-          convert.draw "rectangle #{margin},#{margin + scaled_radius} " \
-                       "#{margin + scaled_width - 1},#{title_y2}"
-
-          button_x, button_y = button_positions(margin, scaled_title_bar, scale)
-          button_radius = ((theme.window_decoration[:button_size] / 2) * scale).to_i
-
-          theme.button_colors.each_with_index do |color, i|
-            spacing = ((theme.window_decoration[:button_spacing] + theme.window_decoration[:button_size]) * scale).to_i
-            bx = button_x + i * spacing
-            convert.fill color
-            convert.draw "circle #{bx},#{button_y} #{bx + button_radius},#{button_y}"
-          end
-
-          convert.fill theme.colors[:title_text]
-          convert.pointsize scaled_font_size
-          title_y = margin + scaled_title_bar / 2 + scaled_font_size / 3
-          title_x = margin + scaled_width / 2
-          convert.gravity "NorthWest"
-          convert.draw "text #{title_x - config.title.to_s.length * scaled_font_size / 4},#{title_y - scaled_font_size} '#{escape_text(config.title.to_s)}'"
-        end
-
-        content_y = margin + scaled_title_bar + scaled_padding
-        lines.each_with_index do |line, idx|
-          y = content_y + idx * scaled_line_height + scaled_font_size
-          x = margin + scaled_padding
-          draw_line_segments(convert, line[:segments], x, y, scaled_font_size, font_config)
+        if config.window[:trim]
+          convert.trim
+          convert << "+repage"
         end
 
         convert << output_path
       end
     end
 
-    def button_positions(margin, title_bar_height, scale)
-      button_size = (theme.window_decoration[:button_size] * scale).to_i
-      scaled_width = ((config.window[:width] || 600) * scale).to_i
+    def build_geometry(lines, scale:, shadow:)
+      decoration = theme.window_decoration
+      font_config = config.font
+      padding = config.window[:padding]
+      width = config.window[:width]
+      font_size = font_config[:size]
+      line_height = font_size * font_config[:line_height]
+      title_bar_height = config.headless ? 0 : decoration[:title_bar_height]
+      content_width = [width - (padding * 2), 1].max
+      display_lines = line_layout.prepare(
+        lines,
+        content_width: content_width,
+        font_size: font_size,
+        title_bar_height: title_bar_height,
+        padding: padding,
+        line_height: line_height
+      )
+      content_height = [display_lines.size, 1].max * line_height + padding * 2
+      total_height = title_bar_height + content_height
+      exact_size = config.window[:exact_size]
+      shadow_enabled = shadow && !exact_size
+      margin = exact_size ? 0 : scaled_margin(scale, shadow_enabled)
 
-      if theme.buttons_position == :left
-        x = margin + (16 * scale).to_i
-      else
-        x = margin + scaled_width - (16 * scale).to_i - button_size * 3
-      end
-      y = margin + title_bar_height / 2
-
-      [x, y]
+      {
+        lines: display_lines,
+        font_config: font_config,
+        width: width,
+        height: total_height,
+        padding: padding,
+        line_height: line_height,
+        font_size: font_size,
+        title_bar_height: title_bar_height,
+        radius: config.headless ? 0 : decoration[:corner_radius],
+        scale: scale,
+        scaled_width: (width * scale).to_i,
+        scaled_height: (total_height * scale).ceil,
+        scaled_padding: (padding * scale).to_i,
+        scaled_line_height: (line_height * scale).ceil,
+        scaled_font_size: (font_size * scale).to_i,
+        scaled_title_bar: (title_bar_height * scale).to_i,
+        scaled_radius: ((config.headless ? 0 : decoration[:corner_radius]) * scale).to_i,
+        margin: margin,
+        canvas_width: (width * scale).to_i + margin * 2,
+        canvas_height: (total_height * scale).ceil + margin * 2,
+        shadow: shadow_enabled
+      }
     end
 
-    def draw_line_segments(convert, segments, x, y, font_size, font_config)
-      current_x = x
-
-      segments.each do |segment|
-        color = segment.foreground ? theme.color_for(segment.foreground) : theme.colors[:foreground]
-        text = escape_text(segment.text)
-
-        next if text.empty?
-
-        convert.fill color
-        convert.pointsize font_size
-
-        convert.draw "text #{current_x},#{y} '#{text}'"
-
-        char_width = font_size * 0.6
-        current_x += (segment.text.length * char_width).to_i
-      end
+    def line_layout
+      @line_layout ||= LineLayout.new(config)
     end
 
-    def escape_text(text)
-      text.to_s.gsub("'", "\\\\'").gsub("\\", "\\\\\\\\")
+    def scaled_margin(scale, shadow)
+      configured = config.window[:margin]
+      return (configured * scale).to_i if configured
+      return 0 if config.headless && !shadow
+      return (10 * scale).to_i unless shadow
+
+      shadow_config = theme.window_decoration[:shadow]
+      blur = shadow_config[:blur].to_i
+      offset_x = shadow_config[:offset_x].to_i.abs
+      offset_y = shadow_config[:offset_y].to_i.abs
+      (([blur, offset_x, offset_y].max + 10) * scale).to_i
+    end
+
+    def canvas_background(transparent)
+      gradient = config.window[:background_gradient]
+      return "xc:transparent" if transparent
+      return "gradient:#{gradient[0]}-#{gradient[1]}" if gradient.is_a?(Array) && gradient.size == 2
+
+      "xc:#{theme.colors[:background]}"
     end
   end
 end
