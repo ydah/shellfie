@@ -11,9 +11,9 @@ module Shellfie
 
     module_function
 
-    def normalize(text, tab_width: 8)
+    def normalize(text, tab_width: 8, osc_policy: "ignore")
       text = TextMetrics.graphemes(text).join
-      text = text.gsub(OSC_REGEX, "")
+      text = text.gsub(OSC_REGEX) { |sequence| osc_policy == "ignore" || !sequence.start_with?("\e]8;") ? "" : sequence }
       text = apply_line_controls(text, tab_width: tab_width)
       text.gsub(CSI_CONTROL_REGEX, "")
     end
@@ -24,6 +24,11 @@ module Shellfie
 
       until scanner.eos?
         if scanner.scan(ANSI_REGEX)
+          buffer.write_escape(scanner.matched)
+          next
+        end
+
+        if scanner.scan(OSC_REGEX)
           buffer.write_escape(scanner.matched)
           next
         end

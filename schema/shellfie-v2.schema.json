@@ -88,6 +88,7 @@
         "trim": { "type": "boolean" },
         "tab_width": { "type": "integer", "minimum": 1 },
         "ambiguous_width": { "enum": [1, 2] },
+        "osc_policy": { "enum": ["ignore", "preserve", "apply"] },
         "ansi_state": { "enum": ["persistent", "line"] },
         "background_gradient": { "type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
         "scroll_offset": { "type": "number", "minimum": 0, "maximum": 1 }

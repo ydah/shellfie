@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "strscan"
+require "uri"
 require_relative "ansi_colors"
 require_relative "ansi_normalizer"
 
@@ -20,27 +21,46 @@ module Shellfie
     :overline,
     :blink,
     :conceal,
+    :link,
     keyword_init: true
   )
 
   class AnsiParser
     ANSI_REGEX = /\e\[([0-9;:]*)m/
 
-    def initialize(state_mode: :persistent, tab_width: 8)
+    OSC_REGEX = /\e\](.*?)?(?:\a|\e\\)/m
+    MAX_LINK_BYTES = 2_048
+    MAX_OSC_BYTES = MAX_LINK_BYTES + 64
+    LINK_SCHEMES = %w[http https mailto].freeze
+
+    def initialize(state_mode: :persistent, tab_width: 8, osc_policy: "ignore")
       @state_mode = state_mode.to_sym
       @tab_width = tab_width
+      @osc_policy = osc_policy.to_s
+      @link = nil
+      @pending_osc = +""
       reset_state
     end
 
     def parse(text)
-      reset_state if @state_mode == :line
+      if @state_mode == :line
+        reset_state
+        @link = nil
+      end
 
+      input, @pending_osc = split_incomplete_osc(@pending_osc + text.to_s)
       segments = []
-      scanner = StringScanner.new(AnsiNormalizer.normalize(text.to_s, tab_width: @tab_width))
+      scanner = StringScanner.new(AnsiNormalizer.normalize(input, tab_width: @tab_width, osc_policy: @osc_policy))
       current_text = +""
 
       until scanner.eos?
-        if scanner.scan(ANSI_REGEX)
+        if scanner.scan(OSC_REGEX)
+          unless current_text.empty?
+            segments << create_segment(current_text)
+            current_text = +""
+          end
+          process_osc(scanner[1])
+        elsif scanner.scan(ANSI_REGEX)
           unless current_text.empty?
             segments << create_segment(current_text)
             current_text = +""
@@ -88,7 +108,8 @@ module Shellfie
         strikethrough: @strikethrough,
         overline: @overline,
         blink: @blink,
-        conceal: @conceal
+        conceal: @conceal,
+        link: @link
       )
     end
 
@@ -189,6 +210,33 @@ module Shellfie
           []
         end
       end
+    end
+
+    def process_osc(value)
+      return unless value.to_s.start_with?("8;")
+
+      uri = value.to_s.split(";", 3)[2].to_s
+      @link = uri.empty? ? nil : safe_link(uri)
+    end
+
+    def safe_link(value)
+      return if value.bytesize > MAX_LINK_BYTES || value.match?(/[\x00-\x1f\x7f]/)
+
+      uri = URI.parse(value)
+      value if LINK_SCHEMES.include?(uri.scheme&.downcase)
+    rescue URI::InvalidURIError
+      nil
+    end
+
+    def split_incomplete_osc(value)
+      start = value.rindex("\e]")
+      return [value, +""] unless start
+
+      tail = value[start..]
+      return [value, +""] if tail.match?(OSC_REGEX)
+      return [value[0...start], tail] if tail.bytesize <= MAX_OSC_BYTES
+
+      [value[0...start], +""]
     end
 
   end

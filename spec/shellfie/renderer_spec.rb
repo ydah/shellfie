@@ -165,6 +165,20 @@ RSpec.describe Shellfie::Renderer do
       end
     end
 
+    it "renders allowlisted OSC 8 hyperlinks in SVG" do
+      Dir.mktmpdir("shellfie-spec") do |dir|
+        output = File.join(dir, "link.svg")
+        value = "\e]8;;https://example.com?a=1&b=2\aLink\e]8;;\a \e]8;;javascript:alert(1)\aUnsafe\e]8;;\a"
+        config = Shellfie::Config.new(window: { osc_policy: "preserve" }, lines: [Shellfie::Line.new(output: value)])
+
+        described_class.new(config).render(output, shadow: false, format: "svg")
+
+        svg = File.read(output)
+        expect(svg).to include('<a href="https://example.com?a=1&amp;b=2">')
+        expect(svg).not_to include("javascript:")
+      end
+    end
+
     it "renders a standalone accessible HTML terminal" do
       Dir.mktmpdir("shellfie-spec") do |dir|
         output = File.join(dir, "terminal.html")

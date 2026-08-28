@@ -185,6 +185,26 @@ RSpec.describe Shellfie::AnsiParser do
       segments = parser.parse("\e]8;;https://example.com\aLink\e]8;;\a\a")
 
       expect(segments.first.text).to eq("Link")
+      expect(segments.first.link).to be_nil
+    end
+
+    it "preserves only safe OSC 8 hyperlinks when enabled" do
+      link_parser = described_class.new(osc_policy: "preserve")
+      segments = link_parser.parse("\e]8;;https://example.com?a=1&b=2\aLink\e[0m!\e]8;;\a plain")
+
+      expect(segments[0]).to have_attributes(text: "Link", link: "https://example.com?a=1&b=2")
+      expect(segments[1]).to have_attributes(text: "!", link: "https://example.com?a=1&b=2")
+      expect(segments[2]).to have_attributes(text: " plain", link: nil)
+      expect(link_parser.parse("\e]8;;javascript:alert(1)\aunsafe").first.link).to be_nil
+      expect(link_parser.parse("\e]8;;#{"x" * 2_049}\atoo-long").first.link).to be_nil
+    end
+
+    it "buffers OSC 8 sequences split across input chunks" do
+      link_parser = described_class.new(osc_policy: "preserve")
+
+      expect(link_parser.parse("before\e]8;;https://exam").map(&:text)).to eq(["before"])
+      segment = link_parser.parse("ple.com\e\\Link\e]8;;\e\\").first
+      expect(segment).to have_attributes(text: "Link", link: "https://example.com")
     end
 
     it "can reset ANSI state for each line" do

@@ -187,6 +187,7 @@ module Shellfie
       decoration_color = %( text-decoration-color="#{escape(theme.color_for(segment.underline_color))}") if segment.underline_color
       blink = segment.blink ? %( class="blink") : ""
       text = %(<text x="#{x}" y="#{top + geometry[:scaled_font_size]}" xml:space="preserve" #{font_attributes(geometry[:font_config], geometry[:scaled_font_size], segment)} fill="#{escape(foreground)}"#{opacity}#{blink}#{%( text-decoration="#{decoration.join(" ")}") unless decoration.empty?}#{decoration_style}#{decoration_color}>#{escape(segment.text)}</text>)
+      text = %(<a href="#{escape(segment.link)}">#{text}</a>) if segment.link
       [background_svg, text].compact.join("\n")
     end
 

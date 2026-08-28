@@ -3,11 +3,11 @@
 module Shellfie
   class RenderSegment
     ATTRIBUTES = %i[
-      foreground background bold italic underline underline_style underline_color dim reverse strikethrough overline blink conceal
+      foreground background bold italic underline underline_style underline_color dim reverse strikethrough overline blink conceal link
     ].freeze
 
     attr_reader :text, :foreground, :background, :bold, :italic, :underline, :underline_style, :underline_color,
-                :dim, :reverse, :strikethrough, :overline, :blink, :conceal
+                :dim, :reverse, :strikethrough, :overline, :blink, :conceal, :link
 
     def self.from_segment(segment, default_color:)
       new(
@@ -24,7 +24,8 @@ module Shellfie
         strikethrough: segment.strikethrough,
         overline: segment.overline,
         blink: segment.blink,
-        conceal: segment.conceal
+        conceal: segment.conceal,
+        link: segment.link
       )
     end
 
@@ -44,7 +45,7 @@ module Shellfie
 
     def initialize(text:, foreground: nil, background: nil, bold: false, italic: false, underline: false,
                    underline_style: nil, underline_color: nil, dim: false, reverse: false, strikethrough: false,
-                   overline: false, blink: false, conceal: false)
+                   overline: false, blink: false, conceal: false, link: nil)
       @text = text
       @foreground = foreground
       @background = background
@@ -59,6 +60,7 @@ module Shellfie
       @overline = overline
       @blink = blink
       @conceal = conceal
+      @link = link
       freeze
     end
 

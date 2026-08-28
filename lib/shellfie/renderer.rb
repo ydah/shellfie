@@ -23,7 +23,11 @@ module Shellfie
       @config = config
       @chrome_cache = chrome_cache
       @theme = ThemeRegistry.build(config)
-      @ansi_parser = AnsiParser.new(state_mode: config.window[:ansi_state] || :persistent, tab_width: config.window[:tab_width])
+      @ansi_parser = AnsiParser.new(
+        state_mode: config.window[:ansi_state] || :persistent,
+        tab_width: config.window[:tab_width],
+        osc_policy: config.window[:osc_policy]
+      )
       @font_resolver = FontResolver.new(-> { imagemagick_command })
     end
 

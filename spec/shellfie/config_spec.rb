@@ -49,6 +49,12 @@ RSpec.describe Shellfie::Config do
         .to raise_error(Shellfie::ValidationError, /ambiguous_width/)
     end
 
+    it "validates OSC handling policy" do
+      expect(described_class.new(window: { osc_policy: "preserve" }).window[:osc_policy]).to eq("preserve")
+      expect { described_class.new(window: { osc_policy: "execute" }) }
+        .to raise_error(Shellfie::ValidationError, /osc_policy/)
+    end
+
     it "validates opacity and overflow mode" do
       expect { described_class.new(window: { opacity: 1.5 }) }.to raise_error(Shellfie::ValidationError, /window.opacity/)
       expect { described_class.new(window: { scroll_offset: 1.1 }) }.to raise_error(Shellfie::ValidationError, /scroll_offset/)

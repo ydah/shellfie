@@ -134,7 +134,8 @@ module Shellfie
         segment.strikethrough,
         segment.overline,
         segment.blink,
-        segment.conceal
+        segment.conceal,
+        segment.link
       ]
     end
 
