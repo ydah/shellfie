@@ -46,7 +46,9 @@ module Shellfie
         max_frames: nil,
         dither: true,
         palette: "global",
-        scroll_easing: "linear"
+        scroll_easing: "linear",
+        framerate: 30,
+        playback_speed: 1.0
       },
       cursor: {
         style: "block",
@@ -57,7 +59,9 @@ module Shellfie
         max_frames: 500,
         max_render_frames: 2_000,
         max_characters: 200_000,
-        max_pixels: 50_000_000
+        max_pixels: 50_000_000,
+        max_total_pixels: 2_000_000_000,
+        max_temp_bytes: 8_000_000_000
       }
     }.freeze
   end

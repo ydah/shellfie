@@ -40,6 +40,7 @@ gem "shellfie"
 Create `terminal.yml`:
 
 ```yaml
+version: 1
 theme: macos
 title: "Terminal - zsh"
 
@@ -83,15 +84,17 @@ Common `generate` options:
 | `-a, --animate` | Render animation |
 | `-s, --scale FACTOR` | Output scale: `1`, `2`, or `3` |
 | `-w, --width PIXELS` | Override window width |
-| `--format FORMAT` | `png`, `gif`, `svg`, `webp`, or `apng` |
-| `--fps FPS` | Override animation typing FPS |
+| `--format FORMAT` | `png`, `gif`, `svg`, `svg-raster`, `webp`, or `apng` |
+| `--typing-rate CPS` | Override typing rate in characters per second |
+| `--framerate FPS` | Set output timing precision |
+| `--playback-speed FACTOR` | Speed up or slow down the final timeline |
 | `--overflow MODE` | `clip`, `wrap`, or `scroll` |
 | `--no-shadow` | Disable shadow |
 | `--transparent` | Transparent background |
 | `--no-header` | Headless output |
 | `--force` | Overwrite existing files |
 
-Static output supports `png`, `svg`, and `webp`.
+Static output supports `png`, native selectable-text `svg`, legacy `svg-raster`, and `webp`.
 Animated output supports `gif`, `webp`, and `apng`.
 
 ## Configuration
@@ -129,6 +132,8 @@ title: "Demo"
 
 animation:
   typing_speed: 50
+  framerate: 30
+  playback_speed: 1.0
   command_delay: 500
   cursor_blink: true
   loop: true
@@ -143,6 +148,9 @@ frames:
   - output: "hello"
     delay: 1000
 ```
+
+`delay` is the post-action delay for that frame. On a `type` frame it overrides `animation.command_delay`.
+When both `lines` and `frames` are present, `lines` form the initial screen before animation events run.
 
 Useful top-level keys:
 
@@ -159,7 +167,9 @@ Useful top-level keys:
 | `lines` | Static terminal content |
 | `frames` | Animated terminal content |
 
-ANSI colors and styles are supported in `prompt`, `command`, and `output`, including 8-color, bright, 256-color, and RGB escape sequences.
+ANSI SGR colors and common styles are supported in `prompt`, `command`, and `output`, including 8-color, bright, 256-color, and RGB escape sequences. Common carriage-return, erase, and horizontal cursor controls are also supported; this is intentionally not a full terminal emulator.
+
+Configs may include other YAML files relative to their own location with `include: path.yml`. Include cycles and files larger than 1 MiB are rejected with a diagnostic chain. Resource ceilings can be set under `limits`; image pixels, animation work, temporary bytes, source frames, lines, and characters are checked before expensive work.
 
 ## Themes
 

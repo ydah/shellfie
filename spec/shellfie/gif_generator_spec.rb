@@ -15,6 +15,42 @@ RSpec.describe Shellfie::GifGenerator do
       expect(frames.first[:delay]).to eq(config.animation[:final_delay])
     end
 
+    it "uses lines as the initial animation screen" do
+      config = Shellfie::Config.new(
+        lines: [Shellfie::Line.new(output: "ready")],
+        frames: [Shellfie::Frame.new(prompt: "$ ", type: "go")]
+      )
+
+      first_frame = described_class.new(config).send(:build_animation_frames).first
+
+      expect(first_frame[:lines].first.output).to eq("ready")
+    end
+
+    it "uses a type frame delay instead of the global command delay" do
+      config = Shellfie::Config.new(
+        animation: { command_delay: 500, cursor_blink: false, final_delay: 0 },
+        frames: [Shellfie::Frame.new(prompt: "$ ", type: "x", delay: 120)]
+      )
+
+      delays = described_class.new(config).send(:build_animation_frames).map { |frame| frame[:delay] }
+
+      expect(delays).to include(120)
+      expect(delays).not_to include(500)
+    end
+
+    it "types whole grapheme clusters" do
+      config = Shellfie::Config.new(
+        animation: { final_delay: 0 },
+        frames: [Shellfie::Frame.new(prompt: "$ ", type: "👨‍👩‍👧‍👦x")]
+      )
+
+      commands = described_class.new(config).send(:build_animation_frames).filter_map do |frame|
+        frame[:lines].last&.command
+      end
+
+      expect(commands).to include("👨‍👩‍👧‍👦#{described_class.new(config).send(:cursor_text)}")
+    end
+
     it "adds command pause frames with cursor blinking" do
       config = Shellfie::Config.new(
         animation: { typing_speed: 20, command_delay: 100, cursor_blink: true },
@@ -27,11 +63,11 @@ RSpec.describe Shellfie::GifGenerator do
       expect(frames.map { |frame| frame[:delay] }).to include(50)
     end
 
-    it "clamps GIF delay to at least one tick" do
+    it "clamps GIF delay to one configured output frame" do
       config = Shellfie::Config.new(frames: [Shellfie::Frame.new(prompt: "$ ", type: "x")])
       generator = described_class.new(config)
 
-      expect(generator.send(:gif_delay, 0)).to eq(1)
+      expect(generator.send(:gif_delay, 0)).to eq(3)
     end
 
     it "uses configured cursor glyphs" do

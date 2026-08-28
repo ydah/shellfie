@@ -94,6 +94,16 @@ RSpec.describe Shellfie::Parser do
       expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ValidationError, /Unknown window key/)
     end
 
+    it "raises ValidationError for unknown color and decoration keys" do
+      expect do
+        described_class.parse_string("colors:\n  foregorund: '#fff'\nlines:\n  - output: test\n")
+      end.to raise_error(Shellfie::ValidationError, /Unknown colors key/)
+
+      expect do
+        described_class.parse_string("window_decoration:\n  raduis: 2\nlines:\n  - output: test\n")
+      end.to raise_error(Shellfie::ValidationError, /Unknown window_decoration key/)
+    end
+
     it "raises ValidationError for window boundary values" do
       yaml = <<~YAML
         window:

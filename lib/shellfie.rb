@@ -41,7 +41,7 @@ module Shellfie
     def inspect_config(source, scale: 1, shadow: true)
       config = parse(source)
       geometry = Renderer.new(config).estimate(scale: scale, shadow: shadow)
-      { config: config.to_h, theme: config.theme, geometry: geometry }
+      { config: config.to_h, theme: config.theme, geometry: geometry, fonts: Renderer.new(config).font_info }
     end
   end
 end

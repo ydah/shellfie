@@ -22,8 +22,9 @@ module Shellfie
   class AnsiParser
     ANSI_REGEX = /\e\[([0-9;]*)m/
 
-    def initialize(state_mode: :persistent)
+    def initialize(state_mode: :persistent, tab_width: 8)
       @state_mode = state_mode.to_sym
+      @tab_width = tab_width
       reset_state
     end
 
@@ -31,7 +32,7 @@ module Shellfie
       reset_state if @state_mode == :line
 
       segments = []
-      scanner = StringScanner.new(AnsiNormalizer.normalize(text.to_s))
+      scanner = StringScanner.new(AnsiNormalizer.normalize(text.to_s, tab_width: @tab_width))
       current_text = +""
 
       until scanner.eos?

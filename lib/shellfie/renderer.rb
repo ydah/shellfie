@@ -11,6 +11,7 @@ require_relative "render_chrome_cache"
 require_relative "render_geometry"
 require_relative "render_segment"
 require_relative "svg_raster_wrapper"
+require_relative "svg_renderer"
 require_relative "theme_registry"
 
 module Shellfie
@@ -21,16 +22,16 @@ module Shellfie
       @config = config
       @chrome_cache = chrome_cache
       @theme = ThemeRegistry.build(config)
-      @ansi_parser = AnsiParser.new(state_mode: config.window[:ansi_state] || :persistent)
+      @ansi_parser = AnsiParser.new(state_mode: config.window[:ansi_state] || :persistent, tab_width: config.window[:tab_width])
       @font_resolver = FontResolver.new(-> { imagemagick_command })
     end
 
-    def render(output_path, scale: 1, shadow: true, transparent: false, format: nil)
-      check_dependencies!
-      lines = build_lines
+    def render(output_path, scale: 1, shadow: true, transparent: false, format: nil, io: nil)
       extension = FormatResolver.resolve(output_path, explicit: format, default: "png")
-      OutputWriter.write(output_path, extension: extension) do |temporary_path|
-        render_method = (extension == "svg") ? :create_svg_image : :create_image
+      check_dependencies! unless extension == "svg"
+      lines = build_lines
+      OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
+        render_method = { "svg" => :create_svg_image, "svg-raster" => :create_svg_raster_image }.fetch(extension, :create_image)
         send(render_method, lines, temporary_path, scale: scale, shadow: shadow, transparent: transparent)
       end
     rescue MiniMagick::Error => e
@@ -40,6 +41,10 @@ module Shellfie
     def estimate(scale: 1, shadow: true)
       geometry = build_geometry(build_lines, scale: scale, shadow: shadow)
       geometry.slice(:canvas_width, :canvas_height, :scaled_width, :scaled_height, :logical_width, :logical_height, :scale)
+    end
+
+    def font_info
+      font_resolver.details(theme.font)
     end
 
     private
@@ -76,17 +81,13 @@ module Shellfie
     end
 
     def parse_with_default(text, default_color)
-      @ansi_parser.parse(expand_tabs(text)).map do |segment|
+      @ansi_parser.parse(text).map do |segment|
         RenderSegment.from_segment(segment, default_color: default_color)
       end
     end
 
     def coalesce_segments(segments)
       RenderSegment.coalesce(segments)
-    end
-
-    def expand_tabs(text)
-      text.to_s.gsub("\t", " " * config.window[:tab_width])
     end
 
     def create_image(lines, output_path, scale:, shadow:, transparent:)
@@ -96,6 +97,11 @@ module Shellfie
     end
 
     def create_svg_image(lines, output_path, scale:, shadow:, transparent:)
+      geometry = build_geometry(lines, scale: scale, shadow: shadow)
+      SvgRenderer.new(config: config, theme: theme).render(geometry, output_path, transparent: transparent)
+    end
+
+    def create_svg_raster_image(lines, output_path, scale:, shadow:, transparent:)
       SvgRasterWrapper.write(output_path) { |png_path| create_image(lines, png_path, scale: scale, shadow: shadow, transparent: transparent) }
     end
 

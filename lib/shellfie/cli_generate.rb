@@ -6,8 +6,8 @@ require "optparse"
 module Shellfie
   module CLIGenerate
     ANIMATED_FORMATS = %w[gif webp apng].freeze
-    STATIC_FORMATS = %w[png svg webp].freeze
-    SUPPORTED_FORMATS = %w[png gif svg webp apng].freeze
+    STATIC_FORMATS = %w[png svg svg-raster webp].freeze
+    SUPPORTED_FORMATS = %w[png gif svg svg-raster webp apng].freeze
 
     private
 
@@ -18,12 +18,18 @@ module Shellfie
       raise ConfigError, "Output file is required (use -o option)" unless @options[:output]
       raise ConfigError, "stdout output supports only one input file" if @options[:output] == "-" && input_files.size > 1
       raise ConfigError, "--format is required when writing to stdout" if @options[:output] == "-" && !@options[:format]
-      input_files.each do |input_file|
+      jobs = input_files.map do |input_file|
         config = apply_overrides(Parser.parse(input_file))
         animate = animation_output?(config)
         format = output_format_for(@options[:output], animate)
         output_path = output_path_for(input_file, format, multiple: input_files.size > 1)
         validate_output_mode!(format, animate)
+        [config, animate, format, output_path]
+      end
+      duplicate = jobs.group_by(&:last).find { |_path, grouped| grouped.size > 1 }&.first
+      raise ConfigError, "Multiple inputs resolve to the same output: #{duplicate}" if duplicate
+
+      jobs.each do |config, animate, format, output_path|
         ensure_output_writable!(output_path)
         write_rendered_output(config, output_path, animate: animate, format: format)
       end
@@ -37,7 +43,16 @@ module Shellfie
         opts.on("-a", "--animate", "Generate animated GIF") { @options[:animate] = true }
         opts.on("-s", "--scale FACTOR", "Output scale (1, 2, 3)") { |scale| @options[:scale] = parse_scale(scale) }
         opts.on("-w", "--width PIXELS", Integer, "Override width") { |width| @options[:width] = width }
-        opts.on("--fps FPS", Integer, "Typing speed override for animations") { |fps| @options[:fps] = parse_fps(fps) }
+        opts.on("--typing-rate CPS", Integer, "Typing rate in characters per second") do |rate|
+          @options[:typing_rate] = parse_rate(rate)
+        end
+        opts.on("--framerate FPS", Integer, "Output timing precision in frames per second") do |fps|
+          @options[:framerate] = parse_framerate(fps)
+        end
+        opts.on("--fps FPS", Integer, "Deprecated alias for --framerate") { |fps| @options[:framerate] = parse_framerate(fps) }
+        opts.on("--playback-speed FACTOR", Float, "Playback speed multiplier") do |speed|
+          @options[:playback_speed] = parse_playback_speed(speed)
+        end
         opts.on("--overflow MODE", "Line overflow mode (clip, wrap, scroll)") { |mode| @options[:overflow] = mode }
         opts.on("--wrap", "Wrap long lines") { @options[:wrap] = true }
         opts.on("--no-wrap", "Clip long lines") { @options[:wrap] = false }
@@ -45,7 +60,7 @@ module Shellfie
         opts.on("--no-shadow", "Disable shadow effect") { @options[:shadow] = false }
         opts.on("--transparent", "Transparent background") { @options[:transparent] = true }
         opts.on("--no-header", "Disable window header (headless mode)") { @options[:headless] = true }
-        opts.on("--format FORMAT", "Output format (png, gif, svg, webp, apng)") { |format| @options[:format] = parse_format(format) }
+        opts.on("--format FORMAT", "Output format (png, gif, svg, svg-raster, webp, apng)") { |format| @options[:format] = parse_format(format) }
         opts.on("--force", "Overwrite existing output files") { @options[:force] = true }
         opts.on("--quiet", "Suppress non-error output") { @options[:quiet] = true }
         opts.on("--verbose", "Print extra progress information") { @options[:verbose] = true }
@@ -53,13 +68,9 @@ module Shellfie
     end
 
     def write_rendered_output(config, output_path, animate:, format:)
+      $stdout.binmode if output_path == "-"
       result = animate ? generate_animation(config, output_path, format) : generate_static_image(config, output_path, format)
-      if output_path == "-"
-        $stdout.binmode
-        $stdout.write(result)
-      else
-        puts "Generated: #{result}" unless @options[:quiet]
-      end
+      puts "Generated: #{result}" unless output_path == "-" || @options[:quiet]
     end
 
     def generate_animation(config, output_path, format)
@@ -69,7 +80,8 @@ module Shellfie
         scale: @options[:scale] || 1,
         shadow: @options[:shadow] != false,
         transparent: @options[:transparent] || false,
-        format: format
+        format: format,
+        io: output_path == "-" ? $stdout : nil
       )
     end
 
@@ -80,7 +92,8 @@ module Shellfie
         scale: @options[:scale] || 1,
         shadow: @options[:shadow] != false,
         transparent: @options[:transparent] || false,
-        format: format
+        format: format,
+        io: output_path == "-" ? $stdout : nil
       )
     end
 
@@ -113,7 +126,9 @@ module Shellfie
 
     def build_animation_overrides
       {}.tap do |overrides|
-        overrides[:typing_speed] = (1_000.0 / @options[:fps]).round if @options[:fps]
+        overrides[:typing_speed] = (1_000.0 / @options[:typing_rate]).round if @options[:typing_rate]
+        overrides[:framerate] = @options[:framerate] if @options[:framerate]
+        overrides[:playback_speed] = @options[:playback_speed] if @options[:playback_speed]
       end
     end
 
@@ -123,10 +138,22 @@ module Shellfie
       raise ValidationError, "scale must be 1, 2, or 3"
     end
 
-    def parse_fps(value)
+    def parse_rate(value)
+      rate = Integer(value, exception: false)
+      return rate if rate && rate.between?(1, 1_000)
+      raise ValidationError, "typing rate must be between 1 and 1000"
+    end
+
+    def parse_framerate(value)
       fps = Integer(value, exception: false)
-      return fps if fps && fps.between?(1, 60)
-      raise ValidationError, "fps must be between 1 and 60"
+      return fps if fps && fps.between?(1, 120)
+      raise ValidationError, "framerate must be between 1 and 120"
+    end
+
+    def parse_playback_speed(value)
+      speed = Float(value, exception: false)
+      return speed if speed&.positive? && speed <= 100
+      raise ValidationError, "playback speed must be greater than 0 and at most 100"
     end
 
     def parse_format(value)
@@ -166,8 +193,6 @@ module Shellfie
     end
 
     def animation_output?(config)
-      return true if ANIMATED_FORMATS.include?(@options[:format])
-
       @options[:animate] || config.animated?
     end
 

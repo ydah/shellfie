@@ -83,6 +83,8 @@ module Shellfie
       validate_boolean!(@animation[:dither], "animation.dither")
       validate_inclusion!(@animation[:palette], "animation.palette", self.class::VALID_PALETTES)
       validate_inclusion!(@animation[:scroll_easing], "animation.scroll_easing", self.class::VALID_SCROLL_EASINGS)
+      validate_positive_integer!(@animation[:framerate], "animation.framerate")
+      validate_positive_number!(@animation[:playback_speed], "animation.playback_speed")
     end
 
     def validate_cursor!

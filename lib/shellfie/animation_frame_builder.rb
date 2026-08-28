@@ -2,6 +2,7 @@
 
 require_relative "animation_scroll_easing"
 require_relative "animation_timeline"
+require_relative "text_metrics"
 
 module Shellfie
   class AnimationFrameBuilder
@@ -15,7 +16,7 @@ module Shellfie
       return [{ lines: @config.lines, delay: @config.animation[:final_delay] }] if @config.frames.empty?
 
       frames = []
-      current_lines = []
+      current_lines = @config.lines.flat_map { |line| line_data(line) }
       AnimationTimeline.new(@config).each do |event|
         case event.kind
         when :command
@@ -62,7 +63,7 @@ module Shellfie
       frames = []
       prompt = frame.prompt || ""
       command = frame.type
-      chars = command.chars
+      chars = TextMetrics.graphemes(command)
       chunk_size = @config.animation[:typing_chunk_size]
 
       (chunk_size..chars.length).step(chunk_size).each do |index|
@@ -93,7 +94,7 @@ module Shellfie
     end
 
     def command_pause_frames(current_lines, frame)
-      delay = @config.animation[:command_delay]
+      delay = frame.delay.positive? ? frame.delay : @config.animation[:command_delay]
       return [] unless delay.positive?
       return [{ lines: build_display_lines(current_lines), delay: delay }] unless @config.animation[:cursor_blink]
 
@@ -123,12 +124,26 @@ module Shellfie
         end
       else
         output_lines.each { |line| current_lines << { output: line, output_color: frame.output_color } }
-        [{ lines: build_display_lines(current_lines), delay: frame.delay || 100 }]
+        [{ lines: build_display_lines(current_lines), delay: [frame.delay, 1].max }]
       end
     end
 
     def command_line(prompt, command, cursor: false, prompt_color: nil, command_color: nil)
       { prompt: prompt, command: command, cursor: cursor, prompt_color: prompt_color, command_color: command_color }
+    end
+
+    def line_data(line)
+      data = []
+      if line.prompt || line.command
+        data << command_line(
+          line.prompt,
+          line.command,
+          prompt_color: line.prompt_color,
+          command_color: line.command_color
+        )
+      end
+      data.concat(line.output.to_s.split("\n", -1).map { |output| { output: output, output_color: line.output_color } }) if line.output
+      data
     end
 
     def cursor_command_line(frame)

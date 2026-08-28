@@ -136,9 +136,7 @@ RSpec.describe Shellfie::Renderer do
       end
     end
 
-    it "renders SVG output with an embedded PNG image" do
-      skip "ImageMagick is not available" unless Shellfie::DependencyChecker.imagemagick_available?
-
+    it "renders native SVG output with selectable text" do
       Dir.mktmpdir("shellfie-spec") do |dir|
         output = File.join(dir, "terminal.svg")
         config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "svg")])
@@ -147,7 +145,8 @@ RSpec.describe Shellfie::Renderer do
 
         svg = File.read(output)
         expect(svg).to include("<svg")
-        expect(svg).to include("data:image/png;base64,")
+        expect(svg).to include(">svg</text>")
+        expect(svg).not_to include("data:image/png;base64,")
       end
     end
   end

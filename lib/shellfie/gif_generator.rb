@@ -23,7 +23,7 @@ module Shellfie
       @frame_builder = AnimationFrameBuilder.new(config)
     end
 
-    def generate(output_path, scale: 1, shadow: true, transparent: false, format: nil)
+    def generate(output_path, scale: 1, shadow: true, transparent: false, format: nil, io: nil)
       check_dependencies!
 
       images = []
@@ -31,10 +31,11 @@ module Shellfie
       begin
         frames = build_animation_frames
         validate_frame_limit!(frames)
+        validate_workload!(frames, scale: scale, shadow: shadow)
         warn_frame_count(frames)
         images = render_frames(frames, scale: scale, shadow: shadow, transparent: transparent, chrome_cache: chrome_cache)
         extension = FormatResolver.resolve(output_path, explicit: format, default: "gif")
-        OutputWriter.write(output_path, extension: extension) do |temporary_path|
+        OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
           combine_to_animation(images, temporary_path, format: extension)
         end
       ensure
@@ -127,7 +128,10 @@ module Shellfie
     end
 
     def gif_delay(milliseconds)
-      [(milliseconds / 10.0).round, 1].max
+      frame_ms = 1_000.0 / config.animation[:framerate]
+      adjusted = milliseconds / config.animation[:playback_speed]
+      quantized = [(adjusted / frame_ms).round * frame_ms, frame_ms].max
+      [(quantized / 10.0).round, 1].max
     end
 
     def warn_frame_count(frames)
@@ -141,6 +145,21 @@ module Shellfie
       return if frames.size <= config.limits[:max_render_frames]
 
       raise ResourceLimitError, "Animation would generate #{frames.size} frames (max #{config.limits[:max_render_frames]})"
+    end
+
+    def validate_workload!(frames, scale:, shadow:)
+      geometry = @renderer.estimate(scale: scale, shadow: shadow)
+      total_pixels = geometry[:canvas_width] * geometry[:canvas_height] * frames.size
+      if total_pixels > config.limits[:max_total_pixels]
+        raise ResourceLimitError,
+              "Animation workload is too large (#{total_pixels} pixels, max #{config.limits[:max_total_pixels]})"
+      end
+
+      estimated_bytes = total_pixels * 4
+      return if estimated_bytes <= config.limits[:max_temp_bytes]
+
+      raise ResourceLimitError,
+            "Animation temporary data is too large (#{estimated_bytes} bytes, max #{config.limits[:max_temp_bytes]})"
     end
 
   end

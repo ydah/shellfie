@@ -11,14 +11,14 @@ module Shellfie
 
     module_function
 
-    def normalize(text)
+    def normalize(text, tab_width: 8)
       text = text.gsub(OSC_REGEX, "")
-      text = apply_line_controls(text)
+      text = apply_line_controls(text, tab_width: tab_width)
       text.gsub(CSI_CONTROL_REGEX, "")
     end
 
-    def apply_line_controls(text)
-      buffer = AnsiLineBuffer.new
+    def apply_line_controls(text, tab_width: 8)
+      buffer = AnsiLineBuffer.new(tab_width: tab_width)
       scanner = StringScanner.new(text)
 
       until scanner.eos?

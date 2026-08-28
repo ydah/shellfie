@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rbconfig"
+require "open3"
 
 module Shellfie
   class DependencyChecker
@@ -32,12 +33,31 @@ module Shellfie
       end
 
       def doctor(output_dir: Dir.pwd)
+        details = imagemagick_details
         [
           check("Ruby", RUBY_VERSION, Gem::Version.new(RUBY_VERSION) >= Gem::Version.new("3.0.0")),
-          check("ImageMagick", imagemagick_path || "not found", imagemagick_available?),
+          check("ImageMagick", details[:version] || "not found", imagemagick_available?),
+          check("Image formats", details[:formats].empty? ? "unavailable" : details[:formats].join(", "),
+                (required_formats - details[:formats]).empty?),
+          check("Fonts", details[:font_count].to_s, details[:font_count].positive?),
           check("Writable output", output_dir, File.writable?(output_dir)),
           check("Encoding", Encoding.default_external.name, true)
         ]
+      end
+
+      def imagemagick_details
+        return { version: nil, formats: [], font_count: 0 } unless imagemagick_available?
+
+        version_output, = Open3.capture3(imagemagick_path, "-version")
+        formats_output, = Open3.capture3(imagemagick_path, "-list", "format")
+        fonts_output, = Open3.capture3(imagemagick_path, "-list", "font")
+        {
+          version: version_output.lines.first&.strip,
+          formats: required_formats.select { |format| formats_output.match?(/^\s*#{format}\*?\s/im) },
+          font_count: fonts_output.scan(/^\s*Font:/).size
+        }
+      rescue SystemCallError
+        { version: nil, formats: [], font_count: 0 }
       end
 
       private
@@ -54,12 +74,23 @@ module Shellfie
           paths.each do |path|
             extensions.each do |extension|
               candidate = File.join(path, "#{name}#{extension}")
-              return candidate if File.file?(candidate) && File.executable?(candidate)
+              return candidate if File.file?(candidate) && File.executable?(candidate) && imagemagick_executable?(candidate)
             end
           end
         end
 
         nil
+      end
+
+      def imagemagick_executable?(candidate)
+        output, = Open3.capture3(candidate, "-version")
+        output.include?("ImageMagick")
+      rescue SystemCallError
+        false
+      end
+
+      def required_formats
+        %w[PNG GIF WEBP APNG SVG]
       end
 
       def executable_extensions

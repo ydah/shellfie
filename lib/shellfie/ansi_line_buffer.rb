@@ -2,10 +2,11 @@
 
 module Shellfie
   class AnsiLineBuffer
-    def initialize
+    def initialize(tab_width: 8)
       @cells = []
       @column = 0
       @pending_escape = +""
+      @tab_width = tab_width
     end
 
     def write_escape(sequence)
@@ -18,7 +19,8 @@ module Shellfie
         @column = 0
       when "\b"
         @column = [@column - 1, 0].max
-        @cells[@column] = nil
+      when "\t"
+        (@tab_width - (@column % @tab_width)).times { write_character(" ") }
       when "\a"
         nil
       else

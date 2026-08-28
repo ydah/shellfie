@@ -58,8 +58,8 @@ module Shellfie
       used_cells = 0
 
       line[:segments].each do |segment|
-        segment.text.to_s.each_char do |char|
-          width = TextMetrics.char_width(char)
+        TextMetrics.graphemes(segment.text).each do |char|
+          width = TextMetrics.grapheme_width(char)
           if used_cells.positive? && used_cells + width > max_cells
             wrapped << { segments: [], selected: line[:selected] }
             used_cells = 0

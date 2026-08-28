@@ -49,6 +49,25 @@ RSpec.describe Shellfie::CLI do
       expect { cli.run }.to output(/scale must be 1, 2, or 3/).to_stderr.and raise_error(SystemExit)
     end
 
+    it "keeps explicit WebP output static without frames or --animate" do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "ok")])
+      cli = described_class.new([])
+      cli.instance_variable_set(:@options, { format: "webp" })
+
+      expect(cli.send(:animation_output?, config)).to be false
+    end
+
+    it "rejects batch output collisions before rendering" do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "ok")])
+      allow(Shellfie::Parser).to receive(:parse).and_return(config)
+      expect(Shellfie::Renderer).not_to receive(:new)
+
+      Dir.mktmpdir("shellfie-cli-spec") do |dir|
+        cli = described_class.new(["generate", "one/same.yml", "two/same.yml", "-o", "#{dir}/", "--quiet"])
+        expect { cli.run }.to output(/same output/).to_stderr.and raise_error(SystemExit)
+      end
+    end
+
     it "preserves custom config fields while applying generate overrides" do
       config = Shellfie::Config.new(
         colors: { foreground: "#123456" },

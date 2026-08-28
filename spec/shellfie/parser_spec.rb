@@ -146,5 +146,24 @@ RSpec.describe Shellfie::Parser do
         expect(described_class.parse(config_path).title).to eq("Included")
       end
     end
+
+    it "reports circular includes with the include chain" do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "a.yml"), "include: b.yml\nlines:\n  - output: a\n")
+        File.write(File.join(dir, "b.yml"), "include: a.yml\n")
+
+        expect { described_class.parse(File.join(dir, "a.yml")) }
+          .to raise_error(Shellfie::ParseError, /a\.yml -> b\.yml -> a\.yml/)
+      end
+    end
+
+    it "rejects non-string include paths" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "a.yml")
+        File.write(path, "include: 123\nlines:\n  - output: a\n")
+
+        expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /path must be a string/)
+      end
+    end
   end
 end

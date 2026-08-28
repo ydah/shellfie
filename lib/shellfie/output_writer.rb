@@ -7,13 +7,18 @@ require "tmpdir"
 module Shellfie
   class OutputWriter
     class << self
-      def write(path, extension:)
+      def write(path, extension:, io: nil)
         FileUtils.mkdir_p(output_directory(path)) unless stdout?(path)
         temp = Tempfile.new(["shellfie", ".#{extension}"], output_directory(path), binmode: true)
         temp.close
         yield temp.path
 
-        return File.binread(temp.path) if stdout?(path)
+        if stdout?(path)
+          return File.binread(temp.path) unless io
+
+          File.open(temp.path, "rb") { |source| IO.copy_stream(source, io) }
+          return path
+        end
 
         FileUtils.mv(temp.path, path)
         path

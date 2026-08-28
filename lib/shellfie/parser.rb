@@ -7,6 +7,8 @@ require_relative "parser_validation"
 
 module Shellfie
   class Parser
+    MAX_INCLUDE_BYTES = 1_048_576
+
     class << self
       include ParserValidation
 
@@ -14,13 +16,14 @@ module Shellfie
         return parse_string($stdin.read, base_dir: Dir.pwd) if path == "-"
         raise ParseError, "Configuration file not found: #{path}" unless File.exist?(path)
 
-        content = File.read(path)
-        parse_string(content, base_dir: File.dirname(path))
+        source_path = File.realpath(path)
+        content = read_config(source_path)
+        parse_string(content, base_dir: File.dirname(source_path), include_stack: [source_path])
       end
 
-      def parse_string(content, base_dir: nil)
+      def parse_string(content, base_dir: nil, include_stack: [])
         raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
-        raw = apply_includes(raw, base_dir) if base_dir
+        raw = apply_includes(raw, base_dir, stack: include_stack) if base_dir
         validate_config(raw)
         build_config(raw)
       rescue Psych::SyntaxError => e
@@ -51,21 +54,35 @@ module Shellfie
         Config.new(options)
       end
 
-      def apply_includes(raw, base_dir, depth: 0)
+      def apply_includes(raw, base_dir, stack: [])
         return raw unless raw.is_a?(Hash) && raw[:include]
-        raise ParseError, "YAML include depth exceeded" if depth > 5
 
         includes = Array(raw[:include])
         included_config = includes.reduce({}) do |merged, include_path|
+          raise ParseError, "Included configuration path must be a string" unless include_path.is_a?(String)
+
           include_file = File.expand_path(include_path, base_dir)
           raise ParseError, "Included configuration file not found: #{include_path}" unless File.exist?(include_file)
 
-          included_raw = YAML.safe_load(File.read(include_file), symbolize_names: true, aliases: true)
-          included_raw = apply_includes(included_raw, File.dirname(include_file), depth: depth + 1)
+          include_file = File.realpath(include_file)
+          if stack.include?(include_file)
+            chain = (stack + [include_file]).map { |path| File.basename(path) }.join(" -> ")
+            raise ParseError, "Circular YAML include: #{chain}"
+          end
+
+          included_raw = YAML.safe_load(read_config(include_file), symbolize_names: true, aliases: true)
+          included_raw = apply_includes(included_raw, File.dirname(include_file), stack: stack + [include_file])
           deep_merge(merged, included_raw || {})
         end
 
         deep_merge(included_config, raw.reject { |key, _value| key == :include })
+      end
+
+      def read_config(path)
+        size = File.size(path)
+        raise ParseError, "Configuration file is too large: #{path} (max #{MAX_INCLUDE_BYTES} bytes)" if size > MAX_INCLUDE_BYTES
+
+        File.read(path)
       end
 
       def deep_merge(base, overrides)

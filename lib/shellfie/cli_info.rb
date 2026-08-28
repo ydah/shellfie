@@ -7,6 +7,7 @@ module Shellfie
     def run_init
       puts <<~YAML
         # Shellfie configuration file
+        version: 1
         theme: macos
         title: "Terminal — zsh"
 
@@ -72,6 +73,10 @@ module Shellfie
       puts "  Frames: #{info[:config][:frames].size}"
       puts "  Estimated size: #{info[:geometry][:canvas_width]}x#{info[:geometry][:canvas_height]}"
       puts "  Logical size: #{info[:geometry][:logical_width]}x#{info[:geometry][:logical_height]} @#{info[:geometry][:scale]}x"
+      info.fetch(:fonts, {}).each do |style, font|
+        fingerprint = font[:sha256] ? " (sha256: #{font[:sha256]})" : ""
+        puts "  Font #{style}: #{font[:name] || "not found"}#{fingerprint}"
+      end
     end
 
     def run_doctor
@@ -114,11 +119,14 @@ module Shellfie
           --no-shadow            Disable shadow effect
           --no-header            Disable window header (headless mode)
           --transparent          Transparent background
-          --fps FPS              Override animation typing FPS
+          --typing-rate CPS      Typing rate in characters per second
+          --framerate FPS        Output timing precision
+          --playback-speed N     Playback speed multiplier
+          --fps FPS              Deprecated alias for --framerate
           --overflow MODE        Line overflow mode: clip, wrap, scroll
           --wrap, --no-wrap      Enable or disable long-line wrapping
           --exact-size           Match canvas to configured window size
-          --format FORMAT        Output format: png, gif, svg, webp, apng
+          --format FORMAT        Output: png, gif, svg, svg-raster, webp, apng
           --force                Overwrite existing output files
           --quiet                Suppress non-error output
           --verbose              Print progress details

@@ -14,11 +14,20 @@ module Shellfie
     ANIMATION_KEYS = %i[
       typing_speed command_delay cursor_blink loop typing_jitter typing_chunk_size output_delay final_delay max_frames
       dither palette scroll_easing
+      framerate playback_speed
     ].freeze
     CURSOR_KEYS = %i[style color].freeze
-    LIMIT_KEYS = %i[max_lines max_frames max_render_frames max_characters max_pixels].freeze
+    LIMIT_KEYS = %i[max_lines max_frames max_render_frames max_characters max_pixels max_total_pixels max_temp_bytes].freeze
     LINE_KEYS = %i[prompt command output prompt_color command_color output_color selected].freeze
     FRAME_KEYS = %i[prompt type output delay prompt_color command_color output_color].freeze
+    COLOR_KEYS = %i[
+      background foreground title_bar title_text title_bar_border border selection black red green yellow blue magenta cyan
+      white bright_black bright_red bright_green bright_yellow bright_blue bright_magenta bright_cyan bright_white
+    ].freeze
+    WINDOW_DECORATION_KEYS = %i[
+      title_bar_height button_size button_spacing button_width corner_radius shadow
+    ].freeze
+    SHADOW_KEYS = %i[blur offset_x offset_y color].freeze
 
     private
 
@@ -32,8 +41,11 @@ module Shellfie
       validate_nested_hash!(raw, :animation, ANIMATION_KEYS)
       validate_nested_hash!(raw, :cursor, CURSOR_KEYS)
       validate_nested_hash!(raw, :limits, LIMIT_KEYS)
-      validate_nested_hash!(raw, :colors, nil)
-      validate_nested_hash!(raw, :window_decoration, nil)
+      validate_nested_hash!(raw, :colors, COLOR_KEYS)
+      validate_nested_hash!(raw, :window_decoration, WINDOW_DECORATION_KEYS)
+      if raw.dig(:window_decoration, :shadow)
+        validate_nested_hash!(raw[:window_decoration], :shadow, SHADOW_KEYS, "window_decoration.shadow")
+      end
       validate_theme!(raw[:theme]) if raw[:theme]
       validate_window_theme!(raw[:window_theme]) if raw[:window_theme]
       validate_color_scheme!(raw[:color_scheme]) if raw.key?(:color_scheme)
@@ -62,11 +74,11 @@ module Shellfie
       raise ValidationError, "Invalid color_scheme '#{scheme}'"
     end
 
-    def validate_nested_hash!(raw, key, allowed_keys)
+    def validate_nested_hash!(raw, key, allowed_keys, context = key.to_s)
       return unless raw.key?(key)
       raise ValidationError, "#{key} must be a mapping" unless raw[key].is_a?(Hash)
 
-      validate_keys!(raw[key], allowed_keys, key.to_s) if allowed_keys
+      validate_keys!(raw[key], allowed_keys, context) if allowed_keys
     end
 
     def validate_keys!(hash, allowed_keys, context)

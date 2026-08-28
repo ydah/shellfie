@@ -4,8 +4,12 @@ module Shellfie
   module TextMetrics
     module_function
 
+    def graphemes(text)
+      text.to_s.scan(/\X/)
+    end
+
     def cell_width(text)
-      text.to_s.each_char.sum { |char| char_width(char) }
+      graphemes(text).sum { |grapheme| grapheme_width(grapheme) }
     end
 
     def pixel_width(text, font_size)
@@ -16,8 +20,8 @@ module Shellfie
       result = +""
       used_cells = 0
 
-      text.to_s.each_char do |char|
-        width = char_width(char)
+      graphemes(text).each do |char|
+        width = grapheme_width(char)
         break if used_cells + width > max_cells
 
         result << char
@@ -29,8 +33,8 @@ module Shellfie
 
     def drop_cells(text, cells_to_drop)
       used_cells = 0
-      text.to_s.each_char.with_object(+"") do |char, result|
-        width = char_width(char)
+      graphemes(text).each_with_object(+"") do |char, result|
+        width = grapheme_width(char)
         if used_cells < cells_to_drop
           used_cells += width
           next
@@ -47,8 +51,8 @@ module Shellfie
       current = +""
       used_cells = 0
 
-      text.to_s.each_char do |char|
-        width = char_width(char)
+      graphemes(text).each do |char|
+        width = grapheme_width(char)
         if used_cells.positive? && used_cells + width > max_cells
           chunks << current
           current = +""
@@ -70,6 +74,14 @@ module Shellfie
       return 2 if wide?(codepoint)
 
       1
+    end
+
+    def grapheme_width(grapheme)
+      codepoints = grapheme.codepoints
+      return 0 if codepoints.empty? || codepoints.all? { |codepoint| combining?(codepoint) }
+      return 2 if grapheme.include?("\u200d") || grapheme.match?(/[\u{1f1e6}-\u{1f1ff}]{2}/)
+
+      codepoints.map { |codepoint| char_width(codepoint.chr(Encoding::UTF_8)) }.max || 0
     end
 
     def combining?(codepoint)

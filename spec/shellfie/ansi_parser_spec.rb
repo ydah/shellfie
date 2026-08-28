@@ -118,6 +118,14 @@ RSpec.describe Shellfie::AnsiParser do
     it "applies carriage returns and backspaces" do
       expect(parser.parse("old\rnew").first.text).to eq("new")
       expect(parser.parse("abc\bX").first.text).to eq("abX")
+      expect(parser.parse("abc\b").first.text).to eq("abc")
+    end
+
+    it "advances tabs to the next configured tab stop" do
+      tab_parser = described_class.new(tab_width: 4)
+
+      expect(tab_parser.parse("a\tb").first.text).to eq("a   b")
+      expect(tab_parser.parse("abcd\tb").first.text).to eq("abcd    b")
     end
 
     it "applies simple cursor movement" do

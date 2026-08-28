@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "open3"
+require "digest"
+
 module Shellfie
   class FontResolver
     FONT_FILES = {
@@ -31,6 +34,12 @@ module Shellfie
                 .find { |candidate| font_available?(candidate) }
     end
 
+    def details(font_config)
+      { regular: resolve(font_config, italic: false), italic: resolve(font_config, italic: true) }.transform_values do |font|
+        { name: font, sha256: File.file?(font.to_s) ? Digest::SHA256.file(font).hexdigest : nil }
+      end
+    end
+
     private
 
     def font_available?(font)
@@ -50,7 +59,8 @@ module Shellfie
         if command.empty?
           []
         else
-          `#{command} -list font 2>/dev/null`.scan(/^\s*Font:\s+(.+)$/).flatten
+          stdout, = Open3.capture3(command, "-list", "font")
+          stdout.scan(/^\s*Font:\s+(.+)$/).flatten
         end
       end
     end
