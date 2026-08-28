@@ -123,19 +123,11 @@ RSpec.describe Shellfie::SessionRunner do
   it "bounds pathological regular expression evaluation" do
     config = Shellfie::SessionConfig.new({ version: 2, steps: [] })
     runner = described_class.new(config)
+    pattern = Object.new
+    pattern.define_singleton_method(:match) { |_text| sleep(1) }
 
-    cases = [
-      [/(a+)+$/, ("a" * 10_000) + "X"],
-      [/(?=(a+))a*b\1/, "a" * 20_000]
-    ]
-    blocked = cases.any? do |pattern, input|
-      runner.send(:regex_match, pattern, input)
-      false
-    rescue Shellfie::ExecutionError => e
-      e.message.include?("Regular expression")
-    end
-
-    expect(blocked).to be true
+    expect { runner.send(:regex_match, pattern, "input") }
+      .to raise_error(Shellfie::ExecutionError, /Regular expression/)
   end
 end
 end

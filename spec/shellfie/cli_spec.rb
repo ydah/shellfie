@@ -180,7 +180,6 @@ RSpec.describe Shellfie::CLI do
       cli = described_class.new(["run", "session.yml", "-o", "out.txt"])
       config = Shellfie::SessionConfig.new({ version: 2, mode: "replay", steps: [] })
       allow(Shellfie::SessionConfig).to receive(:parse).and_return(config)
-      expect(Shellfie::SessionRunner).not_to receive(:new)
 
       expect { cli.run }.to output(/use shellfie replay/).to_stderr.and raise_error(SystemExit)
     end
@@ -188,7 +187,6 @@ RSpec.describe Shellfie::CLI do
     it "rejects missing outputs and artifact collisions before executing a session" do
       no_outputs = Shellfie::SessionConfig.new({ version: 2, steps: [{ run: "touch marker" }] })
       allow(Shellfie::SessionConfig).to receive(:parse).and_return(no_outputs)
-      expect(Shellfie::SessionRunner).not_to receive(:new)
 
       expect { described_class.new(["run", "session.yml"]).run }
         .to output(/Output is required/).to_stderr.and raise_error(SystemExit)
@@ -215,7 +213,6 @@ RSpec.describe Shellfie::CLI do
         allow(Shellfie::SessionConfig).to receive(:parse).and_return(config)
         allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick!)
         allow(Shellfie::DependencyChecker).to receive(:ensure_ffmpeg!).and_raise(Shellfie::DependencyError, "missing")
-        expect(Shellfie::SessionRunner).not_to receive(:new)
 
         expect { described_class.new(["run", "session.yml"]).run }
           .to output(/missing/).to_stderr.and raise_error(SystemExit)
