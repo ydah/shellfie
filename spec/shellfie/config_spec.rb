@@ -43,6 +43,12 @@ RSpec.describe Shellfie::Config do
       expect { described_class.new(window: { width: 200, padding: 41 }) }.to raise_error(Shellfie::ValidationError, /padding/)
     end
 
+    it "validates East Asian ambiguous width" do
+      expect(described_class.new(window: { ambiguous_width: 2 }).window[:ambiguous_width]).to eq(2)
+      expect { described_class.new(window: { ambiguous_width: 3 }) }
+        .to raise_error(Shellfie::ValidationError, /ambiguous_width/)
+    end
+
     it "validates opacity and overflow mode" do
       expect { described_class.new(window: { opacity: 1.5 }) }.to raise_error(Shellfie::ValidationError, /window.opacity/)
       expect { described_class.new(window: { scroll_offset: 1.1 }) }.to raise_error(Shellfie::ValidationError, /scroll_offset/)

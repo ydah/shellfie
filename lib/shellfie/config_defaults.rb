@@ -22,6 +22,7 @@ module Shellfie
         exact_size: false,
         trim: false,
         tab_width: 8,
+        ambiguous_width: 1,
         ansi_state: "persistent",
         background_gradient: nil,
         scroll_offset: 0.0

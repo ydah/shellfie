@@ -59,7 +59,7 @@ module Shellfie
 
       line[:segments].each do |segment|
         TextMetrics.graphemes(segment.text).each do |char|
-          width = TextMetrics.grapheme_width(char)
+          width = TextMetrics.grapheme_width(char, ambiguous_width: ambiguous_width)
           if used_cells.positive? && used_cells + width > max_cells
             wrapped << { segments: [], selected: line[:selected] }
             used_cells = 0
@@ -78,29 +78,29 @@ module Shellfie
       segments.each_with_object([]) do |segment, result|
         break result if remaining <= 0
 
-        text = TextMetrics.take_cells(segment.text, remaining)
+        text = TextMetrics.take_cells(segment.text, remaining, ambiguous_width: ambiguous_width)
         next if text.empty?
 
         result << copy_segment(segment, text)
-        remaining -= TextMetrics.cell_width(text)
+        remaining -= TextMetrics.cell_width(text, ambiguous_width: ambiguous_width)
       end
     end
 
     def scroll_segments(segments, max_cells)
-      total_cells = segments.sum { |segment| TextMetrics.cell_width(segment.text) }
+      total_cells = segments.sum { |segment| TextMetrics.cell_width(segment.text, ambiguous_width: ambiguous_width) }
       return clip_segments(segments, max_cells) if total_cells <= max_cells
 
       cells_to_drop = total_cells - max_cells
       scrolled = []
 
       segments.each do |segment|
-        segment_cells = TextMetrics.cell_width(segment.text)
+        segment_cells = TextMetrics.cell_width(segment.text, ambiguous_width: ambiguous_width)
         if cells_to_drop >= segment_cells
           cells_to_drop -= segment_cells
           next
         end
 
-        text = cells_to_drop.positive? ? TextMetrics.drop_cells(segment.text, cells_to_drop) : segment.text
+        text = cells_to_drop.positive? ? TextMetrics.drop_cells(segment.text, cells_to_drop, ambiguous_width: ambiguous_width) : segment.text
         cells_to_drop = 0
         scrolled << copy_segment(segment, text) unless text.empty?
       end
@@ -136,6 +136,10 @@ module Shellfie
         segment.blink,
         segment.conceal
       ]
+    end
+
+    def ambiguous_width
+      @config.window[:ambiguous_width]
     end
   end
 end

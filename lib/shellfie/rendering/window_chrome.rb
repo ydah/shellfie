@@ -159,7 +159,7 @@ module Shellfie
         reserve_right = theme.buttons_position == :right ? group_width + (12 * geometry[:scale]).to_i : (12 * geometry[:scale]).to_i
         available_width = geometry[:scaled_width] - reserve_left - reserve_right
         title = fit_text(config.title.to_s, available_width, scaled_font_size)
-        title_width = TextMetrics.pixel_width(title, scaled_font_size)
+        title_width = TextMetrics.pixel_width(title, scaled_font_size, ambiguous_width: config.window[:ambiguous_width])
         min_x = geometry[:margin] + reserve_left
         max_x = geometry[:margin] + geometry[:scaled_width] - reserve_right - title_width
         centered_x = geometry[:margin] + (geometry[:scaled_width] - title_width) / 2

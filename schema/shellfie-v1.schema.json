@@ -52,6 +52,7 @@
         "exact_size": { "type": "boolean" },
         "trim": { "type": "boolean" },
         "tab_width": { "type": "integer", "minimum": 1 },
+        "ambiguous_width": { "enum": [1, 2] },
         "ansi_state": { "enum": ["persistent", "line"] },
         "background_gradient": { "type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
         "scroll_offset": { "type": "number", "minimum": 0, "maximum": 1 }

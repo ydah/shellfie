@@ -20,6 +20,7 @@
 - Record explicit session sleeps as timeline pauses and allow cassette-only or YAML-only recording.
 - Make v2 includes watchable with exact merged provenance and typo suggestions, and make doctor perform a real PNG/policy check.
 - Preserve extended underline styles/colors, blink, and conceal through terminal capture and SVG/raster rendering.
+- Expose the Unicode/width-table profile and make East Asian Ambiguous width configurable and reproducible.
 
 ## 0.1.1 - 2026-01-12
 

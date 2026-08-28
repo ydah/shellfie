@@ -66,6 +66,7 @@ module Shellfie
         scaled_title_bar: (title_bar_height * scale).to_i,
         scaled_radius: (corner_radius * scale).to_i,
         scroll_offset: @config.window[:scroll_offset].to_f,
+        ambiguous_width: @config.window[:ambiguous_width],
         margin: margin,
         canvas_width: (width * scale).to_i + margin * 2,
         canvas_height: (total_height * scale).ceil + margin * 2,

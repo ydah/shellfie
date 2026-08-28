@@ -156,7 +156,9 @@ module Shellfie
                  end
       x = content_x(geometry)
       segments = line[:segments].map do |segment|
-        width = TextMetrics.pixel_width(segment.text, geometry[:scaled_font_size])
+        width = TextMetrics.pixel_width(
+          segment.text, geometry[:scaled_font_size], ambiguous_width: geometry[:ambiguous_width]
+        )
         svg = segment_svg(segment, x, top, width, geometry)
         x += width
         svg

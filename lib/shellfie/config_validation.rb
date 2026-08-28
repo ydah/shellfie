@@ -65,6 +65,7 @@ module Shellfie
       validate_optional_positive_integer!(@window[:max_height], "window.max_height")
       validate_optional_non_negative_integer!(@window[:margin], "window.margin")
       validate_positive_integer!(@window[:tab_width], "window.tab_width")
+      validate_inclusion!(@window[:ambiguous_width], "window.ambiguous_width", [1, 2])
       validate_boolean!(@window[:wrap], "window.wrap")
       validate_boolean!(@window[:exact_size], "window.exact_size")
       validate_boolean!(@window[:trim], "window.trim")

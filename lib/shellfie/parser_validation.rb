@@ -11,7 +11,7 @@ module Shellfie
     ].freeze
     WINDOW_KEYS = %i[
       width padding opacity visible_lines max_lines max_height wrap overflow margin exact_size trim tab_width
-      ansi_state background_gradient scroll_offset
+      ambiguous_width ansi_state background_gradient scroll_offset
     ].freeze
     FONT_KEYS = %i[family size line_height fallback_family italic_family emoji_family].freeze
     ANIMATION_KEYS = %i[

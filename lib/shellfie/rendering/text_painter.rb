@@ -31,7 +31,7 @@ module Shellfie
           text = segment.text.to_s
           next if text.empty?
 
-          width = TextMetrics.pixel_width(text, geometry[:scaled_font_size])
+          width = TextMetrics.pixel_width(text, geometry[:scaled_font_size], ambiguous_width: geometry[:ambiguous_width])
           top = baseline - geometry[:scaled_font_size]
           foreground, background = segment_colors(segment)
           result << {
@@ -166,10 +166,10 @@ module Shellfie
 
       def fit_text(text, max_width, font_size)
         return "" if max_width <= 0
-        return text if TextMetrics.pixel_width(text, font_size) <= max_width
+        return text if TextMetrics.pixel_width(text, font_size, ambiguous_width: config.window[:ambiguous_width]) <= max_width
 
         max_cells = [(max_width / (font_size * 0.6)).floor - 3, 0].max
-        "#{TextMetrics.take_cells(text, max_cells)}..."
+        "#{TextMetrics.take_cells(text, max_cells, ambiguous_width: config.window[:ambiguous_width])}..."
       end
 
       def color_with_opacity(color, opacity, allow_rgba)

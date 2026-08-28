@@ -101,6 +101,8 @@ shellfie watch terminal.yml -o terminal.png
 
 JSON Schemas live in [`schema/`](schema/). Add `# yaml-language-server: $schema=../schema/shellfie-v1.schema.json` to a compose file for editor validation. Use `--manifest manifest.json` during generation to record config/output hashes, Ruby, OS, ImageMagick, ffmpeg, and resolved font fingerprints.
 
+Set `window.ambiguous_width` to `1` (default) or `2` for terminals that render East Asian Ambiguous characters as double-width. `inspect` and reproducibility manifests report the Ruby Unicode version, Shellfie width-table version, and selected policy.
+
 The repository also provides a Docker image definition and a Docker-based GitHub Action:
 
 ```yaml

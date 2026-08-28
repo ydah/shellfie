@@ -16,6 +16,11 @@ module Shellfie
         format: format,
         ruby: RUBY_DESCRIPTION,
         platform: RbConfig::CONFIG["host_os"],
+        unicode: {
+          version: TextMetrics::UNICODE_VERSION,
+          width_table: TextMetrics::WIDTH_TABLE_VERSION,
+          ambiguous_width: config.window[:ambiguous_width]
+        },
         imagemagick: DependencyChecker.imagemagick_details[:version],
         ffmpeg: DependencyChecker.ffmpeg_version,
         fonts: renderer.font_info

@@ -15,6 +15,9 @@ RSpec.describe Shellfie::ReproducibilityManifest do
       expect(manifest[:config_sha256]).to match(/\A[0-9a-f]{64}\z/)
       expect(manifest[:output_sha256]).to match(/\A[0-9a-f]{64}\z/)
       expect(manifest[:fonts]).to include(:regular, :italic)
+      expect(manifest[:unicode]).to include(
+        version: Shellfie::TextMetrics::UNICODE_VERSION, width_table: "1", ambiguous_width: 1
+      )
     end
   end
 

@@ -98,6 +98,11 @@ module Shellfie
       end
 
       info = Shellfie.inspect_config(input_file)
+      info[:unicode] = {
+        version: TextMetrics::UNICODE_VERSION,
+        width_table: TextMetrics::WIDTH_TABLE_VERSION,
+        ambiguous_width: info.dig(:config, :window, :ambiguous_width) || 1
+      }
       return puts(JSON.pretty_generate(info)) if json
       puts "Config:"
       puts "  Version: #{info[:config][:version]}"
@@ -108,6 +113,7 @@ module Shellfie
       puts "  Frames: #{info[:config][:frames].size}"
       puts "  Estimated size: #{info[:geometry][:canvas_width]}x#{info[:geometry][:canvas_height]}"
       puts "  Logical size: #{info[:geometry][:logical_width]}x#{info[:geometry][:logical_height]} @#{info[:geometry][:scale]}x"
+      puts "  Unicode: #{info[:unicode][:version]} (width table #{info[:unicode][:width_table]}, ambiguous=#{info[:unicode][:ambiguous_width]})"
       info.fetch(:fonts, {}).each do |style, font|
         fingerprint = font[:sha256] ? " (sha256: #{font[:sha256]})" : ""
         puts "  Font #{style}: #{font[:name] || "not found"}#{fingerprint}"
