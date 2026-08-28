@@ -121,6 +121,25 @@ RSpec.describe Shellfie::CLI do
       end
     end
 
+    it "checks generated output without replacing it" do
+      Dir.mktmpdir do |dir|
+        input = File.join(dir, "config.yml")
+        output = File.join(dir, "out.svg")
+        File.write(input, "version: 1\nlines:\n  - output: current\n")
+        described_class.new(["generate", input, "-o", output, "--format", "svg", "--no-shadow", "--quiet"]).run
+
+        expect do
+          described_class.new(["generate", input, "-o", output, "--format", "svg", "--no-shadow", "--check", "--quiet"]).run
+        end.not_to raise_error
+
+        File.write(output, "stale")
+        expect do
+          described_class.new(["generate", input, "-o", output, "--format", "svg", "--no-shadow", "--check", "--quiet"]).run
+        end.to output(/output is stale/).to_stderr.and raise_error(SystemExit)
+        expect(File.read(output)).to eq("stale")
+      end
+    end
+
     it "rejects an invalid output parent before rendering" do
       Dir.mktmpdir do |dir|
         parent = File.join(dir, "not-a-directory")

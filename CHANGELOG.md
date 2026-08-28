@@ -23,6 +23,7 @@
 - Expose the Unicode/width-table profile and make East Asian Ambiguous width configurable and reproducible.
 - Preserve length-bounded, allowlisted OSC 8 links in SVG/HTML behind an explicit OSC policy.
 - Add validated GIF color/optimization, WebP lossless/quality/method, APNG prediction, and loop-count controls.
+- Add non-mutating `generate --check` support and expose it through the GitHub Action.
 
 ## 0.1.1 - 2026-01-12
 

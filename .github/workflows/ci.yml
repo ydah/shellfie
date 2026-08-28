@@ -62,6 +62,7 @@ jobs:
           bundle exec ruby -rjson -e "JSON.parse(File.read('schema/shellfie-v1.schema.json')); JSON.parse(File.read('schema/shellfie-v2.schema.json'))"
           bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/ci/simple.png --no-shadow --force
           bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/ci/simple.svg --format svg --no-shadow --force
+          bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/ci/simple.svg --format svg --no-shadow --check
           bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/ci/animation.gif --animate --no-shadow --force
           bundle exec ruby -Ilib exe/shf version
           bundle exec ruby -Ilib -rshellfie -e "(Dir['examples/*.yml'] - ['examples/session.yml']).sort.each { |path| Shellfie.validate(path) }"

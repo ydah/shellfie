@@ -3,6 +3,7 @@
 require "fileutils"
 require "optparse"
 require "json"
+require "tmpdir"
 require_relative "output_writer"
 require_relative "reproducibility_manifest"
 
@@ -24,6 +25,8 @@ module Shellfie
       raise ConfigError, "stdout output supports only one input file" if @options[:output] == "-" && input_files.size > 1
       raise ConfigError, "--format is required when writing to stdout" if @options[:output] == "-" && !@options[:format]
       raise ConfigError, "--manifest cannot be used when writing output to stdout" if @options[:output] == "-" && @options[:manifest]
+      raise ConfigError, "--check cannot write to stdout" if @options[:output] == "-" && @options[:check]
+      raise ConfigError, "--check cannot be combined with --force or --manifest" if @options[:check] && (@options[:force] || @options[:manifest])
       configs = input_files.to_h { |input_file| [input_file, apply_overrides(Parser.parse(input_file))] }
       jobs = input_files.map do |input_file|
         config = configs.fetch(input_file)
@@ -77,10 +80,20 @@ module Shellfie
           raise FileSystemError, "Refusing to replace a non-Shellfie directory: #{output_path}"
         end
       end
-      jobs.each { |_config, _animate, _format, output_path| ensure_output_writable!(output_path) }
+      jobs.each do |_config, _animate, _format, output_path|
+        if @options[:check]
+          raise FileSystemError, "Output is missing: #{output_path}" unless File.exist?(output_path)
+        else
+          ensure_output_writable!(output_path)
+        end
+      end
       ensure_output_writable!(@options[:manifest]) if @options[:manifest]
       jobs.each do |config, animate, format, output_path|
-        write_rendered_output(config, output_path, animate: animate, format: format)
+        if @options[:check]
+          check_rendered_output(config, output_path, animate: animate, format: format)
+        else
+          write_rendered_output(config, output_path, animate: animate, format: format)
+        end
         manifests << ReproducibilityManifest.build(config, output_path: output_path, format: format) if @options[:manifest]
       end
       write_manifest(manifests) if @options[:manifest]
@@ -117,6 +130,7 @@ module Shellfie
         opts.on("--no-header", "Disable window header (headless mode)") { @options[:headless] = true }
         opts.on("--format FORMAT", "Output format (png, gif, svg, svg-raster, webp, apng, mp4, webm, png-sequence, html, txt, ansi, json, asciicast)") { |format| @options[:format] = parse_format(format) }
         opts.on("--force", "Overwrite existing output files") { @options[:force] = true }
+        opts.on("--check", "Fail if the existing output differs without replacing it") { @options[:check] = true }
         opts.on("--quiet", "Suppress non-error output") { @options[:quiet] = true }
         opts.on("--verbose", "Print extra progress information") { @options[:verbose] = true }
         opts.on("--manifest PATH", "Write a reproducibility manifest") { |path| @options[:manifest] = path }
@@ -133,6 +147,22 @@ module Shellfie
                  generate_static_image(config, output_path, format)
                end
       $stderr.puts "Generated: #{result}" unless output_path == "-" || @options[:quiet]
+    end
+
+    def check_rendered_output(config, output_path, animate:, format:)
+      Dir.mktmpdir("shellfie-check") do |dir|
+        candidate = format == "png-sequence" ? File.join(dir, "sequence") : File.join(dir, "output.#{format}")
+        original_options = @options
+        @options = @options.merge(quiet: true, force: true, check: false)
+        write_rendered_output(config, candidate, animate: animate, format: format)
+        expected = ReproducibilityManifest.output_digest(output_path)
+        actual = ReproducibilityManifest.output_digest(candidate)
+        raise ValidationError, "Generated output is stale: #{output_path}" unless expected == actual
+      ensure
+        @options = original_options
+      end
+      $stderr.puts "Current: #{output_path}" unless @options[:quiet]
+      output_path
     end
 
     def generate_animation(config, output_path, format)

@@ -11,6 +11,10 @@ inputs:
     description: Output format
     required: false
     default: png
+  check:
+    description: Fail when the committed output is stale without modifying it
+    required: false
+    default: "false"
 runs:
   using: docker
   image: Dockerfile
@@ -21,7 +25,7 @@ runs:
     - ${{ inputs.output }}
     - --format
     - ${{ inputs.format }}
-    - --force
+    - ${{ inputs.check == 'true' && '--check' || '--force' }}
 branding:
   icon: terminal
   color: green

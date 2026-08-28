@@ -112,6 +112,7 @@ The repository also provides a Docker image definition and a Docker-based GitHub
   with:
     input: examples/simple.yml
     output: docs/terminal.png
+    check: "true"
 ```
 
 Common `generate` options:
@@ -124,6 +125,7 @@ Common `generate` options:
 | `-s, --scale FACTOR` | Output scale: `1`, `2`, or `3` |
 | `-w, --width PIXELS` | Override window width |
 | `--format FORMAT` | `png`, `gif`, `svg`, `svg-raster`, `webp`, `apng`, `mp4`, `webm`, `png-sequence`, `html`, `txt`, `ansi`, `json`, or `asciicast` |
+| `--check` | Exit unsuccessfully when the existing output is stale; do not replace it |
 | `--typing-rate CPS` | Override typing rate in characters per second |
 | `--framerate FPS` | Set output timing precision |
 | `--seed N` | Set the deterministic animation jitter seed |
