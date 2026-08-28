@@ -7,7 +7,7 @@ require_relative "reproducibility_manifest"
 
 module Shellfie
   module CLIGenerate
-    ANIMATED_FORMATS = %w[gif webp apng mp4 webm].freeze
+    ANIMATED_FORMATS = %w[gif webp apng mp4 webm png-sequence].freeze
     STATIC_FORMATS = %w[png svg svg-raster webp html].freeze
     SEMANTIC_FORMATS = %w[txt json].freeze
     SUPPORTED_FORMATS = (STATIC_FORMATS + ANIMATED_FORMATS + SEMANTIC_FORMATS).uniq.freeze
@@ -26,6 +26,7 @@ module Shellfie
         animate = animation_output?(config)
         format = output_format_for(@options[:output], animate)
         output_path = output_path_for(input_file, format, multiple: input_files.size > 1)
+        raise ConfigError, "PNG sequence output cannot be written to stdout" if output_path == "-" && format == "png-sequence"
         validate_output_mode!(format, animate)
         [config, animate, format, output_path]
       end
@@ -66,7 +67,7 @@ module Shellfie
         opts.on("--no-shadow", "Disable shadow effect") { @options[:shadow] = false }
         opts.on("--transparent", "Transparent background") { @options[:transparent] = true }
         opts.on("--no-header", "Disable window header (headless mode)") { @options[:headless] = true }
-        opts.on("--format FORMAT", "Output format (png, gif, svg, svg-raster, webp, apng, mp4, webm, html, txt, json)") { |format| @options[:format] = parse_format(format) }
+        opts.on("--format FORMAT", "Output format (png, gif, svg, svg-raster, webp, apng, mp4, webm, png-sequence, html, txt, json)") { |format| @options[:format] = parse_format(format) }
         opts.on("--force", "Overwrite existing output files") { @options[:force] = true }
         opts.on("--quiet", "Suppress non-error output") { @options[:quiet] = true }
         opts.on("--verbose", "Print extra progress information") { @options[:verbose] = true }

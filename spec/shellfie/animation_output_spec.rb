@@ -4,6 +4,10 @@ require "spec_helper"
 require "tmpdir"
 
 RSpec.describe "animation output support" do
+  it "accepts event-duration PNG sequences as an animated CLI format" do
+    expect(Shellfie::CLIGenerate::ANIMATED_FORMATS).to include("png-sequence")
+  end
+
   it "accepts APNG as an animated CLI format" do
     cli = Shellfie::CLI.new(["generate", "config.yml", "-o", "out.apng", "--format", "apng", "--quiet"])
     config = Shellfie::Config.new(frames: [Shellfie::Frame.new(output: "ok")])

@@ -85,7 +85,7 @@
       "additionalProperties": false,
       "properties": {
         "path": { "type": "string" },
-        "format": { "enum": ["png", "gif", "svg", "svg-raster", "webp", "apng", "mp4", "webm", "html", "txt", "json"] },
+        "format": { "enum": ["png", "gif", "svg", "svg-raster", "webp", "apng", "mp4", "webm", "png-sequence", "html", "txt", "json"] },
         "animate": { "type": "boolean" }, "scale": { "type": "integer", "minimum": 1, "maximum": 3 },
         "shadow": { "type": "boolean" }, "transparent": { "type": "boolean" },
         "capture": { "type": "string" }

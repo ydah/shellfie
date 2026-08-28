@@ -165,5 +165,21 @@ RSpec.describe Shellfie::GifGenerator do
 
       expect(generator.send(:fixed_visible_lines, frames)).to eq(2)
     end
+
+    it "writes one PNG per event with a timing manifest" do
+      generator = described_class.new(Shellfie::Config.new)
+
+      Dir.mktmpdir("shellfie-sequence-spec") do |dir|
+        source = File.join(dir, "source.png")
+        output = File.join(dir, "frames")
+        File.binwrite(source, "png")
+
+        generator.send(:write_png_sequence, [{ path: source, delay: 250 }], output)
+
+        manifest = JSON.parse(File.read(File.join(output, "timeline.json")))
+        expect(manifest["frames"]).to eq([{ "file" => "frame_0000.png", "delay_ms" => 250 }])
+        expect(File.binread(File.join(output, "frame_0000.png"))).to eq("png")
+      end
+    end
   end
 end

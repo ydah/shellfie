@@ -2,6 +2,7 @@
 
 require "mini_magick"
 require "fileutils"
+require "json"
 require "tmpdir"
 require_relative "animation_frame_builder"
 require_relative "dependency_checker"
@@ -36,6 +37,8 @@ module Shellfie
         warn_frame_count(frames)
         images = render_frames(frames, scale: scale, shadow: shadow, transparent: transparent, chrome_cache: chrome_cache)
         extension = FormatResolver.resolve(output_path, explicit: format, default: "gif")
+        return write_png_sequence(images, output_path) if extension == "png-sequence"
+
         OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
           combine_to_animation(images, temporary_path, format: extension)
         end
@@ -143,6 +146,24 @@ module Shellfie
     def cleanup_temp_files(images)
       temp_dir = File.dirname(images.first[:path]) if images.any?
       FileUtils.rm_rf(temp_dir) if temp_dir && Dir.exist?(temp_dir)
+    end
+
+    def write_png_sequence(images, output_path)
+      raise FileSystemError, "PNG sequence output already exists: #{output_path}" if File.exist?(output_path)
+
+      parent = File.dirname(File.expand_path(output_path))
+      FileUtils.mkdir_p(parent)
+      temporary = Dir.mktmpdir(".shellfie-sequence-", parent)
+      frames = images.each_with_index.map do |image, index|
+        filename = "frame_#{format("%04d", index)}.png"
+        FileUtils.cp(image[:path], File.join(temporary, filename))
+        { file: filename, delay_ms: image[:delay] }
+      end
+      File.write(File.join(temporary, "timeline.json"), JSON.pretty_generate(version: 1, frames: frames))
+      File.rename(temporary, output_path)
+      output_path
+    ensure
+      FileUtils.rm_rf(temporary) if temporary && Dir.exist?(temporary)
     end
 
     def gif_delay(milliseconds)
