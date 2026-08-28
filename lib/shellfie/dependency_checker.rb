@@ -2,6 +2,7 @@
 
 require "rbconfig"
 require "open3"
+require "tempfile"
 require_relative "font_resolver"
 
 module Shellfie
@@ -60,7 +61,9 @@ module Shellfie
           check("ImageMagick", details[:version] || "not found", imagemagick_available?),
           check("Image formats", details[:formats].empty? ? "unavailable" : details[:formats].join(", "),
                 (required_formats - details[:formats]).empty?),
+          check("Image render", details[:render_ok] ? "1x1 PNG generated" : "failed", details[:render_ok]),
           check("Fonts", details[:font_count].to_s, details[:font_count].positive?),
+          check("Security policy", details[:policy] || "unavailable", !details[:policy].nil?),
           check("ffmpeg (optional)", video_version || "not found; required only for APNG/MP4/WebM", true),
           check("Writable output", output_dir, File.writable?(output_dir)),
           check("Encoding", Encoding.default_external.name, true)
@@ -68,18 +71,22 @@ module Shellfie
       end
 
       def imagemagick_details
-        return { version: nil, formats: [], font_count: 0 } unless imagemagick_available?
+        return { version: nil, formats: [], font_count: 0, render_ok: false, policy: nil } unless imagemagick_available?
 
-        version_output, = Open3.capture3(imagemagick_path, "-version")
-        formats_output, = Open3.capture3(imagemagick_path, "-list", "format")
-        fonts_output, = Open3.capture3(imagemagick_path, "-list", "font")
+        version_output, _error, version_status = Open3.capture3(imagemagick_path, "-version")
+        formats_output, _error, formats_status = Open3.capture3(imagemagick_path, "-list", "format")
+        fonts_output, _error, fonts_status = Open3.capture3(imagemagick_path, "-list", "font")
+        policy_output, _error, policy_status = Open3.capture3(imagemagick_path, "-list", "policy")
         {
-          version: version_output.lines.first&.strip,
-          formats: required_formats.select { |format| formats_output.match?(/^\s*#{format}\*?\s/im) },
-          font_count: fonts_output.scan(/^\s*Font:/).size + FontResolver::FONT_FILES.values.uniq.count { |path| File.file?(path) }
+          version: version_status.success? ? version_output.lines.first&.strip : nil,
+          formats: formats_status.success? ? required_formats.select { |format| formats_output.match?(/^\s*#{format}\*?\s/im) } : [],
+          font_count: (fonts_status.success? ? fonts_output.scan(/^\s*Font:/).size : 0) +
+            FontResolver::FONT_FILES.values.uniq.count { |path| File.file?(path) },
+          render_ok: render_smoke_test,
+          policy: policy_status.success? ? "#{policy_output.scan(/^\s*Policy:/).size} rules loaded" : nil
         }
       rescue SystemCallError
-        { version: nil, formats: [], font_count: 0 }
+        { version: nil, formats: [], font_count: 0, render_ok: false, policy: nil }
       end
 
       private
@@ -115,6 +122,15 @@ module Shellfie
 
       def required_formats
         %w[PNG GIF WEBP SVG]
+      end
+
+      def render_smoke_test
+        Tempfile.create(["shellfie-doctor", ".png"]) do |file|
+          _output, _error, status = Open3.capture3(imagemagick_path, "-size", "1x1", "xc:none", file.path)
+          return status.success? && File.binread(file.path, 8) == "\x89PNG\r\n\x1a\n".b
+        end
+      rescue SystemCallError, EOFError
+        false
       end
 
       def executable_extensions

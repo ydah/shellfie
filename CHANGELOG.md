@@ -18,6 +18,7 @@
 - Add theme-switchable accessible HTML plus ANSI-preserving and asciinema v2 transcript exports.
 - Preserve existing cells on terminal tab movement and guarantee a decodable minimum video duration.
 - Record explicit session sleeps as timeline pauses and allow cassette-only or YAML-only recording.
+- Make v2 includes watchable with exact merged provenance and typo suggestions, and make doctor perform a real PNG/policy check.
 
 ## 0.1.1 - 2026-01-12
 
