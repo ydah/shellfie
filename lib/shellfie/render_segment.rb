@@ -3,10 +3,11 @@
 module Shellfie
   class RenderSegment
     ATTRIBUTES = %i[
-      foreground background bold italic underline dim reverse strikethrough overline
+      foreground background bold italic underline underline_style underline_color dim reverse strikethrough overline blink conceal
     ].freeze
 
-    attr_reader :text, :foreground, :background, :bold, :italic, :underline, :dim, :reverse, :strikethrough, :overline
+    attr_reader :text, :foreground, :background, :bold, :italic, :underline, :underline_style, :underline_color,
+                :dim, :reverse, :strikethrough, :overline, :blink, :conceal
 
     def self.from_segment(segment, default_color:)
       new(
@@ -16,10 +17,14 @@ module Shellfie
         bold: segment.bold,
         italic: segment.italic,
         underline: segment.underline,
+        underline_style: segment.underline_style,
+        underline_color: segment.underline_color,
         dim: segment.dim,
         reverse: segment.reverse,
         strikethrough: segment.strikethrough,
-        overline: segment.overline
+        overline: segment.overline,
+        blink: segment.blink,
+        conceal: segment.conceal
       )
     end
 
@@ -37,18 +42,23 @@ module Shellfie
       end
     end
 
-    def initialize(text:, foreground: nil, background: nil, bold: false, italic: false, underline: false, dim: false,
-                   reverse: false, strikethrough: false, overline: false)
+    def initialize(text:, foreground: nil, background: nil, bold: false, italic: false, underline: false,
+                   underline_style: nil, underline_color: nil, dim: false, reverse: false, strikethrough: false,
+                   overline: false, blink: false, conceal: false)
       @text = text
       @foreground = foreground
       @background = background
       @bold = bold
       @italic = italic
       @underline = underline
+      @underline_style = underline_style
+      @underline_color = underline_color
       @dim = dim
       @reverse = reverse
       @strikethrough = strikethrough
       @overline = overline
+      @blink = blink
+      @conceal = conceal
       freeze
     end
 

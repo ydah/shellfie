@@ -18,6 +18,16 @@ RSpec.describe Shellfie::TerminalScreen do
     expect(screen.to_s).to start_with("abcdefghXj")
   end
 
+  it "preserves extended underline and conceal styles in rendered lines" do
+    screen = described_class.new(columns: 20, rows: 2)
+    screen.feed("\e[4:3;58:2::1:2:3;5;8msecret")
+
+    segment = Shellfie::AnsiParser.new.parse(screen.render_lines.first).first
+    expect(segment).to have_attributes(
+      underline_style: :curly, underline_color: "#010203", blink: true, conceal: true
+    )
+  end
+
   it "restores the primary buffer after leaving the alternate screen" do
     screen = described_class.new(columns: 20, rows: 4)
     screen.feed("primary\e[?1049halternate")

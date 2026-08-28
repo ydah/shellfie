@@ -63,17 +63,19 @@ module Shellfie
 
       def draw_positioned_segments(convert, positioned_segments, geometry)
         positioned_segments.each do |item|
-          draw_text(
-            convert,
-            item[:text],
-            item[:x],
-            item[:top],
-            item[:foreground],
-            geometry[:scaled_font_size],
-            geometry[:font_config],
-            bold: item[:segment].bold,
-            italic: item[:segment].italic
-          )
+          unless item[:segment].conceal
+            draw_text(
+              convert,
+              item[:text],
+              item[:x],
+              item[:top],
+              item[:foreground],
+              geometry[:scaled_font_size],
+              geometry[:font_config],
+              bold: item[:segment].bold,
+              italic: item[:segment].italic
+            )
+          end
           draw_text_decoration(
             convert,
             item[:segment],
@@ -110,15 +112,20 @@ module Shellfie
       end
 
       def draw_text_decoration(convert, segment, x, width, baseline, geometry)
+        return if segment.conceal
         return unless segment.underline || segment.strikethrough || segment.overline
 
         line_width = [(geometry[:scaled_font_size] / 12.0).ceil, 1].max
-        convert.stroke segment_colors(segment).first
+        decoration_color = segment.underline_color ? theme.color_for(segment.underline_color) : segment_colors(segment).first
+        convert.stroke decoration_color
         convert.strokewidth line_width
+        convert.stroke_dasharray "#{line_width},#{line_width * 2}" if segment.underline_style == :dotted
+        convert.stroke_dasharray "#{line_width * 3},#{line_width * 2}" if segment.underline_style == :dashed
 
         if segment.underline
           y = baseline + (geometry[:scaled_font_size] * 0.12).ceil
           ImageMagickCommandBuilder.line(convert, x, y, x + width, y)
+          ImageMagickCommandBuilder.line(convert, x, y + line_width * 2, x + width, y + line_width * 2) if segment.underline_style == :double
         end
         if segment.strikethrough
           y = baseline - (geometry[:scaled_font_size] * 0.35).ceil
@@ -130,6 +137,7 @@ module Shellfie
         end
 
         convert.stroke "none"
+        convert.stroke_dasharray "none" if %i[dotted dashed].include?(segment.underline_style)
       end
 
       def draw_selected_backgrounds(convert, geometry, content_y)

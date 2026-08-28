@@ -127,10 +127,14 @@ module Shellfie
         segment.bold,
         segment.italic,
         segment.underline,
+        segment.underline_style,
+        segment.underline_color,
         segment.dim,
         segment.reverse,
         segment.strikethrough,
-        segment.overline
+        segment.overline,
+        segment.blink,
+        segment.conceal
       ]
     end
   end

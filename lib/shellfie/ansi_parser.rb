@@ -12,10 +12,14 @@ module Shellfie
     :bold,
     :italic,
     :underline,
+    :underline_style,
+    :underline_color,
     :dim,
     :reverse,
     :strikethrough,
     :overline,
+    :blink,
+    :conceal,
     keyword_init: true
   )
 
@@ -59,10 +63,14 @@ module Shellfie
       @bold = false
       @italic = false
       @underline = false
+      @underline_style = nil
+      @underline_color = nil
       @dim = false
       @reverse = false
       @strikethrough = false
       @overline = false
+      @blink = false
+      @conceal = false
     end
 
     def create_segment(text)
@@ -73,10 +81,14 @@ module Shellfie
         bold: @bold,
         italic: @italic,
         underline: @underline,
+        underline_style: @underline_style,
+        underline_color: @underline_color,
         dim: @dim,
         reverse: @reverse,
         strikethrough: @strikethrough,
-        overline: @overline
+        overline: @overline,
+        blink: @blink,
+        conceal: @conceal
       )
     end
 
@@ -89,6 +101,13 @@ module Shellfie
       while i < codes.length
         code = codes[i]
 
+        if code.is_a?(Array) && code.first == :underline_style
+          @underline_style = %i[none single double curly dotted dashed][code.last]
+          @underline = @underline_style && @underline_style != :none
+          i += 1
+          next
+        end
+
         case code
         when 0
           reset_state
@@ -100,6 +119,11 @@ module Shellfie
           @italic = true
         when 4
           @underline = true
+          @underline_style = :single
+        when 5, 6
+          @blink = true
+        when 8
+          @conceal = true
         when 7
           @reverse = true
         when 9
@@ -111,8 +135,13 @@ module Shellfie
           @italic = false
         when 24
           @underline = false
+          @underline_style = nil
+        when 25
+          @blink = false
         when 27
           @reverse = false
+        when 28
+          @conceal = false
         when 29
           @strikethrough = false
         when 30..37, 90..97
@@ -127,10 +156,17 @@ module Shellfie
           i, @background = AnsiColors.parse_extended_color(codes, i)
         when 49
           @background = nil
+        when 21
+          @underline = true
+          @underline_style = :double
         when 53
           @overline = true
         when 55
           @overline = false
+        when 58
+          i, @underline_color = AnsiColors.parse_extended_color(codes, i)
+        when 59
+          @underline_color = nil
         end
 
         i += 1
@@ -143,9 +179,11 @@ module Shellfie
         next(field.empty? ? 0 : field.to_i) if parts.size == 1
 
         code, mode = parts.values_at(0, 1).map(&:to_i)
-        if [38, 48].include?(code) && mode == 2 && [5, 6].include?(parts.size) && parts.last(3).all? { |item| item.match?(/\A\d+\z/) }
+        if code == 4 && parts.size == 2 && parts.last.match?(/\A[0-5]\z/)
+          [[:underline_style, parts.last.to_i]]
+        elsif [38, 48, 58].include?(code) && mode == 2 && [5, 6].include?(parts.size) && parts.last(3).all? { |item| item.match?(/\A\d+\z/) }
           [code, mode, *parts.last(3).map(&:to_i)]
-        elsif [38, 48].include?(code) && mode == 5 && parts.size == 3 && parts.last.match?(/\A\d+\z/)
+        elsif [38, 48, 58].include?(code) && mode == 5 && parts.size == 3 && parts.last.match?(/\A\d+\z/)
           [code, mode, parts.last.to_i]
         else
           []

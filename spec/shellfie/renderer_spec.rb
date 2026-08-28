@@ -151,6 +151,20 @@ RSpec.describe Shellfie::Renderer do
       end
     end
 
+    it "renders extended ANSI decoration semantics in SVG" do
+      Dir.mktmpdir("shellfie-spec") do |dir|
+        output = File.join(dir, "decorations.svg")
+        value = "\e[4:3;58:2::1:2:3;5mwave\e[0m \e[8msecret\e[0m"
+        config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: value)])
+
+        described_class.new(config).render(output, shadow: false, format: "svg")
+
+        svg = File.read(output)
+        expect(svg).to include('text-decoration-style="wavy"', 'text-decoration-color="#010203"', 'class="blink"')
+        expect(svg).to match(/fill-opacity="0"[^>]*>secret<\/text>/)
+      end
+    end
+
     it "renders a standalone accessible HTML terminal" do
       Dir.mktmpdir("shellfie-spec") do |dir|
         output = File.join(dir, "terminal.html")

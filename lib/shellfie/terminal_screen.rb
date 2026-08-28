@@ -309,7 +309,13 @@ module Shellfie
       codes << 1 if cell.bold
       codes << 2 if cell.dim
       codes << 3 if cell.italic
-      codes << 4 if cell.underline
+      if cell.underline
+        underline_code = { double: 21, curly: "4:3", dotted: "4:4", dashed: "4:5" }.fetch(cell.underline_style, 4)
+        codes << underline_code
+      end
+      codes.concat(color_codes(cell.underline_color, 58)) if cell.underline_color
+      codes << 5 if cell.blink
+      codes << 8 if cell.conceal
       codes << 7 if cell.reverse
       codes << 9 if cell.strikethrough
       codes << 53 if cell.overline
@@ -323,8 +329,8 @@ module Shellfie
     def style_key(cell)
       return nil unless cell
 
-      [cell.foreground, cell.background, cell.bold, cell.italic, cell.underline, cell.dim, cell.reverse,
-       cell.strikethrough, cell.overline]
+      [cell.foreground, cell.background, cell.bold, cell.italic, cell.underline, cell.underline_style,
+       cell.underline_color, cell.dim, cell.reverse, cell.strikethrough, cell.overline, cell.blink, cell.conceal]
     end
 
     def color_codes(color, prefix)

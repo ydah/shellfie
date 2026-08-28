@@ -57,6 +57,7 @@ module Shellfie
                           end
       <<~SVG
         <defs>
+          <style>@keyframes shellfie-blink { 50% { opacity: 0; } } .blink { animation: shellfie-blink 1s step-end infinite; } @media (prefers-reduced-motion: reduce) { .blink { animation: none; } }</style>
           #{gradient_definition}
           #{shadow_definition}
           <clipPath id="content-clip"><rect x="#{content_x(geometry)}" y="#{content_y(geometry)}" width="#{content_width(geometry)}" height="#{content_height(geometry)}"/></clipPath>
@@ -167,13 +168,23 @@ module Shellfie
       foreground = segment.foreground ? theme.color_for(segment.foreground) : theme.colors[:foreground]
       background = segment.background ? theme.color_for(segment.background) : nil
       foreground, background = background || theme.colors[:background], foreground if segment.reverse
-      opacity = segment.dim ? %( fill-opacity="0.6") : ""
+      opacity = if segment.conceal
+                  %( fill-opacity="0")
+                elsif segment.dim
+                  %( fill-opacity="0.6")
+                else
+                  ""
+                end
       decoration = []
       decoration << "underline" if segment.underline
       decoration << "line-through" if segment.strikethrough
       decoration << "overline" if segment.overline
       background_svg = %(<rect x="#{x}" y="#{top}" width="#{width}" height="#{geometry[:scaled_line_height]}" fill="#{escape(background)}"/>) if background
-      text = %(<text x="#{x}" y="#{top + geometry[:scaled_font_size]}" xml:space="preserve" #{font_attributes(geometry[:font_config], geometry[:scaled_font_size], segment)} fill="#{escape(foreground)}"#{opacity}#{%( text-decoration="#{decoration.join(" ")}") unless decoration.empty?}>#{escape(segment.text)}</text>)
+      underline_style = segment.underline_style == :curly ? :wavy : segment.underline_style
+      decoration_style = %( text-decoration-style="#{underline_style}") if underline_style && underline_style != :single
+      decoration_color = %( text-decoration-color="#{escape(theme.color_for(segment.underline_color))}") if segment.underline_color
+      blink = segment.blink ? %( class="blink") : ""
+      text = %(<text x="#{x}" y="#{top + geometry[:scaled_font_size]}" xml:space="preserve" #{font_attributes(geometry[:font_config], geometry[:scaled_font_size], segment)} fill="#{escape(foreground)}"#{opacity}#{blink}#{%( text-decoration="#{decoration.join(" ")}") unless decoration.empty?}#{decoration_style}#{decoration_color}>#{escape(segment.text)}</text>)
       [background_svg, text].compact.join("\n")
     end
 

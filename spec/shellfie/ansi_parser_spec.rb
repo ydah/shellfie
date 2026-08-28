@@ -133,6 +133,16 @@ RSpec.describe Shellfie::AnsiParser do
       expect(segments.first.overline).to be true
     end
 
+    it "parses underline variants, decoration color, blink, and conceal" do
+      segments = parser.parse("\e[4:3;58:2::1:2:3;5;8mhidden\e[24;59;25;28mshown")
+
+      expect(segments.first).to have_attributes(
+        underline: true, underline_style: :curly, underline_color: "#010203", blink: true, conceal: true
+      )
+      expect(segments.last).to have_attributes(underline: false, underline_color: nil, blink: false, conceal: false)
+      expect(parser.parse("\e[21mdouble").first.underline_style).to eq(:double)
+    end
+
     it "applies carriage returns and backspaces" do
       expect(parser.parse("old\rnew").first.text).to eq("new")
       expect(parser.parse("abc\bX").first.text).to eq("abX")
