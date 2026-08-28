@@ -55,6 +55,30 @@ RSpec.describe "animation output support" do
     palette&.cleanup
   end
 
+  it "passes GIF color and WebP quality settings to ImageMagick" do
+    config = Shellfie::Config.new(
+      animation: {
+        gif_colors: 32, webp_lossless: false, webp_quality: 72, webp_method: 5, webp_near_lossless: 80
+      }
+    )
+    theme = Shellfie::ThemeRegistry.build(config)
+    palette = Shellfie::GifPalette.new(config: config, theme: theme)
+    gif = double("gif")
+    allow(palette).to receive(:build_global_palette).and_return(nil)
+    expect(gif).to receive(:dither).with("FloydSteinberg")
+    expect(gif).to receive(:colors).with(32)
+    palette.apply(gif, images: [{ path: "frame.png" }])
+
+    webp = double("webp")
+    expect(webp).to receive(:define).with("webp:lossless=false")
+    expect(webp).to receive(:define).with("webp:method=5")
+    expect(webp).to receive(:define).with("webp:near-lossless=80")
+    expect(webp).to receive(:quality).with(72)
+    Shellfie::GifGenerator.new(config).send(:configure_animation_format, webp, "webp", images: [], palette: nil)
+  ensure
+    palette&.cleanup
+  end
+
   it "prefixes APNG outputs for ImageMagick" do
     expect(Shellfie::ImageMagickCommandBuilder.output_path("out.apng", format: "apng")).to eq("apng:out.apng")
   end

@@ -126,7 +126,22 @@ module Shellfie
       validate_boolean!(@animation[:cursor_blink], "animation.cursor_blink")
       validate_boolean!(@animation[:loop], "animation.loop")
       validate_boolean!(@animation[:dither], "animation.dither")
+      validate_boolean!(@animation[:gif_optimize], "animation.gif_optimize")
+      validate_boolean!(@animation[:webp_lossless], "animation.webp_lossless")
       validate_inclusion!(@animation[:palette], "animation.palette", self.class::VALID_PALETTES)
+      validate_inclusion!(@animation[:apng_prediction], "animation.apng_prediction", self.class::VALID_APNG_PREDICTIONS)
+      validate_positive_integer!(@animation[:gif_colors], "animation.gif_colors")
+      raise ValidationError, "animation.gif_colors must be between 2 and 256" unless @animation[:gif_colors].between?(2, 256)
+      %i[webp_quality webp_near_lossless].each do |key|
+        validate_non_negative_integer!(@animation[key], "animation.#{key}")
+        raise ValidationError, "animation.#{key} must be at most 100" if @animation[key] > 100
+      end
+      validate_non_negative_integer!(@animation[:webp_method], "animation.webp_method")
+      raise ValidationError, "animation.webp_method must be at most 6" if @animation[:webp_method] > 6
+      unless @animation[:loop_count].nil?
+        validate_non_negative_integer!(@animation[:loop_count], "animation.loop_count")
+        raise ValidationError, "animation.loop_count must be at most 65535" if @animation[:loop_count] > 65_535
+      end
       validate_inclusion!(@animation[:scroll_easing], "animation.scroll_easing", self.class::VALID_SCROLL_EASINGS)
       validate_positive_integer!(@animation[:framerate], "animation.framerate")
       validate_positive_number!(@animation[:playback_speed], "animation.playback_speed")

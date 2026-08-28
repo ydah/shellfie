@@ -86,6 +86,11 @@ RSpec.describe Shellfie::Config do
       expect { described_class.new(animation: { typing_jitter: 2.0 }) }.to raise_error(Shellfie::ValidationError, /typing_jitter/)
       expect { described_class.new(animation: { palette: "bad" }) }.to raise_error(Shellfie::ValidationError, /animation.palette/)
       expect { described_class.new(animation: { scroll_easing: "bad" }) }.to raise_error(Shellfie::ValidationError, /scroll_easing/)
+      expect { described_class.new(animation: { gif_colors: 1 }) }.to raise_error(Shellfie::ValidationError, /gif_colors/)
+      expect { described_class.new(animation: { webp_quality: 101 }) }.to raise_error(Shellfie::ValidationError, /webp_quality/)
+      expect { described_class.new(animation: { webp_method: 7 }) }.to raise_error(Shellfie::ValidationError, /webp_method/)
+      expect { described_class.new(animation: { loop_count: 65_536 }) }.to raise_error(Shellfie::ValidationError, /loop_count/)
+      expect { described_class.new(animation: { apng_prediction: "magic" }) }.to raise_error(Shellfie::ValidationError, /apng_prediction/)
     end
 
     it "validates cursor style" do

@@ -21,7 +21,7 @@ module Shellfie
       when "theme"
         apply_theme_palette(convert)
       else
-        convert.colors 256
+        convert.colors color_count
       end
     end
 
@@ -35,7 +35,7 @@ module Shellfie
     def apply_global_palette(convert, images)
       palette_path = build_global_palette(images)
       convert.remap palette_path if palette_path
-      convert.colors 256
+      convert.colors color_count
     end
 
     def apply_theme_palette(convert)
@@ -59,7 +59,7 @@ module Shellfie
     end
 
     def build_theme_palette
-      colors = theme_colors.first(256)
+      colors = theme_colors.first(color_count)
       return nil if colors.empty?
 
       path = palette_path
@@ -86,7 +86,7 @@ module Shellfie
     end
 
     def theme_color_count
-      [[theme_colors.size, 16].max, 256].min
+      [[theme_colors.size, [16, color_count].min].max, color_count].min
     end
 
     def theme_colors
@@ -96,6 +96,10 @@ module Shellfie
         @theme.window_decoration.dig(:shadow, :color),
         @theme.window_decoration[:border]
       ].flatten.compact.uniq
+    end
+
+    def color_count
+      @config.animation[:gif_colors]
     end
   end
 end

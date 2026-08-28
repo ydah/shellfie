@@ -179,6 +179,14 @@ animation:
   loop: true
   palette: global
   dither: true
+  gif_colors: 256
+  gif_optimize: true
+  webp_lossless: true
+  webp_quality: 100
+  webp_method: 4
+  webp_near_lossless: 100
+  apng_prediction: paeth
+  loop_count: 0
   scroll_easing: ease_out
 
 frames:

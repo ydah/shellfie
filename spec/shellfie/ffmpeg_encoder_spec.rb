@@ -69,6 +69,23 @@ RSpec.describe Shellfie::FfmpegEncoder do
     expect(concat.scan(/^file /).size).to eq(2)
   end
 
+  it "passes APNG loop count and prediction settings as argv" do
+    status = instance_double(Process::Status, success?: true)
+    allow(Open3).to receive(:capture3).and_return(["", "", status])
+
+    described_class.encode(
+      [{ path: "/tmp/frame.png", delay: 100 }], "/tmp/out.apng",
+      format: "apng", command: "ffmpeg", framerate: 30, playback_speed: 1.0, loop: false,
+      loop_count: 3, apng_prediction: "mixed"
+    )
+
+    expect(Open3).to have_received(:capture3).with(
+      "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", anything,
+      "-vf", "fps=30,format=rgba", "-fps_mode", "cfr", "-t", "0.1",
+      "-plays", "3", "-pred", "mixed", "-f", "apng", "/tmp/out.apng"
+    )
+  end
+
   it "gives a zero-delay still frame a decodable video duration" do
     status = instance_double(Process::Status, success?: true)
     args = nil

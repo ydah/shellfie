@@ -6,7 +6,8 @@ require_relative "errors"
 
 module Shellfie
   class FfmpegEncoder
-    def self.encode(images, output_path, format:, command:, framerate:, playback_speed:, loop:)
+    def self.encode(images, output_path, format:, command:, framerate:, playback_speed:, loop:, loop_count: nil,
+                    apng_prediction: nil)
       list = Tempfile.new(["shellfie-frames", ".txt"])
       minimum_delay = 1_000.0 / framerate
       images.each do |image|
@@ -27,7 +28,9 @@ module Shellfie
                 %w[-c:v libvpx-vp9 -pix_fmt yuva420p]
               when "apng"
                 filters << "format=rgba"
-                ["-plays", loop ? "0" : "1", "-f", "apng"]
+                options = ["-plays", (loop_count || (loop ? 0 : 1)).to_s]
+                options.concat(["-pred", apng_prediction]) if apng_prediction
+                options.concat(["-f", "apng"])
               else raise RenderError, "Unsupported ffmpeg format: #{format}"
               end
       timing = ["-vf", filters.join(","), "-fps_mode", "cfr", "-t", total_duration.to_s]

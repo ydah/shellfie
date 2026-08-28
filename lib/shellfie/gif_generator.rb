@@ -112,14 +112,16 @@ module Shellfie
           command: DependencyChecker.ffmpeg_path,
           framerate: config.animation[:framerate],
           playback_speed: config.animation[:playback_speed],
-          loop: config.animation[:loop]
+          loop: config.animation[:loop],
+          loop_count: config.animation[:loop_count],
+          apng_prediction: config.animation[:apng_prediction]
         )
       end
 
       palette = GifPalette.new(config: config, theme: theme) if format == "gif"
       ImageMagickCommandBuilder.convert do |convert|
         convert.dispose "none" if format == "gif"
-        convert.loop config.animation[:loop] ? 0 : 1
+        convert.loop animation_loop_count
 
         animation_entries(images).each do |delay, img|
           convert.delay delay
@@ -137,10 +139,17 @@ module Shellfie
       case format
       when "gif"
         palette.apply(convert, images: images)
-        convert.layers "optimize"
+        convert.layers "optimize" if config.animation[:gif_optimize]
       when "webp"
-        convert.define "webp:lossless=true"
+        convert.define "webp:lossless=#{config.animation[:webp_lossless]}"
+        convert.define "webp:method=#{config.animation[:webp_method]}"
+        convert.define "webp:near-lossless=#{config.animation[:webp_near_lossless]}"
+        convert.quality config.animation[:webp_quality]
       end
+    end
+
+    def animation_loop_count
+      config.animation[:loop_count] || (config.animation[:loop] ? 0 : 1)
     end
 
     def cleanup_temp_files(images)
