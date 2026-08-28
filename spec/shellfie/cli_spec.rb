@@ -90,6 +90,24 @@ RSpec.describe Shellfie::CLI do
       end
     end
 
+    it "renders multiple configured session outputs" do
+      session = Shellfie::Session.new(columns: 40, rows: 4)
+      session.record("done", visible: true, status: 0)
+      cli = described_class.new([])
+      cli.instance_variable_set(:@options, { quiet: true })
+
+      Dir.mktmpdir("shellfie-session-output") do |dir|
+        outputs = [
+          { path: File.join(dir, "session.svg"), format: "svg" },
+          { path: File.join(dir, "session.txt"), format: "txt" }
+        ]
+        cli.send(:render_session_outputs, session, outputs, base_dir: dir, theme: "macos", render: {})
+
+        expect(File.read(outputs[0][:path])).to include(">done</text>")
+        expect(File.read(outputs[1][:path])).to eq("done\n")
+      end
+    end
+
     it "prints doctor checks" do
       allow(Shellfie::DependencyChecker).to receive(:doctor).and_return([
                                                                           { name: "Ruby", detail: "3.4.0", ok: true }

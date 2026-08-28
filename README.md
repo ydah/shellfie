@@ -75,6 +75,16 @@ shellfie themes
 shellfie init
 ```
 
+Execute a real terminal session only when requested, save a cassette, and replay it offline:
+
+```bash
+shellfie run examples/session.yml -o session.svg
+shellfie record examples/session.yml -o session.mp4 --cassette session.json
+shellfie replay session.json -o session.gif --animate
+```
+
+Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, `wait`, `expect`, `hide`, `show`, named `capture`, redaction patterns, and multiple `outputs`. `run` uses Ruby's PTY support and is optional; normal `generate` remains deterministic and never executes config content. Cassette replay does not execute the recorded commands.
+
 Common `generate` options:
 
 | Option | Description |

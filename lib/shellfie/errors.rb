@@ -22,4 +22,5 @@ module Shellfie
 
   class DependencyError < Error; end
   class FileSystemError < Error; end
+  class ExecutionError < Error; end
 end

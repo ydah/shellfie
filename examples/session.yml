@@ -1,0 +1,43 @@
+version: 2
+mode: run
+title: "Recorded shell"
+theme: macos
+
+terminal:
+  shell: /bin/sh
+  columns: 80
+  rows: 16
+  cwd: ..
+  env:
+    LANG: C.UTF-8
+    TZ: UTC
+  timeout: 10s
+
+requires:
+  - ruby
+
+steps:
+  - run: ruby -v
+    visibility: hidden
+
+  - type: printf 'hello from shellfie\n'
+    speed: 30cps
+
+  - key: enter
+
+  - wait:
+      screen: hello from shellfie
+      timeout: 5s
+
+  - expect:
+      screen_contains: hello from shellfie
+      exit_status: 0
+
+  - capture: complete
+
+outputs:
+  - path: session.svg
+    format: svg
+
+  - path: session.txt
+    format: txt

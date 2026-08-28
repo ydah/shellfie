@@ -102,6 +102,9 @@ module Shellfie
 
         Commands:
           generate    Generate image from configuration file
+          run         Execute and render a version 2 terminal session
+          record      Run a session and save an offline cassette
+          replay      Render an existing cassette without executing commands
           init        Output sample configuration
           themes      List available themes
           validate    Validate configuration file

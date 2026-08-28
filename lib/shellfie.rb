@@ -18,6 +18,10 @@ module Shellfie
   autoload :Renderer, File.expand_path("shellfie/renderer", __dir__)
   autoload :TerminalScreen, File.expand_path("shellfie/terminal_screen", __dir__)
   autoload :TranscriptRenderer, File.expand_path("shellfie/transcript_renderer", __dir__)
+  autoload :Cassette, File.expand_path("shellfie/cassette", __dir__)
+  autoload :Session, File.expand_path("shellfie/session", __dir__)
+  autoload :SessionConfig, File.expand_path("shellfie/session_config", __dir__)
+  autoload :SessionRunner, File.expand_path("shellfie/session_runner", __dir__)
 
   class << self
     def parse(source)

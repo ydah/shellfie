@@ -4,6 +4,7 @@ require "optparse"
 require_relative "../shellfie"
 require_relative "cli_generate"
 require_relative "cli_info"
+require_relative "cli_run"
 require_relative "dependency_checker"
 require_relative "transcript_renderer"
 
@@ -11,8 +12,9 @@ module Shellfie
   class CLI
     include CLIGenerate
     include CLIInfo
+    include CLIRun
 
-    COMMANDS = %w[generate init themes validate inspect doctor version help].freeze
+    COMMANDS = %w[generate run record replay init themes validate inspect doctor version help].freeze
 
     def initialize(args)
       @args = args.dup
@@ -29,6 +31,12 @@ module Shellfie
         run_generate
       when "init"
         run_init
+      when "run"
+        run_session
+      when "record"
+        run_session(record: true)
+      when "replay"
+        replay_session
       when "themes"
         run_themes
       when "validate"
@@ -70,6 +78,8 @@ module Shellfie
         4
       when FileSystemError
         5
+      when ExecutionError
+        6
       else
         1
       end
