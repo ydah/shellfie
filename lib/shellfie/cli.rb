@@ -69,7 +69,11 @@ module Shellfie
         exit 1
       end
     rescue Shellfie::Error => e
-      warn_error "Error: #{e.message}"
+      if @options[:validation_format] && @options[:validation_format] != "text"
+        emit_validation_report(valid: false, error: e)
+      else
+        warn_error "Error: #{e.message}"
+      end
       exit determine_exit_code(e)
     rescue OptionParser::ParseError => e
       warn_error "Error: #{e.message}"

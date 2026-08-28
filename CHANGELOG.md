@@ -26,6 +26,7 @@
 - Add non-mutating `generate --check` support and expose it through the GitHub Action.
 - Gate release tags against the gem version and publish attested gem artifacts to GitHub Releases.
 - Add bounded `--jobs` batch rendering after collision, dependency, and destination preflight.
+- Add JSON, SARIF, and JUnit reports to `validate` for CI and editor integrations.
 
 ## 0.1.1 - 2026-01-12
 

@@ -97,6 +97,7 @@ shellfie schema 1                                 # use 2 for run sessions
 shellfie completion zsh
 shellfie completion powershell
 shellfie watch terminal.yml -o terminal.png
+shellfie validate terminal.yml --format sarif       # text, json, sarif, junit
 ```
 
 JSON Schemas live in [`schema/`](schema/). Add `# yaml-language-server: $schema=../schema/shellfie-v1.schema.json` to a compose file for editor validation. Use `--manifest manifest.json` during generation to record config/output hashes, Ruby, OS, ImageMagick, ffmpeg, and resolved font fingerprints.

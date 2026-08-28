@@ -326,5 +326,40 @@ RSpec.describe Shellfie::CLI do
           .to output(/"mode": "run".*"steps": 0/m).to_stdout
       end
     end
+
+    it "emits JSON, SARIF, and JUnit validation reports" do
+      Dir.mktmpdir do |dir|
+        valid = File.join(dir, "valid.yml")
+        invalid = File.join(dir, "invalid.yml")
+        File.write(valid, "version: 1\nlines:\n  - output: ok\n")
+        File.write(invalid, "version: 1\nwidnow: {}\nlines:\n  - output: ok\n")
+
+        json = capture_stdout { described_class.new(["validate", valid, "--format", "json"]).run }
+        expect(JSON.parse(json)).to include("valid" => true, "path" => valid)
+
+        sarif = capture_stdout do
+          expect { described_class.new(["validate", invalid, "--format", "sarif"]).run }.to raise_error(SystemExit)
+        end
+        sarif_document = JSON.parse(sarif)
+        expect(sarif_document).to include("version" => "2.1.0")
+        expect(sarif_document.dig("runs", 0, "results", 0, "locations", 0, "physicalLocation", "artifactLocation", "uri"))
+          .to eq(invalid)
+
+        junit = capture_stdout do
+          expect { described_class.new(["validate", invalid, "--format", "junit"]).run }.to raise_error(SystemExit)
+        end
+        expect(junit).to include('<testsuite name="shellfie validate"', "<failure")
+      end
+    end
+  end
+
+  def capture_stdout
+    original = $stdout
+    output = StringIO.new
+    $stdout = output
+    yield
+    output.string
+  ensure
+    $stdout = original
   end
 end
