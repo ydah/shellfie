@@ -13,13 +13,15 @@ module Shellfie
     MAX_COUNT = 10_000
     MAX_CAPTURES = 100
     MAX_PATTERN_LENGTH = 512
+    MAX_INCLUDE_FILES = 100
+    MAX_TOTAL_BYTES = 10 * MAX_BYTES
     ACTIONS = %i[run type key sleep wait expect capture hide show].freeze
     STEP_OPTION_KEYS = {
-      run: %i[visibility timeout async cwd], type: %i[speed], key: %i[count async timeout],
+      run: %i[visibility timeout async cwd], type: %i[speed], key: %i[count async timeout delay],
       sleep: [], wait: %i[timeout], expect: [], capture: [], hide: [], show: []
     }.freeze
     TOP_LEVEL_KEYS = %i[version mode title theme terminal requires steps outputs render redact].freeze
-    TERMINAL_KEYS = %i[shell columns rows cwd env timeout prompt].freeze
+    TERMINAL_KEYS = %i[shell columns rows cwd env env_allowlist timeout total_timeout prompt].freeze
     OUTPUT_KEYS = %i[path format animate scale shadow transparent capture].freeze
     OUTPUT_FORMATS = %w[png gif svg svg-raster webp apng mp4 webm png-sequence html txt json].freeze
     RENDER_KEYS = %i[window font animation headless].freeze
@@ -28,17 +30,70 @@ module Shellfie
 
     def self.parse(path)
       source_path = File.realpath(path)
-      content = YamlSafety.read_file(source_path, max_bytes: MAX_BYTES, label: "Session")
-      raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
-      YamlSafety.validate_tree!(raw)
+      state = { files: 0, bytes: 0 }
+      raw, documents = load_included(source_path, root: File.dirname(source_path), stack: [], state: state)
       new(raw, path: source_path)
     rescue ValidationError => e
-      raise YamlSafety.annotate_validation_error(e, [[source_path, content]])
+      raise YamlSafety.annotate_validation_error(e, documents || [])
     rescue Psych::Exception => e
       raise ParseError, "Invalid session YAML syntax: #{e.message}"
     rescue Errno::ENOENT
       raise ParseError, "Session file not found: #{path}"
     end
+
+    def self.load_included(path, root:, stack:, state:, policy: nil)
+      raise ParseError, "Circular session include: #{(stack + [path]).map { |item| File.basename(item) }.join(' -> ')}" if stack.include?(path)
+
+      content = YamlSafety.read_file(path, max_bytes: MAX_BYTES, label: "Session")
+      state[:files] += 1
+      state[:bytes] += content.bytesize
+      raise ParseError, "Too many session includes (max #{MAX_INCLUDE_FILES})" if state[:files] > MAX_INCLUDE_FILES
+      raise ParseError, "Included sessions are too large in total (max #{MAX_TOTAL_BYTES} bytes)" if state[:bytes] > MAX_TOTAL_BYTES
+
+      raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
+      YamlSafety.validate_tree!(raw)
+      raise ParseError, "Included session must be a YAML mapping: #{path}" unless raw.is_a?(Hash)
+      return [raw, [[path, content]]] unless raw.is_a?(Hash) && raw[:include]
+
+      declared_policy = raw[:include_policy]
+      if raw.key?(:include_policy) && !%w[allow root].include?(declared_policy)
+        raise ParseError, "include_policy must be allow or root"
+      end
+      policy = "root" if policy == "root" || declared_policy == "root"
+      policy ||= declared_policy || "allow"
+
+      merged = {}
+      documents = [[path, content]]
+      Array(raw[:include]).each do |included|
+        raise ParseError, "Included session path must be a string" unless included.is_a?(String)
+
+        included_path = File.realpath(File.expand_path(included, File.dirname(path)))
+        if policy == "root" && included_path != root && !included_path.start_with?("#{root}#{File::SEPARATOR}")
+          raise ParseError, "Included session escapes the session root: #{included}"
+        end
+        value, nested_documents = load_included(included_path, root: root, stack: stack + [path], state: state, policy: policy)
+        merged = merge_included(merged, value)
+        documents.concat(nested_documents)
+      end
+      own = raw.reject { |key, _value| %i[include include_policy].include?(key) }
+      [merge_included(merged, own), documents]
+    rescue Errno::ENOENT
+      raise ParseError, "Included session file not found from #{path}"
+    end
+
+    def self.merge_included(base, overrides)
+      base.merge(overrides) do |key, left, right|
+        if %i[steps requires outputs redact].include?(key)
+          Array(left) + Array(right)
+        elsif left.is_a?(Hash) && right.is_a?(Hash)
+          merge_included(left, right)
+        else
+          right
+        end
+      end
+    end
+
+    private_class_method :load_included, :merge_included
 
     def initialize(raw, path: nil)
       raise ValidationError, "Session configuration must be a YAML mapping" unless raw.is_a?(Hash)
@@ -93,7 +148,9 @@ module Shellfie
         rows: 28,
         cwd: ".",
         env: {},
+        env_allowlist: nil,
         timeout: 30,
+        total_timeout: nil,
         prompt: "$ "
       }
     end
@@ -125,11 +182,22 @@ module Shellfie
       raise ValidationError, "terminal.rows must be at most 200" if terminal[:rows] > 200
       raise ValidationError, "terminal.cwd must be a string" unless terminal[:cwd].is_a?(String)
       raise ValidationError, "terminal.prompt must be a string" unless terminal[:prompt].is_a?(String)
+      raise ValidationError, "terminal.prompt must not be blank" if terminal[:prompt].strip.empty?
       raise ValidationError, "terminal.env must be a mapping" unless terminal[:env].is_a?(Hash)
       unless terminal[:env].all? { |key, value| key.to_s.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/) && (value.nil? || value.is_a?(String)) }
         raise ValidationError, "terminal.env keys must be names and values must be strings or null"
       end
+      raise ValidationError, "terminal.env.PS1 is managed by terminal.prompt" if terminal[:env].keys.any? { |key| key.to_s == "PS1" }
+      unless terminal[:env_allowlist].nil?
+        unless terminal[:env_allowlist].is_a?(Array) && terminal[:env_allowlist].all? { |name| name.is_a?(String) && name.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/) }
+          raise ValidationError, "terminal.env_allowlist must contain environment variable names"
+        end
+        raise ValidationError, "terminal.env_allowlist must not contain duplicates" unless terminal[:env_allowlist].uniq.size == terminal[:env_allowlist].size
+        disallowed = terminal[:env].keys.map(&:to_s) - terminal[:env_allowlist]
+        raise ValidationError, "terminal.env contains variables outside env_allowlist: #{disallowed.join(', ')}" unless disallowed.empty?
+      end
       raise ValidationError, "terminal.timeout must be positive" unless duration(terminal[:timeout]).positive?
+      duration(terminal[:total_timeout]) unless terminal[:total_timeout].nil?
       raise ValidationError, "requires must contain command names" unless requires.all? { |item| item.is_a?(String) && item.match?(/\A[\w.+-]+\z/) }
       raise ValidationError, "Session has too many steps (max 10,000)" if steps.size > 10_000
 
@@ -203,7 +271,8 @@ module Shellfie
       if %i[wait expect].include?(action) && !value.is_a?(Hash) && !value.is_a?(String)
         raise ValidationError, "steps[#{index}].#{action} must be a string or mapping"
       end
-      duration(step[:timeout]) if step[:timeout]
+      duration(step[:timeout]) if step.key?(:timeout)
+      duration(step[:delay]) if step.key?(:delay)
       duration(value) if action == :sleep
       if step.key?(:visibility) && !%w[visible hidden].include?(step[:visibility])
         raise ValidationError, "steps[#{index}].visibility must be visible or hidden"
@@ -235,14 +304,17 @@ module Shellfie
 
     def validate_wait!(value, index)
       condition = symbolize_hash(value)
-      validate_mapping_keys!(condition, %i[screen line stable exit timeout], "steps[#{index}].wait")
-      predicates = condition.keys & %i[screen line stable exit]
+      validate_mapping_keys!(condition, %i[screen line prompt stable exit timeout], "steps[#{index}].wait")
+      predicates = condition.keys & %i[screen line prompt stable exit]
       raise ValidationError, "steps[#{index}].wait must contain one condition" unless predicates.size == 1
 
-      duration(condition[:stable]) if condition[:stable]
-      duration(condition[:timeout]) if condition[:timeout]
+      duration(condition[:stable]) if condition.key?(:stable)
+      duration(condition[:timeout]) if condition.key?(:timeout)
       if condition.key?(:exit) && condition[:exit] != true
         raise ValidationError, "steps[#{index}].wait.exit must be true"
+      end
+      if condition.key?(:prompt) && condition[:prompt] != true
+        raise ValidationError, "steps[#{index}].wait.prompt must be true"
       end
       validate_pattern_size!(condition[:screen] || condition[:line], "steps[#{index}].wait")
       %i[screen line].each do |key|
@@ -254,7 +326,7 @@ module Shellfie
 
     def validate_expect!(value, index)
       condition = symbolize_hash(value)
-      validate_mapping_keys!(condition, %i[screen_contains screen exit_status cursor_row cursor_column golden], "steps[#{index}].expect")
+      validate_mapping_keys!(condition, %i[screen_contains screen line exit_status cursor_row cursor_column golden elapsed_under elapsed_over], "steps[#{index}].expect")
       raise ValidationError, "steps[#{index}].expect must contain a condition" if condition.empty?
       if condition.key?(:exit_status) && (!condition[:exit_status].is_a?(Integer) || !condition[:exit_status].between?(0, 255))
         raise ValidationError, "steps[#{index}].expect.exit_status must be between 0 and 255"
@@ -266,7 +338,8 @@ module Shellfie
         end
       end
       validate_pattern_size!(condition[:screen], "steps[#{index}].expect")
-      %i[screen screen_contains].each do |key|
+      validate_pattern_size!(condition[:line], "steps[#{index}].expect")
+      %i[screen line screen_contains].each do |key|
         if condition.key?(key) && !condition[key].is_a?(String)
           raise ValidationError, "steps[#{index}].expect.#{key} must be a string"
         end
@@ -274,6 +347,7 @@ module Shellfie
       if condition.key?(:golden) && !condition[:golden].is_a?(String)
         raise ValidationError, "steps[#{index}].expect.golden must be a string"
       end
+      %i[elapsed_under elapsed_over].each { |key| duration(condition[key]) if condition.key?(key) }
     end
 
     def validate_mapping_keys!(hash, allowed, context)

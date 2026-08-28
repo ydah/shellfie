@@ -8,7 +8,7 @@ module Shellfie
   class AnimationFrameBuilder
     def initialize(config)
       @config = config
-      @random = Random.new(0)
+      @random = Random.new(config.animation[:seed])
       @scroll_easing = AnimationScrollEasing.new(config)
     end
 

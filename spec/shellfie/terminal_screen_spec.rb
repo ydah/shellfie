@@ -23,10 +23,18 @@ RSpec.describe Shellfie::TerminalScreen do
 
   it "scrolls only inside an active scroll region" do
     screen = described_class.new(columns: 10, rows: 4)
-    screen.feed("top\e[2;4r\e[4;1Hbottom\nnext")
+    screen.feed("top\e[2;4r\e[4;1Hbottom\r\nnext")
 
     expect(screen.lines.first).to eq("top")
     expect(screen.lines.last).to eq("next")
+  end
+
+  it "does not scroll the screen when line feed is below a restricted scroll region" do
+    screen = described_class.new(columns: 4, rows: 5)
+    screen.feed("1\r\n2\r\n3\r\n4\r\n5")
+    screen.feed("\e[2;4r\e[5;1H\nX")
+
+    expect(screen.lines).to eq(%w[1 2 3 4 X])
   end
 
   it "applies cursor, erase, insertion, and deletion controls" do
@@ -40,7 +48,7 @@ RSpec.describe Shellfie::TerminalScreen do
   it "scrolls at the bottom of the screen" do
     screen = described_class.new(columns: 8, rows: 2)
 
-    screen.feed("one\ntwo\nthree")
+    screen.feed("one\r\ntwo\r\nthree")
 
     expect(screen.lines).to eq(%w[two three])
   end
@@ -90,6 +98,24 @@ RSpec.describe Shellfie::TerminalScreen do
 
     expect(screen.to_s).to eq("é 👨‍👩")
     expect(Shellfie::TextMetrics.graphemes(screen.to_s)).to eq(["é", " ", "👨‍👩"])
+  end
+
+  it "joins split Hangul clusters and preserves the column on line feed" do
+    screen = described_class.new(columns: 10, rows: 3)
+    screen.feed("ᄀ").feed("ᅡ")
+    expect(screen.column).to eq(2)
+
+    screen = described_class.new(columns: 10, rows: 3)
+    screen.feed("ab\nX")
+    expect(screen.lines).to eq(["ab", "  X"])
+  end
+
+  it "keeps line insertion and deletion inside the scroll region" do
+    screen = described_class.new(columns: 4, rows: 5)
+    screen.feed("1\r\n2\r\n3\r\n4\r\n5")
+    screen.feed("\e[2;4r\e[2;1H\e[2L")
+
+    expect(screen.lines.last).to eq("5")
   end
 
   it "supports saved cursor positions and display clearing" do

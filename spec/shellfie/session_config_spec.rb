@@ -35,6 +35,12 @@ RSpec.describe Shellfie::SessionConfig do
       described_class.new({ version: 2, terminal: { prompt: 123 }, steps: [] })
     end.to raise_error(Shellfie::ValidationError, /prompt/)
     expect do
+      described_class.new({ version: 2, terminal: { prompt: "" }, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /blank/)
+    expect do
+      described_class.new({ version: 2, terminal: { env: { "PS1" => "custom" } }, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /PS1/)
+    expect do
       described_class.new({ version: 2, steps: [{ wait: { screen: 123 } }] })
     end.to raise_error(Shellfie::ValidationError, /wait\.screen/)
     expect do
@@ -68,6 +74,78 @@ RSpec.describe Shellfie::SessionConfig do
     })
 
     expect(config.steps).to include({ run: "pwd", cwd: "subdir" }, { expect: { golden: "expected.txt" } })
+  end
+
+  it "loads reusable session scenarios with root policy" do
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "setup.yml"), "version: 2\nsteps:\n  - run: echo setup\n")
+      path = File.join(dir, "session.yml")
+      File.write(path, "version: 2\ninclude: setup.yml\ninclude_policy: root\nsteps:\n  - run: echo main\n")
+
+      expect(described_class.parse(path).steps.map { |step| step[:run] }).to eq(["echo setup", "echo main"])
+    end
+  end
+
+  it "rejects included documents that are not mappings" do
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "invalid.yml"), "- not-a-mapping\n")
+      path = File.join(dir, "session.yml")
+      File.write(path, "version: 2\ninclude: invalid.yml\nsteps: []\n")
+
+      expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /must be a YAML mapping/)
+    end
+  end
+
+  it "does not let a nested include relax its root policy" do
+    Dir.mktmpdir do |dir|
+      root = File.join(dir, "root")
+      Dir.mkdir(root)
+      File.write(File.join(dir, "outside.yml"), "version: 2\nsteps: []\n")
+      File.write(File.join(root, "nested.yml"), "version: 2\ninclude: ../outside.yml\ninclude_policy: root\nsteps: []\n")
+      path = File.join(root, "session.yml")
+      File.write(path, "version: 2\ninclude: nested.yml\nsteps: []\n")
+
+      expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /escapes the session root/)
+    end
+  end
+
+  it "rejects falsey include policies" do
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "base.yml"), "version: 2\nsteps: []\n")
+      path = File.join(dir, "session.yml")
+      File.write(path, "version: 2\ninclude: base.yml\ninclude_policy:\nsteps: []\n")
+
+      expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /include_policy/)
+    end
+  end
+
+  it "validates environment allowlists, key delays, and total timeouts" do
+    config = described_class.new({
+      version: 2,
+      terminal: { env: { "CI" => "true" }, env_allowlist: ["CI"], total_timeout: "5s" },
+      steps: [{ key: "x", count: 2, delay: "10ms" }, { wait: { prompt: true } },
+              { expect: { line: "ok", elapsed_under: "5s" } }]
+    })
+    expect(config.terminal[:total_timeout]).to eq("5s")
+
+    expect do
+      described_class.new({ version: 2, terminal: { env: { "TOKEN" => "x" }, env_allowlist: ["CI"] }, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /outside env_allowlist/)
+    expect do
+      described_class.new({ version: 2, steps: [{ wait: { prompt: false } }] })
+    end.to raise_error(Shellfie::ValidationError, /prompt must be true/)
+    expect do
+      described_class.new({ version: 2, terminal: { env_allowlist: false }, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /env_allowlist/)
+    expect do
+      described_class.new({ version: 2, terminal: { env_allowlist: %w[CI CI] }, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /duplicates/)
+    expect do
+      described_class.new({ version: 2, terminal: { total_timeout: false }, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /duration/)
+    expect do
+      described_class.new({ version: 2, steps: [{ key: "x", delay: nil }] })
+    end.to raise_error(Shellfie::ValidationError, /duration/)
   end
 
   it "rejects cyclic aliases, non-symbolizable keys, and unbounded durations" do

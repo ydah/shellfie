@@ -31,6 +31,16 @@ module Shellfie
     end
 
     def run
+      total_timeout = terminal[:total_timeout] && parse_duration(terminal[:total_timeout])
+      return Timeout.timeout(total_timeout, ExecutionError, "Session exceeded total timeout of #{total_timeout}s") { execute_session } if total_timeout
+
+      execute_session
+    ensure
+      stop_pty
+    end
+
+    def execute_session
+      @started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       check_requirements!
       validate_working_directories!
       @session = Session.new(columns: terminal[:columns], rows: terminal[:rows], title: @config.title)
@@ -41,8 +51,6 @@ module Shellfie
         check_reader_error!
       end
       @session
-    ensure
-      stop_pty
     end
 
     private
@@ -53,10 +61,12 @@ module Shellfie
 
     def start_pty
       @master, @slave = PTY.open
+      @prompt_marker = SecureRandom.hex(4)
       env = {
-        "TERM" => "xterm-256color", "LANG" => "C.UTF-8", "TZ" => "UTC", "PS1" => "", "HISTFILE" => "/dev/null",
+        "TERM" => "xterm-256color", "LANG" => "C.UTF-8", "TZ" => "UTC", "HISTFILE" => "/dev/null",
         "PATH" => ENV.fetch("PATH", ""), "HOME" => (@session_home = Dir.mktmpdir("shellfie-home")), "TMPDIR" => Dir.tmpdir
       }.merge(terminal[:env].transform_keys(&:to_s))
+      env["PS1"] = "#{terminal[:prompt]}\e]9;#{@prompt_marker}\a"
       shell = resolve_command(terminal[:shell])
       raise DependencyError, "Shell not found: #{terminal[:shell]}" unless shell
       args = case File.basename(shell)
@@ -69,13 +79,13 @@ module Shellfie
              else %w[-i]
              end
       cwd = File.expand_path(terminal[:cwd], @config.base_dir)
+      @buffer = +""
+      @mutex = Mutex.new
+      @condition = ConditionVariable.new
       @pid = Process.spawn(
         env, shell, *args, chdir: cwd, in: @slave, out: @slave, err: @slave, pgroup: true, unsetenv_others: true
       )
       @slave.close
-      @buffer = +""
-      @mutex = Mutex.new
-      @condition = ConditionVariable.new
       @reader_thread = Thread.new do
         loop do
           append_terminal_chunk(decode_terminal_bytes(@master.readpartial(4096)))
@@ -89,6 +99,7 @@ module Shellfie
       wait_for_quiet(0.1)
       clear_buffer
       @recorded_offset = 0
+      @prompt_wait_offset = 0
     rescue SystemCallError => e
       raise DependencyError, "Unable to start shell #{terminal[:shell]}: #{e.message}"
     end
@@ -222,8 +233,10 @@ module Shellfie
     end
 
     def execute_command(command, step, visible:)
+      flush_pending
       command = "(cd #{Shellwords.escape(step_directory(step[:cwd]))} && #{command})" if step[:cwd]
       start = buffer_size
+      @prompt_wait_offset = start
       @master.write("#{command}\n")
       if step[:async]
         wait_for_quiet(0.03)
@@ -238,6 +251,7 @@ module Shellfie
     end
 
     def type(text, step)
+      flush_pending
       delay = typing_delay(step[:speed])
       start = buffer_size
       TextMetrics.graphemes(text).each do |grapheme|
@@ -251,22 +265,43 @@ module Shellfie
 
     def key(name, step)
       sequence = key_sequence(name)
-      start = buffer_size
       count = Integer(step[:count] || 1)
-      count.times { @master.write(sequence) }
-      if name.downcase == "enter" && !step[:async]
-        text, status = finish_command(start, timeout: step_timeout(step))
-        @recorded_offset = buffer_size
-        @session.record(redact(text), delay: 0.1, visible: @visible, status: status)
-      else
-        wait_for_quiet(0.03)
-        text, @recorded_offset = buffer_snapshot_from(start)
-        @session.record(redact(text), delay: 0.03, visible: @visible)
+      delay = step[:delay] ? parse_duration(step[:delay]) : 0
+      flush_pending
+      if delay.zero?
+        start = buffer_size
+        @prompt_wait_offset = start if name.downcase == "enter"
+        @master.write(sequence * count)
+        if name.downcase == "enter" && !step[:async]
+          text, status = finish_command(start, timeout: step_timeout(step))
+          @recorded_offset = buffer_size
+          @session.record(redact(text), delay: 0.1, visible: @visible, status: status)
+        else
+          wait_for_quiet(0.03)
+          text, @recorded_offset = buffer_snapshot_from(start)
+          @session.record(redact(text), delay: 0.03, visible: @visible)
+        end
+        return
+      end
+
+      count.times do |index|
+        start = buffer_size
+        @prompt_wait_offset = start if name.downcase == "enter"
+        @master.write(sequence)
+        if name.downcase == "enter" && !step[:async] && index == count - 1
+          text, status = finish_command(start, timeout: step_timeout(step))
+          @recorded_offset = buffer_size
+          @session.record(redact(text), delay: 0.1, visible: @visible, status: status)
+        else
+          index < count - 1 ? sleep(delay) : wait_for_quiet(0.03)
+          text, @recorded_offset = buffer_snapshot_from(start)
+          @session.record(redact(text), delay: index < count - 1 ? delay : 0.03, visible: @visible)
+        end
       end
     end
 
     def finish_command(start, timeout:, marker_prefix: "")
-      marker = "__SHELLFIE_DONE_#{SecureRandom.hex(8)}__"
+      marker = "__SF_#{SecureRandom.hex(6)}__"
       marker_command = "#{marker_prefix}printf '\\n#{marker}:%s\\n' \"$?\""
       @master.write("#{marker_command}\n")
       match = wait_for(/#{Regexp.escape(marker)}:(\d+)/, timeout: timeout, offset: start)
@@ -279,11 +314,19 @@ module Shellfie
       condition = value.is_a?(Hash) ? value.transform_keys(&:to_sym) : { screen: value }
       return wait_for_exit(timeout: parse_duration(condition[:timeout] || timeout)) if condition[:exit]
       return wait_for_stable(parse_duration(condition[:stable]), timeout: parse_duration(condition[:timeout] || timeout)) if condition[:stable]
+      if condition[:prompt]
+        marker = Regexp.escape("\e]9;#{@prompt_marker}\a")
+        pattern = /#{marker}(?:\e\[[0-9;?]*[ -\/]*[@-~])*\z/
+        return wait_for(pattern, timeout: parse_duration(condition[:timeout] || timeout), offset: @prompt_wait_offset)
+      end
 
       pattern = condition[:screen] || condition[:line]
       raise ValidationError, "wait requires screen or line" unless pattern
 
-      wait_for(Regexp.new(pattern.to_s), timeout: parse_duration(condition[:timeout] || timeout), screen: true)
+      wait_for(
+        Regexp.new(pattern.to_s), timeout: parse_duration(condition[:timeout] || timeout),
+        screen: condition.key?(:screen), line: condition.key?(:line)
+      )
     rescue RegexpError => e
       raise ValidationError, "Invalid wait pattern: #{e.message}"
     end
@@ -323,6 +366,9 @@ module Shellfie
       if condition[:screen] && !regex_match(Regexp.new(condition[:screen].to_s), current)
         raise ExecutionError, "Expected screen to match #{condition[:screen].inspect}"
       end
+      if condition[:line] && !line_match(Regexp.new(condition[:line]), current)
+        raise ExecutionError, "Expected a line to match #{condition[:line].inspect}"
+      end
       if condition.key?(:exit_status) && @session.exit_status != condition[:exit_status]
         raise ExecutionError, "Expected exit status #{condition[:exit_status]}, got #{@session.exit_status.inspect}"
       end
@@ -337,18 +383,31 @@ module Shellfie
         actual = @session.screen.public_send(coordinate)
         raise ExecutionError, "Expected cursor #{coordinate} #{expected}, got #{actual}" if expected && actual != expected
       end
+      if condition[:elapsed_under] || condition[:elapsed_over]
+        elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - @started_at
+        if condition[:elapsed_under] && elapsed > parse_duration(condition[:elapsed_under])
+          raise ExecutionError, "Expected elapsed time under #{condition[:elapsed_under]}, got #{elapsed.round(3)}s"
+        end
+        if condition[:elapsed_over] && elapsed < parse_duration(condition[:elapsed_over])
+          raise ExecutionError, "Expected elapsed time over #{condition[:elapsed_over]}, got #{elapsed.round(3)}s"
+        end
+      end
     rescue RegexpError => e
       raise ValidationError, "Invalid expect pattern: #{e.message}"
     rescue Errno::ENOENT
       raise FileSystemError, "Text golden not found: #{condition[:golden]}"
     end
 
-    def wait_for(pattern, timeout:, screen: false, offset: 0)
+    def wait_for(pattern, timeout:, screen: false, line: false, offset: 0)
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
       loop do
         check_reader_error!
-        text = screen ? live_screen_text : buffer_from(offset)
-        match = regex_match(pattern, text)
+        text = (screen || line) ? live_screen_text : buffer_from(offset)
+        match = if line
+                  line_match(pattern, text, deadline: deadline)
+                else
+                  regex_match(pattern, text)
+                end
         return match if match
 
         remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -498,19 +557,31 @@ module Shellfie
     end
 
     def redact(text)
-      @redactions.reduce(text.to_s) do |result, pattern|
+      clean = @prompt_marker ? text.to_s.gsub("\e]9;#{@prompt_marker}\a", "") : text.to_s
+      @redactions.reduce(clean) do |result, pattern|
         with_regexp_timeout { result.gsub(pattern, "[REDACTED]") }
       end
     end
 
-    def regex_match(pattern, text)
-      with_regexp_timeout { pattern.match(text) }
+    def regex_match(pattern, text, timeout: REGEXP_TIMEOUT)
+      with_regexp_timeout(timeout) { pattern.match(text) }
     end
 
-    def with_regexp_timeout(&block)
-      Timeout.timeout(REGEXP_TIMEOUT, &block)
+    def line_match(pattern, text, deadline: nil)
+      text.each_line do |line|
+        remaining = deadline && deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        return nil if remaining && !remaining.positive?
+
+        match = regex_match(pattern, line.chomp, timeout: remaining ? [remaining, REGEXP_TIMEOUT].min : REGEXP_TIMEOUT)
+        return match if match
+      end
+      nil
+    end
+
+    def with_regexp_timeout(seconds = REGEXP_TIMEOUT, &block)
+      Timeout.timeout(seconds, &block)
     rescue Timeout::Error
-      raise ExecutionError, "Regular expression exceeded #{REGEXP_TIMEOUT}s"
+      raise ExecutionError, "Regular expression exceeded #{seconds.round(3)}s"
     end
 
     def live_screen_text

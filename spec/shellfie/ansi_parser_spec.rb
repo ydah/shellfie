@@ -14,6 +14,17 @@ RSpec.describe Shellfie::AnsiParser do
   subject(:parser) { described_class.new }
 
   describe "#parse" do
+    it "parses colon-form truecolor without exposing control text" do
+      segments = parser.parse("\e[38:2::255:0:0mX")
+
+      expect(segments.map(&:text).join).to eq("X")
+      expect(segments.last.foreground).to eq("#ff0000")
+    end
+
+    it "ignores malformed colon-form colors" do
+      expect(parser.parse("\e[38:2:255:0mX").last.foreground).to be_nil
+      expect(parser.parse("\e[38:5:1:196mX").last.foreground).to be_nil
+    end
     it "parses plain text without ANSI codes" do
       segments = parser.parse("Hello World")
 

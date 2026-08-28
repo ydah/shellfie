@@ -49,6 +49,13 @@ RSpec.describe Shellfie::CLI do
       expect { cli.run }.to output(/scale must be 1, 2, or 3/).to_stderr.and raise_error(SystemExit)
     end
 
+    it "warns when the deprecated fps option is used" do
+      cli = described_class.new(["generate", "config.yml", "-o", "out.gif", "--fps", "30"])
+      allow(Shellfie::Parser).to receive(:parse).and_raise(Shellfie::ConfigError, "stop")
+
+      expect { cli.run }.to output(/--fps is deprecated/).to_stderr.and raise_error(SystemExit)
+    end
+
     it "keeps explicit WebP output static without frames or --animate" do
       config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "ok")])
       cli = described_class.new([])

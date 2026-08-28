@@ -90,12 +90,15 @@ module Shellfie
       replay = TerminalScreen.new(columns: screen.columns, rows: screen.rows)
       count = characters = 0
       events.each do |event|
-        next unless event[:visible] && !event[:text].to_s.empty?
+        next unless event[:visible]
+
+        text = event[:text].to_s
+        next if text.empty? && !event[:delay].to_f.positive?
 
         count += 1
         raise ResourceLimitError, "Too many session frames (max #{Config::DEFAULTS[:limits][:max_frames]})" if count > Config::DEFAULTS[:limits][:max_frames]
 
-        replay.feed(event[:text])
+        replay.feed(text) unless text.empty?
         snapshot = event[:screen] || replay.render_lines
         characters += snapshot.sum(&:length)
         if characters > Config::DEFAULTS[:limits][:max_characters]

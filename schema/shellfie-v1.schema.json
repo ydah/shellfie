@@ -78,6 +78,7 @@
         "cursor_blink": { "type": "boolean" },
         "loop": { "type": "boolean" },
         "typing_jitter": { "type": "number", "minimum": 0, "maximum": 1 },
+        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "typing_chunk_size": { "type": "integer", "minimum": 1 },
         "output_delay": { "type": "integer", "minimum": 0, "maximum": 86400000 },
         "final_delay": { "type": "integer", "minimum": 0, "maximum": 86400000 },

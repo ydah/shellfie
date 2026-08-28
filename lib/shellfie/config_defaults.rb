@@ -40,6 +40,7 @@ module Shellfie
         cursor_blink: true,
         loop: false,
         typing_jitter: 0.0,
+        seed: 0,
         typing_chunk_size: 1,
         output_delay: 0,
         final_delay: 1_000,

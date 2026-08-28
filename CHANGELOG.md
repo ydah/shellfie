@@ -11,6 +11,8 @@
 - Add JSON Schemas, source locations with typo suggestions, authoring commands, manifests, a GitHub Action, Docker packaging, and project security/contribution metadata.
 - Add v2 inspection, step working directories, text-golden assertions, include-aware watching, exact nested diagnostics, and terminal-edge autowrap handling.
 - Align schema and runtime limits for steps, captures, patterns, environment names, and output formats.
+- Add reusable session includes, environment allowlists, total timeouts, delayed repeated keys, prompt/line waits, elapsed assertions, and explicit animation seeds.
+- Fix colon-form SGR parsing, split grapheme clusters, terminal line-feed semantics, and scroll-region line editing.
 
 ## 0.1.1 - 2026-01-12
 

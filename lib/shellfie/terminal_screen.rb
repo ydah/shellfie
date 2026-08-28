@@ -5,8 +5,8 @@ require_relative "ansi_parser"
 
 module Shellfie
   class TerminalScreen
-    CSI = /\A\e\[([0-9;?]*)([ -\/]*)?([@-~])\z/
-    TOKENS = /\e\].*?(?:\a|\e\\)|\e\[[0-9;?]*[ -\/]*[@-~]|\e[78DEM]|[\r\n\b\t\a]|\X/m
+    CSI = /\A\e\[([0-9;:?]*)([ -\/]*)?([@-~])\z/
+    TOKENS = /\e\].*?(?:\a|\e\\)|\e\[[0-9;:?]*[ -\/]*[@-~]|\e[78DEM]|[\r\n\b\t\a]|\X/m
     CONTINUATION = Object.new.freeze
 
     attr_reader :row, :column, :rows, :columns
@@ -69,13 +69,13 @@ module Shellfie
 
       case token
       when "\r" then @column = 0; @wrap_pending = false
-      when "\n" then newline
+      when "\n" then newline(reset_column: false)
       when "\b" then @column = [@column - 1, 0].max; @wrap_pending = false
       when "\t" then (@tab_width - (@column % @tab_width)).times { write(" ") }
       when "\a" then nil
       when "\e7" then @saved_cursor = [@row, @column]
       when "\e8" then @row, @column = @saved_cursor
-      when "\eD" then newline
+      when "\eD" then newline(reset_column: false)
       when "\eE" then newline
       when "\eM" then reverse_index
       else write(token)
@@ -133,7 +133,7 @@ module Shellfie
       owner_column = @wrap_pending ? @column : @column - 1
       owner_column -= 1 if @cells[@row][owner_column].equal?(CONTINUATION)
       owner = @cells[@row][owner_column]
-      return false unless owner && grapheme_extension?(owner.text, grapheme)
+      return false unless owner && TextMetrics.graphemes(owner.text + grapheme).size == 1
 
       old_width = TextMetrics.grapheme_width(owner.text)
       owner.text << grapheme
@@ -149,33 +149,22 @@ module Shellfie
       true
     end
 
-    def grapheme_extension?(previous, current)
-      codepoint = current.codepoints.first
-      TextMetrics.combining?(codepoint) || codepoint == 0x200d || codepoint == 0xfe0e || codepoint == 0xfe0f ||
-        (0x1f3fb..0x1f3ff).cover?(codepoint) || previous.end_with?("\u200d") ||
-        regional_indicator?(previous.codepoints.last) && regional_indicator?(codepoint)
-    end
-
-    def regional_indicator?(codepoint)
-      codepoint && (0x1f1e6..0x1f1ff).cover?(codepoint)
-    end
-
-    def newline
+    def newline(reset_column: true)
       @wrap_pending = false
       if @row == @scroll_bottom
         @cells.delete_at(@scroll_top)
         @cells.insert(@scroll_bottom, Array.new(@columns))
-        @column = 0
+        @column = 0 if reset_column
+        return
+      end
+
+      if @row == @rows - 1
+        @column = 0 if reset_column
         return
       end
 
       @row += 1
-      @column = 0
-      return if @row < @rows
-
-      @cells.shift
-      @cells << Array.new(@columns)
-      @row = @rows - 1
+      @column = 0 if reset_column
     end
 
     def reverse_index
@@ -261,13 +250,21 @@ module Shellfie
     end
 
     def insert_lines(amount)
-      amount.times { @cells.insert(@row, Array.new(@columns)) }
-      @cells = @cells.first(@rows)
+      return unless @row.between?(@scroll_top, @scroll_bottom)
+
+      [amount, @scroll_bottom - @row + 1].min.times do
+        @cells.insert(@row, Array.new(@columns))
+        @cells.delete_at(@scroll_bottom + 1)
+      end
     end
 
     def delete_lines(amount)
-      @cells.slice!(@row, amount)
-      @cells.concat(Array.new(amount) { Array.new(@columns) }).slice!(@rows..)
+      return unless @row.between?(@scroll_top, @scroll_bottom)
+
+      [amount, @scroll_bottom - @row + 1].min.times do
+        @cells.delete_at(@row)
+        @cells.insert(@scroll_bottom, Array.new(@columns))
+      end
     end
 
     def clear_wide_cell(row, column)
@@ -290,7 +287,7 @@ module Shellfie
       if (start = text.rindex("\e]")) && !text[start..].match?(/\A\e\].*?(?:\a|\e\\)/m)
         return [text[0...start], text[start..]]
       end
-      if (start = text.rindex("\e[")) && text[start..].match?(/\A\e\[[0-9;?]*[ -\/]*\z/)
+      if (start = text.rindex("\e[")) && text[start..].match?(/\A\e\[[0-9;:?]*[ -\/]*\z/)
         return [text[0...start], text[start..]]
       end
       return [text[0...-1], "\e"] if text.end_with?("\e")

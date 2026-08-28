@@ -20,7 +20,7 @@ module Shellfie
   )
 
   class AnsiParser
-    ANSI_REGEX = /\e\[([0-9;]*)m/
+    ANSI_REGEX = /\e\[([0-9;:]*)m/
 
     def initialize(state_mode: :persistent, tab_width: 8)
       @state_mode = state_mode.to_sym
@@ -83,7 +83,7 @@ module Shellfie
     def process_codes(codes_str)
       return reset_state if codes_str.empty?
 
-      codes = codes_str.split(";").map { |code| code.empty? ? 0 : code.to_i }
+      codes = sgr_codes(codes_str)
       i = 0
 
       while i < codes.length
@@ -134,6 +134,22 @@ module Shellfie
         end
 
         i += 1
+      end
+    end
+
+    def sgr_codes(value)
+      value.split(";").flat_map do |field|
+        parts = field.split(":", -1)
+        next(field.empty? ? 0 : field.to_i) if parts.size == 1
+
+        code, mode = parts.values_at(0, 1).map(&:to_i)
+        if [38, 48].include?(code) && mode == 2 && [5, 6].include?(parts.size) && parts.last(3).all? { |item| item.match?(/\A\d+\z/) }
+          [code, mode, *parts.last(3).map(&:to_i)]
+        elsif [38, 48].include?(code) && mode == 5 && parts.size == 3 && parts.last.match?(/\A\d+\z/)
+          [code, mode, parts.last.to_i]
+        else
+          []
+        end
       end
     end
 

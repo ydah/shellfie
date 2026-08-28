@@ -84,7 +84,7 @@ shellfie record examples/session.yml -o session.svg --yaml editable-recording.ym
 shellfie replay session.json -o session.gif --animate
 ```
 
-Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, live-screen/exit/stable-screen `wait`, `expect`, `hide`, `show`, named `capture`, redaction patterns, and multiple `outputs`. A `run` step may set `cwd`; `expect.golden` compares the semantic screen with a UTF-8 text file (including its final newline). Set `async: true` on `run` or `key: enter` before interacting with a long-running or full-screen process, then use `wait` to synchronize. An output can select an intermediate screen with `capture: NAME`. `run` uses Ruby's PTY support and is optional; normal `generate` remains deterministic and never executes config content. Cassette replay does not execute the recorded commands; `record --yaml` also writes an editable version 1 animation.
+Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, live-screen/line/prompt/exit/stable-screen `wait`, `expect`, `hide`, `show`, named `capture`, redaction patterns, reusable `include` scenarios, and multiple `outputs`. A `run` step may set `cwd`; terminal settings can restrict `env_allowlist` and set `total_timeout`; `expect.golden`, `expect.line`, and elapsed bounds provide text assertions. Set `async: true` on `run` or `key: enter` before interacting with a long-running or full-screen process, then use `wait` to synchronize. An output can select an intermediate screen with `capture: NAME`. `run` uses Ruby's PTY support and is optional; normal `generate` remains deterministic and never executes config content. Cassette replay does not execute the recorded commands; `record --yaml` also writes an editable version 1 animation.
 
 Authoring commands:
 
@@ -120,6 +120,7 @@ Common `generate` options:
 | `--format FORMAT` | `png`, `gif`, `svg`, `svg-raster`, `webp`, `apng`, `mp4`, `webm`, `png-sequence`, `html`, `txt`, or `json` |
 | `--typing-rate CPS` | Override typing rate in characters per second |
 | `--framerate FPS` | Set output timing precision |
+| `--seed N` | Set the deterministic animation jitter seed |
 | `--playback-speed FACTOR` | Speed up or slow down the final timeline |
 | `--overflow MODE` | `clip`, `wrap`, or `scroll` |
 | `--no-shadow` | Disable shadow |

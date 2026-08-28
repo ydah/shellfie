@@ -51,6 +51,148 @@ RSpec.describe Shellfie::SessionRunner do
     expect(session.exit_status).to eq(0)
   end
 
+  it "matches line waits and elapsed assertions" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", columns: 80, rows: 10, timeout: 2, total_timeout: 5 },
+        steps: [
+          { type: "printf 'first\\nsecond\\n'", speed: "1000cps" },
+          { key: "enter", async: true },
+          { wait: { line: "^second$", timeout: "2s" } },
+          { wait: { exit: true, timeout: "2s" } },
+          { expect: { line: "\\Afirst\\z", elapsed_under: "5s" } }
+        ]
+      }
+    )
+
+    expect(described_class.new(config).run.screen.to_s).to include("second")
+  end
+
+  it "waits for the configured shell prompt" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", columns: 80, rows: 10, timeout: 2, prompt: "READY> " },
+        steps: [
+          { type: "printf done", speed: "1000cps" },
+          { key: "enter", async: true },
+          { wait: { prompt: true, timeout: "2s" } },
+          { wait: { exit: true, timeout: "2s" } }
+        ]
+      }
+    )
+
+    expect(described_class.new(config).run.screen.to_s).to include("done", "READY>")
+  end
+
+  it "does not confuse prompt-like program output with a prompt" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", timeout: 2, prompt: "$ " },
+        steps: [
+          { type: "printf '$ '; sleep 1", speed: "1000cps" },
+          { key: "enter", async: true },
+          { wait: { prompt: true, timeout: "100ms" } }
+        ]
+      }
+    )
+
+    expect { described_class.new(config).run }.to raise_error(Shellfie::ExecutionError, /Timed out/)
+  end
+
+  it "does not confuse an exported prompt marker with prompt completion" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", timeout: 2 },
+        steps: [
+          { type: "env; sleep 1", speed: "1000cps" },
+          { key: "enter", async: true },
+          { wait: { prompt: true, timeout: "100ms" } }
+        ]
+      }
+    )
+
+    expect { described_class.new(config).run }.to raise_error(Shellfie::ExecutionError, /Timed out/)
+  end
+
+  it "records repeated key delays for offline animation" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", timeout: 2 },
+        steps: [{ key: "enter", count: 3, delay: "20ms", async: true }]
+      }
+    )
+
+    events = described_class.new(config).run.events
+    expect(events.size).to eq(3)
+    expect(events.map { |event| event[:delay] }).to eq([0.02, 0.02, 0.03])
+  end
+
+
+  it "flushes asynchronous output before recording a later key" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", timeout: 2 },
+        steps: [
+          { type: "sleep 0.05; printf LOST", speed: "1000cps" },
+          { key: "enter", async: true },
+          { sleep: "100ms" },
+          { key: "x" },
+          { key: "backspace" },
+          { wait: { exit: true, timeout: "2s" } }
+        ]
+      }
+    )
+
+    expect(described_class.new(config).run.screen.to_s).to include("LOST")
+  end
+
+  it "flushes asynchronous output before later typing" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", timeout: 2 },
+        steps: [
+          { type: "sleep 0.05; printf LOST", speed: "1000cps" },
+          { key: "enter", async: true },
+          { sleep: "100ms" },
+          { type: "x", speed: "1000cps" },
+          { key: "backspace" },
+          { wait: { exit: true, timeout: "2s" } }
+        ]
+      }
+    )
+
+    expect(described_class.new(config).run.screen.to_s).to include("LOST")
+  end
+
+  it "keeps no-echo key delays in offline frames" do
+    session = Shellfie::Session.new(
+      columns: 20, rows: 2,
+      events: [{ text: "", delay: 0.2, visible: true }, { text: "done", delay: 0.03, visible: true }]
+    )
+
+    expect(session.compose_hash["frames"].map { |frame| frame["delay"] }).to eq([200, 30])
+  end
+
+  it "removes its private prompt marker from recorded events" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", timeout: 2 },
+        steps: [{ key: "enter", async: true }, { wait: { prompt: true, timeout: "1s" } }]
+      }
+    )
+
+    recorded = described_class.new(config).run.events.map { |event| event[:text] }.join
+    expect(recorded).not_to include("\e]9;")
+  end
+
   it "encodes modified character and navigation keys" do
     runner = described_class.new(Shellfie::SessionConfig.new({ version: 2, steps: [] }))
 

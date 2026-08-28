@@ -98,7 +98,11 @@ module Shellfie
         opts.on("--framerate FPS", Integer, "Output timing precision in frames per second") do |fps|
           @options[:framerate] = parse_framerate(fps)
         end
-        opts.on("--fps FPS", Integer, "Deprecated alias for --framerate") { |fps| @options[:framerate] = parse_framerate(fps) }
+        opts.on("--fps FPS", Integer, "Deprecated alias for --framerate") do |fps|
+          warn_error "Warning: --fps is deprecated; use --framerate"
+          @options[:framerate] = parse_framerate(fps)
+        end
+        opts.on("--seed N", Integer, "Deterministic animation seed") { |seed| @options[:seed] = parse_seed(seed) }
         opts.on("--playback-speed FACTOR", Float, "Playback speed multiplier") do |speed|
           @options[:playback_speed] = parse_playback_speed(speed)
         end
@@ -186,6 +190,7 @@ module Shellfie
         overrides[:typing_speed] = (1_000.0 / @options[:typing_rate]).round if @options[:typing_rate]
         overrides[:framerate] = @options[:framerate] if @options[:framerate]
         overrides[:playback_speed] = @options[:playback_speed] if @options[:playback_speed]
+        overrides[:seed] = @options[:seed] if @options.key?(:seed)
       end
     end
 
@@ -211,6 +216,13 @@ module Shellfie
       speed = Float(value, exception: false)
       return speed if speed&.positive? && speed <= 100
       raise ValidationError, "playback speed must be greater than 0 and at most 100"
+    end
+
+    def parse_seed(value)
+      seed = Integer(value, exception: false)
+      return seed if seed&.between?(0, 2_147_483_647)
+
+      raise ValidationError, "seed must be between 0 and 2147483647"
     end
 
     def parse_format(value)

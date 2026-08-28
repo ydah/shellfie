@@ -165,6 +165,7 @@ module Shellfie
           --transparent          Transparent background
           --typing-rate CPS      Typing rate in characters per second
           --framerate FPS        Output timing precision
+          --seed N               Deterministic animation jitter seed
           --playback-speed N     Playback speed multiplier
           --fps FPS              Deprecated alias for --framerate
           --overflow MODE        Line overflow mode: clip, wrap, scroll

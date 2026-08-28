@@ -4,6 +4,17 @@ require "spec_helper"
 
 RSpec.describe Shellfie::GifGenerator do
   describe "frame building" do
+    it "uses the configured seed for deterministic jitter" do
+      config = Shellfie::Config.new(
+        animation: { typing_jitter: 0.5, seed: 42, cursor_blink: false, final_delay: 0 },
+        frames: [Shellfie::Frame.new(type: "abc")]
+      )
+
+      first = described_class.new(config).send(:build_animation_frames).map { |frame| frame[:delay] }
+      second = described_class.new(config).send(:build_animation_frames).map { |frame| frame[:delay] }
+      expect(first).to eq(second)
+    end
+
     it "builds a single GIF frame from static lines" do
       config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "done")])
       generator = described_class.new(config)

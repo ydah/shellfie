@@ -110,6 +110,8 @@ module Shellfie
       validate_non_negative_integer!(@animation[:typing_speed], "animation.typing_speed")
       validate_non_negative_integer!(@animation[:command_delay], "animation.command_delay")
       validate_number_range!(@animation[:typing_jitter], "animation.typing_jitter", 0.0, 1.0)
+      validate_non_negative_integer!(@animation[:seed], "animation.seed")
+      raise ValidationError, "animation.seed must be at most 2147483647" if @animation[:seed] > 2_147_483_647
       validate_positive_integer!(@animation[:typing_chunk_size], "animation.typing_chunk_size")
       validate_non_negative_integer!(@animation[:output_delay], "animation.output_delay")
       validate_non_negative_integer!(@animation[:final_delay], "animation.final_delay")

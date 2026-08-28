@@ -5,9 +5,9 @@ require_relative "ansi_line_buffer"
 
 module Shellfie
   module AnsiNormalizer
-    ANSI_REGEX = /\e\[([0-9;]*)m/
+    ANSI_REGEX = /\e\[([0-9;:]*)m/
     OSC_REGEX = /\e\].*?(?:\a|\e\\)/
-    CSI_CONTROL_REGEX = /\e\[[0-9;?]*[A-Za-ln-z]/
+    CSI_CONTROL_REGEX = /\e\[[0-9;:?]*[A-Za-ln-z]/
 
     module_function
 
