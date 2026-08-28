@@ -2,6 +2,7 @@
 
 require "rbconfig"
 require "open3"
+require_relative "font_resolver"
 
 module Shellfie
   class DependencyChecker
@@ -23,7 +24,16 @@ module Shellfie
       def ensure_ffmpeg!
         return if ffmpeg_path
 
-        raise DependencyError, "ffmpeg not found; install ffmpeg to generate MP4 or WebM"
+        raise DependencyError, "ffmpeg not found; install ffmpeg to generate APNG, MP4, or WebM"
+      end
+
+      def ffmpeg_version
+        return unless ffmpeg_path
+
+        output, = Open3.capture3(ffmpeg_path, "-version")
+        output.lines.first&.strip
+      rescue SystemCallError
+        nil
       end
 
       def ensure_imagemagick!
@@ -44,13 +54,14 @@ module Shellfie
 
       def doctor(output_dir: Dir.pwd)
         details = imagemagick_details
+        video_version = ffmpeg_version
         [
           check("Ruby", RUBY_VERSION, Gem::Version.new(RUBY_VERSION) >= Gem::Version.new("3.0.0")),
           check("ImageMagick", details[:version] || "not found", imagemagick_available?),
           check("Image formats", details[:formats].empty? ? "unavailable" : details[:formats].join(", "),
                 (required_formats - details[:formats]).empty?),
           check("Fonts", details[:font_count].to_s, details[:font_count].positive?),
-          check("ffmpeg", ffmpeg_path || "not found", !ffmpeg_path.nil?),
+          check("ffmpeg", video_version || "not found", !video_version.nil?),
           check("Writable output", output_dir, File.writable?(output_dir)),
           check("Encoding", Encoding.default_external.name, true)
         ]
@@ -65,7 +76,7 @@ module Shellfie
         {
           version: version_output.lines.first&.strip,
           formats: required_formats.select { |format| formats_output.match?(/^\s*#{format}\*?\s/im) },
-          font_count: fonts_output.scan(/^\s*Font:/).size
+          font_count: fonts_output.scan(/^\s*Font:/).size + FontResolver::FONT_FILES.values.uniq.count { |path| File.file?(path) }
         }
       rescue SystemCallError
         { version: nil, formats: [], font_count: 0 }
@@ -103,7 +114,7 @@ module Shellfie
       end
 
       def required_formats
-        %w[PNG GIF WEBP APNG SVG]
+        %w[PNG GIF WEBP SVG]
       end
 
       def executable_extensions

@@ -17,7 +17,7 @@ module Shellfie
         ruby: RUBY_DESCRIPTION,
         platform: RbConfig::CONFIG["host_os"],
         imagemagick: DependencyChecker.imagemagick_details[:version],
-        ffmpeg: DependencyChecker.ffmpeg_path,
+        ffmpeg: DependencyChecker.ffmpeg_version,
         fonts: renderer.font_info
       }
     end
