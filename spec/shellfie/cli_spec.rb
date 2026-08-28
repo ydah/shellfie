@@ -223,6 +223,8 @@ RSpec.describe Shellfie::CLI do
     end
 
     it "records metadata without requiring a rendered output" do
+      skip "Live sessions are unavailable on native Windows" if Gem.win_platform?
+
       Dir.mktmpdir do |dir|
         config = Shellfie::SessionConfig.new({ version: 2, steps: [] })
         session = Shellfie::Session.new(columns: 80, rows: 24)
