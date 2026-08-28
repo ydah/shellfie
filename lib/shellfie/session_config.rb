@@ -204,9 +204,14 @@ module Shellfie
       steps.each_with_index { |step, index| validate_step!(step, index) }
       expanded_events = steps.sum do |step|
         action = (step.keys & ACTIONS).first
-        next 0 unless %i[run type key wait].include?(action)
-
-        action == :key && step[:delay] ? Integer(step[:count] || 1) : 1
+        case action
+        when :run
+          step.fetch(:visibility, step[:async] ? "visible" : "hidden") == "visible" ? 1 : 0
+        when :type then 1
+        when :key then step[:delay] ? Integer(step[:count] || 1) : 1
+        when :wait then step[:wait].is_a?(Hash) && (step[:wait][:exit] || step[:wait]["exit"]) ? 1 : 0
+        else 0
+        end
       end
       max_events = Config::DEFAULTS[:limits][:max_frames]
       raise ValidationError, "Session expands to too many events (max #{max_events})" if expanded_events > max_events
