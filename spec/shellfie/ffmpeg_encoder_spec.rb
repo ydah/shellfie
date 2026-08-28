@@ -43,8 +43,29 @@ RSpec.describe Shellfie::FfmpegEncoder do
 
     expect(Open3).to have_received(:capture3).with(
       "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", anything,
-      "-vf", "fps=30", "-fps_mode", "cfr", "-t", "0.5",
+      "-fps_mode", "vfr",
       "-plays", "0", "-final_delay", "0.5", "-f", "apng", "/tmp/out.apng"
     )
+  end
+
+  it "does not duplicate the APNG tail before applying its final delay" do
+    status = instance_double(Process::Status, success?: true)
+    concat = nil
+    allow(Open3).to receive(:capture3) do |*args|
+      concat = File.read(args[args.index("-i") + 1])
+      ["", "", status]
+    end
+
+    described_class.encode(
+      [{ path: "/tmp/frame.png", delay: 750 }],
+      "/tmp/out.apng",
+      format: "apng",
+      command: "ffmpeg",
+      framerate: 30,
+      playback_speed: 1.0,
+      loop: true
+    )
+
+    expect(concat.scan(/^file /).size).to eq(1)
   end
 end
