@@ -7,11 +7,14 @@ module Shellfie
   module AnsiNormalizer
     ANSI_REGEX = /\e\[([0-9;:]*)m/
     OSC_REGEX = /\e\].*?(?:\a|\e\\)/
+    STRING_CONTROL_REGEX = /\e(?:P|_|\^).*?(?:\a|\e\\)/m
+    INCOMPLETE_STRING_CONTROL_REGEX = /\e(?:P|_|\^).*\z/m
     CSI_CONTROL_REGEX = /\e\[[0-9;:?]*[A-Za-ln-z]/
 
     module_function
 
     def normalize(text, tab_width: 8, osc_policy: "ignore")
+      text = text.gsub(STRING_CONTROL_REGEX, "").gsub(INCOMPLETE_STRING_CONTROL_REGEX, "")
       text = TextMetrics.graphemes(text).join
       text = text.gsub(OSC_REGEX) { |sequence| osc_policy == "ignore" || !sequence.start_with?("\e]8;") ? "" : sequence }
       text = apply_line_controls(text, tab_width: tab_width)

@@ -107,6 +107,33 @@ RSpec.describe Shellfie::TerminalScreen do
     expect(screen.to_s).to eq("")
   end
 
+  it "discards split terminal graphics without leaking payload text" do
+    screen = described_class.new(columns: 20, rows: 2)
+
+    screen.feed("before\ePqSIX").feed("EL\e\\after")
+    screen.feed("\e_Gkitty\e\\")
+
+    expect(screen.to_s).to eq("beforeafter")
+  end
+
+  it "bounds incomplete terminal control buffering" do
+    screen = described_class.new(columns: 20, rows: 2)
+    oversized = "x" * (described_class::MAX_PENDING_CONTROL_BYTES + 1)
+
+    screen.feed("safe\ePq#{oversized}").feed("still payload\e").feed("\\done")
+
+    expect(screen.to_s).to eq("safedone")
+  end
+
+  it "bounds incomplete CSI buffering" do
+    screen = described_class.new(columns: 20, rows: 2)
+    oversized = "1" * (described_class::MAX_PENDING_CONTROL_BYTES + 1)
+
+    screen.feed("safe\e[#{oversized}").feed("2").feed("Jdone")
+
+    expect(screen.to_s).to eq("safedone")
+  end
+
   it "joins grapheme extensions split across feed boundaries" do
     screen = described_class.new(columns: 20, rows: 2)
 

@@ -6,7 +6,9 @@ require_relative "ansi_parser"
 module Shellfie
   class TerminalScreen
     CSI = /\A\e\[([0-9;:?]*)([ -\/]*)?([@-~])\z/
-    TOKENS = /\e\].*?(?:\a|\e\\)|\e\[[0-9;:?]*[ -\/]*[@-~]|\e[78DEM]|[\r\n\b\t\a]|\X/m
+    STRING_CONTROL = /\e(?:\]|P|_|\^).*?(?:\a|\e\\)/m
+    TOKENS = /#{STRING_CONTROL}|\e\[[0-9;:?]*[ -\/]*[@-~]|\e[78DEM]|[\r\n\b\t\a]|\X/m
+    MAX_PENDING_CONTROL_BYTES = 1_048_576
     CONTINUATION = Object.new.freeze
 
     attr_reader :row, :column, :rows, :columns
@@ -23,12 +25,17 @@ module Shellfie
       @scroll_bottom = rows - 1
       @primary_state = nil
       @pending_control = +""
+      @discarding_control = nil
+      @discard_control_tail = +""
       @wrap_pending = false
       @ansi_parser = AnsiParser.new
     end
 
     def feed(text)
-      input = @pending_control << text.to_s
+      input = discard_control_prefix(text.to_s)
+      return self if input.empty? && @discarding_control
+
+      input = @pending_control << input
       input, @pending_control = split_incomplete_control(input)
       input.scan(TOKENS).each { |token| process(token) }
       self
@@ -59,7 +66,7 @@ module Shellfie
     private
 
     def process(token)
-      return if token.start_with?("\e]")
+      return if token.match?(/\A\e(?:\]|P|_|\^)/)
       match = CSI.match(token)
       @ansi_parser.parse(token) if match && match[3] == "m"
       if match
@@ -286,15 +293,48 @@ module Shellfie
     end
 
     def split_incomplete_control(text)
-      if (start = text.rindex("\e]")) && !text[start..].match?(/\A\e\].*?(?:\a|\e\\)/m)
-        return [text[0...start], text[start..]]
+      starts = ["\e]", "\eP", "\e_", "\e^"].filter_map { |prefix| text.rindex(prefix) }
+      if (start = starts.max) && !text[start..].match?(/\A#{STRING_CONTROL}/)
+        tail = text[start..]
+        if tail.bytesize > MAX_PENDING_CONTROL_BYTES
+          @discarding_control = :string
+          return [text[0...start], +""]
+        end
+        return [text[0...start], tail]
       end
       if (start = text.rindex("\e[")) && text[start..].match?(/\A\e\[[0-9;:?]*[ -\/]*\z/)
-        return [text[0...start], text[start..]]
+        tail = text[start..]
+        if tail.bytesize > MAX_PENDING_CONTROL_BYTES
+          @discarding_control = :csi
+          return [text[0...start], +""]
+        end
+        return [text[0...start], tail]
       end
       return [text[0...-1], "\e"] if text.end_with?("\e")
 
       [text, +""]
+    end
+
+    def discard_control_prefix(text)
+      return text unless @discarding_control
+
+      text = @discard_control_tail << text
+      @discard_control_tail = +""
+      finish = if @discarding_control == :csi
+                 final = text.index(/[@-~]/)
+                 final && final + 1
+               else
+                 bell = text.index("\a")
+                 st = text.index("\e\\")
+                 [bell && bell + 1, st && st + 2].compact.min
+               end
+      unless finish
+        @discard_control_tail = +"\e" if @discarding_control == :string && text.end_with?("\e")
+        return ""
+      end
+
+      @discarding_control = nil
+      text[finish..].to_s
     end
 
     def visible_rows
