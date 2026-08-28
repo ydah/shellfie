@@ -5,6 +5,7 @@ require_relative "../shellfie"
 require_relative "cli_generate"
 require_relative "cli_info"
 require_relative "dependency_checker"
+require_relative "transcript_renderer"
 
 module Shellfie
   class CLI

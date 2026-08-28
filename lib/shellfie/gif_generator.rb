@@ -6,6 +6,7 @@ require "tmpdir"
 require_relative "animation_frame_builder"
 require_relative "dependency_checker"
 require_relative "format_resolver"
+require_relative "ffmpeg_encoder"
 require_relative "gif_palette"
 require_relative "image_magick_command_builder"
 require_relative "output_writer"
@@ -29,7 +30,7 @@ module Shellfie
       images = []
       chrome_cache = RenderChromeCache.new
       begin
-        frames = build_animation_frames
+        frames = coalesce_frames(build_animation_frames)
         validate_frame_limit!(frames)
         validate_workload!(frames, scale: scale, shadow: shadow)
         warn_frame_count(frames)
@@ -95,6 +96,11 @@ module Shellfie
     end
 
     def combine_to_animation(images, output_path, format:)
+      if %w[mp4 webm].include?(format)
+        DependencyChecker.ensure_ffmpeg!
+        return FfmpegEncoder.encode(images, output_path, format: format, command: DependencyChecker.ffmpeg_path)
+      end
+
       palette = GifPalette.new(config: config, theme: theme) if format == "gif"
       ImageMagickCommandBuilder.convert do |convert|
         convert.dispose "none" if format == "gif"
@@ -145,6 +151,20 @@ module Shellfie
       return if frames.size <= config.limits[:max_render_frames]
 
       raise ResourceLimitError, "Animation would generate #{frames.size} frames (max #{config.limits[:max_render_frames]})"
+    end
+
+    def coalesce_frames(frames)
+      frames.each_with_object([]) do |frame, result|
+        if result.last && frame_key(result.last) == frame_key(frame)
+          result.last[:delay] += frame[:delay]
+        else
+          result << frame.merge(lines: frame[:lines].dup)
+        end
+      end
+    end
+
+    def frame_key(frame)
+      [frame[:lines].map(&:to_h), frame[:window]]
     end
 
     def validate_workload!(frames, scale:, shadow:)

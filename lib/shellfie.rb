@@ -16,6 +16,8 @@ module Shellfie
   autoload :ImageMagickCommandBuilder, File.expand_path("shellfie/image_magick_command_builder", __dir__)
   autoload :RenderChromeCache, File.expand_path("shellfie/render_chrome_cache", __dir__)
   autoload :Renderer, File.expand_path("shellfie/renderer", __dir__)
+  autoload :TerminalScreen, File.expand_path("shellfie/terminal_screen", __dir__)
+  autoload :TranscriptRenderer, File.expand_path("shellfie/transcript_renderer", __dir__)
 
   class << self
     def parse(source)

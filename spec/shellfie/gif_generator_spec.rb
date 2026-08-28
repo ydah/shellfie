@@ -136,5 +136,14 @@ RSpec.describe Shellfie::GifGenerator do
 
       expect(frame_config.window[:scroll_offset]).to eq(0.5)
     end
+
+    it "coalesces identical frames by extending their duration" do
+      generator = described_class.new(Shellfie::Config.new)
+      lines = [Shellfie::Line.new(output: "same")]
+
+      frames = generator.send(:coalesce_frames, [{ lines: lines, delay: 10 }, { lines: lines, delay: 20 }])
+
+      expect(frames).to eq([{ lines: lines, delay: 30 }])
+    end
   end
 end

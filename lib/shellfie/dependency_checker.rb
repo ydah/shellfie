@@ -16,6 +16,16 @@ module Shellfie
         !imagemagick_path.to_s.empty?
       end
 
+      def ffmpeg_path
+        @ffmpeg_path ||= find_executable(%w[ffmpeg], verify_imagemagick: false)
+      end
+
+      def ensure_ffmpeg!
+        return if ffmpeg_path
+
+        raise DependencyError, "ffmpeg not found; install ffmpeg to generate MP4 or WebM"
+      end
+
       def ensure_imagemagick!
         return if imagemagick_available?
 
@@ -40,6 +50,7 @@ module Shellfie
           check("Image formats", details[:formats].empty? ? "unavailable" : details[:formats].join(", "),
                 (required_formats - details[:formats]).empty?),
           check("Fonts", details[:font_count].to_s, details[:font_count].positive?),
+          check("ffmpeg", ffmpeg_path || "not found", !ffmpeg_path.nil?),
           check("Writable output", output_dir, File.writable?(output_dir)),
           check("Encoding", Encoding.default_external.name, true)
         ]
@@ -66,7 +77,7 @@ module Shellfie
         { name: name, detail: detail, ok: ok }
       end
 
-      def find_executable(names)
+      def find_executable(names, verify_imagemagick: true)
         paths = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR)
         extensions = executable_extensions
 
@@ -74,7 +85,9 @@ module Shellfie
           paths.each do |path|
             extensions.each do |extension|
               candidate = File.join(path, "#{name}#{extension}")
-              return candidate if File.file?(candidate) && File.executable?(candidate) && imagemagick_executable?(candidate)
+              next unless File.file?(candidate) && File.executable?(candidate)
+              return candidate unless verify_imagemagick
+              return candidate if imagemagick_executable?(candidate)
             end
           end
         end

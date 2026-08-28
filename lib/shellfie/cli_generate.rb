@@ -5,9 +5,10 @@ require "optparse"
 
 module Shellfie
   module CLIGenerate
-    ANIMATED_FORMATS = %w[gif webp apng].freeze
+    ANIMATED_FORMATS = %w[gif webp apng mp4 webm].freeze
     STATIC_FORMATS = %w[png svg svg-raster webp].freeze
-    SUPPORTED_FORMATS = %w[png gif svg svg-raster webp apng].freeze
+    SEMANTIC_FORMATS = %w[txt json].freeze
+    SUPPORTED_FORMATS = (STATIC_FORMATS + ANIMATED_FORMATS + SEMANTIC_FORMATS).uniq.freeze
 
     private
 
@@ -60,7 +61,7 @@ module Shellfie
         opts.on("--no-shadow", "Disable shadow effect") { @options[:shadow] = false }
         opts.on("--transparent", "Transparent background") { @options[:transparent] = true }
         opts.on("--no-header", "Disable window header (headless mode)") { @options[:headless] = true }
-        opts.on("--format FORMAT", "Output format (png, gif, svg, svg-raster, webp, apng)") { |format| @options[:format] = parse_format(format) }
+        opts.on("--format FORMAT", "Output format (png, gif, svg, svg-raster, webp, apng, mp4, webm, txt, json)") { |format| @options[:format] = parse_format(format) }
         opts.on("--force", "Overwrite existing output files") { @options[:force] = true }
         opts.on("--quiet", "Suppress non-error output") { @options[:quiet] = true }
         opts.on("--verbose", "Print extra progress information") { @options[:verbose] = true }
@@ -69,7 +70,13 @@ module Shellfie
 
     def write_rendered_output(config, output_path, animate:, format:)
       $stdout.binmode if output_path == "-"
-      result = animate ? generate_animation(config, output_path, format) : generate_static_image(config, output_path, format)
+      result = if SEMANTIC_FORMATS.include?(format)
+                 TranscriptRenderer.new(config).render(output_path, format: format, io: output_path == "-" ? $stdout : nil)
+               elsif animate
+                 generate_animation(config, output_path, format)
+               else
+                 generate_static_image(config, output_path, format)
+               end
       puts "Generated: #{result}" unless output_path == "-" || @options[:quiet]
     end
 
@@ -163,7 +170,9 @@ module Shellfie
     end
 
     def validate_output_mode!(format, animate)
-      if animate && ANIMATED_FORMATS.include?(format)
+      if SEMANTIC_FORMATS.include?(format)
+        return
+      elsif animate && ANIMATED_FORMATS.include?(format)
         return
       elsif !animate && STATIC_FORMATS.include?(format)
         return
