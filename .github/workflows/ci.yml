@@ -69,3 +69,25 @@ jobs:
           gem install mini_magick --no-document
           gem install --local shellfie-*.gem --no-document --ignore-dependencies
           shellfie version
+
+  media:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y imagemagick ffmpeg
+      - name: Generate and decode animated formats
+        run: |
+          bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/out.mp4 --force --quiet
+          bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/out.webm --force --quiet
+          bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/out.apng --force --quiet
+          bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/frames --format png-sequence --force --quiet
+          ruby -ropen3 -e 'ARGV.each { |path| output, status = Open3.capture2("ffprobe", "-v", "error", "-select_streams", "v:0", "-count_frames", "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0", path); abort(path + " did not decode as animation") unless status.success? && output.to_i > 1 }' tmp/media/out.mp4 tmp/media/out.webm tmp/media/out.apng
+          ruby -rjson -e 'manifest = JSON.parse(File.read(ARGV.fetch(0))); abort "PNG sequence is not animated" unless manifest.fetch("frames").size > 1' tmp/media/frames/timeline.json
+          bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/media/one.svg --force --quiet
+          bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/media/two.svg --force --quiet
+          cmp tmp/media/one.svg tmp/media/two.svg

@@ -10,6 +10,18 @@ RSpec.describe Shellfie::Parser do
       expect { described_class.parse_string(oversized) }.to raise_error(Shellfie::ParseError, /too large/)
     end
 
+    it "never leaks parser implementation errors for arbitrary bytes" do
+      random = Random.new(12_345)
+
+      100.times do
+        begin
+          described_class.parse_string(random.bytes(random.rand(0..128)))
+        rescue Shellfie::Error
+          nil
+        end
+      end
+    end
+
     it "raises ParseError for invalid YAML" do
       expect { described_class.parse_string("{ invalid: yaml: content }") }.to raise_error(Shellfie::ParseError)
     end

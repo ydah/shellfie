@@ -4,6 +4,13 @@ require "spec_helper"
 require "strscan"
 
 RSpec.describe Shellfie::AnsiParser do
+  it "does not crash on arbitrary terminal bytes" do
+    parser = described_class.new
+    random = Random.new(54_321)
+
+    100.times { parser.parse(random.bytes(random.rand(0..128))) }
+  end
+
   subject(:parser) { described_class.new }
 
   describe "#parse" do
