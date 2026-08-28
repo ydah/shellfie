@@ -26,7 +26,7 @@ module Shellfie
         raw = apply_includes(raw, base_dir, stack: include_stack, root: base_dir) if base_dir
         validate_config(raw)
         build_config(raw)
-      rescue Psych::SyntaxError => e
+      rescue Psych::Exception => e
         raise ParseError, "Invalid YAML syntax: #{e.message}"
       rescue ValidationError => e
         raise e unless source_name

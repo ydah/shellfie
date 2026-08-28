@@ -65,9 +65,13 @@ module Shellfie
     def render_frames(frames, scale:, shadow:, transparent:, chrome_cache:)
       temp_dir = Dir.mktmpdir("shellfie")
       images = []
+      visible_lines = fixed_visible_lines(frames)
 
       frames.each_with_index do |frame, idx|
-        frame_config = create_frame_config(frame[:lines], window_overrides: frame[:window] || {})
+        frame_config = create_frame_config(
+          frame[:lines],
+          window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {})
+        )
         renderer = Renderer.new(frame_config, chrome_cache: chrome_cache)
         output_path = File.join(temp_dir, "frame_#{format("%04d", idx)}.png")
         renderer.render(output_path, scale: scale, shadow: shadow, transparent: transparent)
@@ -96,9 +100,17 @@ module Shellfie
     end
 
     def combine_to_animation(images, output_path, format:)
-      if %w[mp4 webm].include?(format)
+      if %w[mp4 webm apng].include?(format)
         DependencyChecker.ensure_ffmpeg!
-        return FfmpegEncoder.encode(images, output_path, format: format, command: DependencyChecker.ffmpeg_path)
+        return FfmpegEncoder.encode(
+          images,
+          output_path,
+          format: format,
+          command: DependencyChecker.ffmpeg_path,
+          framerate: config.animation[:framerate],
+          playback_speed: config.animation[:playback_speed],
+          loop: config.animation[:loop]
+        )
       end
 
       palette = GifPalette.new(config: config, theme: theme) if format == "gif"
@@ -168,8 +180,13 @@ module Shellfie
     end
 
     def validate_workload!(frames, scale:, shadow:)
-      geometry = @renderer.estimate(scale: scale, shadow: shadow)
-      total_pixels = geometry[:canvas_width] * geometry[:canvas_height] * frames.size
+      visible_lines = fixed_visible_lines(frames)
+      max_pixels = frames.map do |frame|
+        frame_config = create_frame_config(frame[:lines], window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {}))
+        geometry = Renderer.new(frame_config).estimate(scale: scale, shadow: shadow)
+        geometry[:canvas_width] * geometry[:canvas_height]
+      end.max || 0
+      total_pixels = max_pixels * frames.size
       if total_pixels > config.limits[:max_total_pixels]
         raise ResourceLimitError,
               "Animation workload is too large (#{total_pixels} pixels, max #{config.limits[:max_total_pixels]})"
@@ -180,6 +197,10 @@ module Shellfie
 
       raise ResourceLimitError,
             "Animation temporary data is too large (#{estimated_bytes} bytes, max #{config.limits[:max_temp_bytes]})"
+    end
+
+    def fixed_visible_lines(frames)
+      config.window[:visible_lines] || [frames.map { |frame| frame[:lines].size }.max.to_i, 1].max
     end
 
   end

@@ -94,7 +94,11 @@ module Shellfie
     end
 
     def command_pause_frames(current_lines, frame)
-      delay = frame.delay.positive? ? frame.delay : @config.animation[:command_delay]
+      delay = if frame.output
+                @config.animation[:command_delay]
+              else
+                frame.delay.positive? ? frame.delay : @config.animation[:command_delay]
+              end
       return [] unless delay.positive?
       return [{ lines: build_display_lines(current_lines), delay: delay }] unless @config.animation[:cursor_blink]
 
@@ -110,11 +114,11 @@ module Shellfie
       output_delay = @config.animation[:output_delay]
 
       if output_delay.positive?
-        output_lines.each_with_index.each_with_object([]) do |(line, index), frames|
+        frames = output_lines.each_with_index.each_with_object([]) do |(line, index), result|
           previous_count = current_lines.size
           current_lines << { output: line, output_color: frame.output_color }
           delay = @scroll_easing.output_delay(output_delay, index, output_lines.size)
-          frames.concat(
+          result.concat(
             @scroll_easing.transition_frames(
               build_display_lines(current_lines),
               delay: delay,
@@ -122,6 +126,8 @@ module Shellfie
             )
           )
         end
+        frames << { lines: build_display_lines(current_lines), delay: frame.delay } if frame.delay.positive?
+        frames
       else
         output_lines.each { |line| current_lines << { output: line, output_color: frame.output_color } }
         [{ lines: build_display_lines(current_lines), delay: [frame.delay, 1].max }]

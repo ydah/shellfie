@@ -8,6 +8,10 @@ RSpec.describe Shellfie::Parser do
       expect { described_class.parse_string("{ invalid: yaml: content }") }.to raise_error(Shellfie::ParseError)
     end
 
+    it "wraps invalid YAML aliases as ParseError" do
+      expect { described_class.parse_string("lines: *missing\n") }.to raise_error(Shellfie::ParseError, /unknown anchor/i)
+    end
+
     it "raises ValidationError for empty config" do
       expect { described_class.parse_string("") }.to raise_error(Shellfie::ValidationError)
     end

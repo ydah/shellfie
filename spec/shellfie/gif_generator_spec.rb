@@ -145,5 +145,25 @@ RSpec.describe Shellfie::GifGenerator do
 
       expect(frames).to eq([{ lines: lines, delay: 30 }])
     end
+
+    it "applies a combined type/output frame delay only after its output" do
+      config = Shellfie::Config.new(
+        animation: { command_delay: 50, output_delay: 10, final_delay: 0, cursor_blink: false },
+        frames: [Shellfie::Frame.new(prompt: "$ ", type: "x", output: "done", delay: 120)]
+      )
+
+      delays = described_class.new(config).send(:build_animation_frames).map { |frame| frame[:delay] }
+
+      expect(delays.count(120)).to eq(1)
+      expect(delays).to include(50, 10)
+    end
+
+    it "fixes every rendered frame to the final screen height" do
+      config = Shellfie::Config.new(frames: [Shellfie::Frame.new(output: "one\ntwo")])
+      generator = described_class.new(config)
+      frames = generator.send(:build_animation_frames)
+
+      expect(generator.send(:fixed_visible_lines, frames)).to eq(2)
+    end
   end
 end
