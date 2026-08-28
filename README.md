@@ -84,7 +84,7 @@ shellfie record examples/session.yml -o session.svg --yaml editable-recording.ym
 shellfie replay session.json -o session.gif --animate
 ```
 
-Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, live-screen/exit/stable-screen `wait`, `expect`, `hide`, `show`, named `capture`, redaction patterns, and multiple `outputs`. Set `async: true` on `run` or `key: enter` before interacting with a long-running or full-screen process, then use `wait` to synchronize. An output can select an intermediate screen with `capture: NAME`. `run` uses Ruby's PTY support and is optional; normal `generate` remains deterministic and never executes config content. Cassette replay does not execute the recorded commands; `record --yaml` also writes an editable version 1 animation.
+Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, live-screen/exit/stable-screen `wait`, `expect`, `hide`, `show`, named `capture`, redaction patterns, and multiple `outputs`. A `run` step may set `cwd`; `expect.golden` compares the semantic screen with a UTF-8 text file (including its final newline). Set `async: true` on `run` or `key: enter` before interacting with a long-running or full-screen process, then use `wait` to synchronize. An output can select an intermediate screen with `capture: NAME`. `run` uses Ruby's PTY support and is optional; normal `generate` remains deterministic and never executes config content. Cassette replay does not execute the recorded commands; `record --yaml` also writes an editable version 1 animation.
 
 Authoring commands:
 

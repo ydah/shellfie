@@ -16,12 +16,18 @@
       "properties": {
         "shell": { "type": "string" }, "columns": { "type": "integer", "minimum": 1, "maximum": 500 },
         "rows": { "type": "integer", "minimum": 1, "maximum": 200 }, "cwd": { "type": "string" },
-        "env": { "type": "object", "additionalProperties": { "type": ["string", "null"] } },
+        "env": {
+          "type": "object", "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "additionalProperties": { "type": ["string", "null"] }
+        },
         "timeout": { "$ref": "#/$defs/duration" }, "prompt": { "type": "string" }
       }
     },
     "requires": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]+$" } },
-    "steps": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/step" } },
+    "steps": {
+      "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/step" },
+      "contains": { "type": "object", "required": ["capture"] }, "minContains": 0, "maxContains": 100
+    },
     "outputs": { "type": "array", "items": { "$ref": "#/$defs/output" } },
     "render": {
       "type": "object", "additionalProperties": false,
@@ -121,12 +127,18 @@
             "timeout": { "$ref": "#/$defs/duration" },
             "speed": { "type": "string", "maxLength": 32, "pattern": "^0*(?:[1-9][0-9]{0,2}(?:\\.[0-9]+)?|1000(?:\\.0+)?)cps$" },
             "count": { "type": "integer", "minimum": 1, "maximum": 10000 },
-            "async": { "type": "boolean" }
+            "async": { "type": "boolean" }, "cwd": { "type": "string" }
           },
           "oneOf": [
             { "required": ["run"] }, { "required": ["type"] }, { "required": ["key"] },
             { "required": ["sleep"] }, { "required": ["wait"] }, { "required": ["expect"] },
             { "required": ["capture"] }, { "required": ["hide"] }, { "required": ["show"] }
+          ],
+          "dependentRequired": { "visibility": ["run"], "speed": ["type"], "count": ["key"], "cwd": ["run"] },
+          "allOf": [
+            { "if": { "required": ["async"] }, "then": { "anyOf": [{ "required": ["run"] }, { "required": ["key"] }] } },
+            { "if": { "required": ["timeout"] }, "then": { "anyOf": [{ "required": ["run"] }, { "required": ["key"] }, { "required": ["wait"] }] } },
+            { "not": { "required": ["run", "async", "visibility"], "properties": { "async": { "const": true }, "visibility": { "const": "hidden" } } } }
           ]
         }
       ]
@@ -159,7 +171,8 @@
             "screen_contains": { "type": "string" }, "screen": { "type": "string", "maxLength": 512 },
             "exit_status": { "type": "integer", "minimum": 0, "maximum": 255 },
             "cursor_row": { "type": "integer", "minimum": 0 },
-            "cursor_column": { "type": "integer", "minimum": 0 }
+            "cursor_column": { "type": "integer", "minimum": 0 },
+            "golden": { "type": "string" }
           },
           "minProperties": 1
         }

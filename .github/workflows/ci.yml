@@ -57,6 +57,7 @@ jobs:
           bundle exec ruby -Ilib exe/shellfie inspect examples/simple.yml
           bundle exec ruby -Ilib exe/shellfie inspect examples/simple.yml --json
           bundle exec ruby -Ilib exe/shellfie validate examples/session.yml
+          bundle exec ruby -Ilib exe/shellfie inspect examples/session.yml --json
           bundle exec ruby -Ilib exe/shellfie compile examples/session.yml --format json
           bundle exec ruby -rjson -e "JSON.parse(File.read('schema/shellfie-v1.schema.json')); JSON.parse(File.read('schema/shellfie-v2.schema.json'))"
           bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/ci/simple.png --no-shadow --force

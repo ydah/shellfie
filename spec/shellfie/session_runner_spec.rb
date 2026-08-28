@@ -59,6 +59,35 @@ RSpec.describe Shellfie::SessionRunner do
     expect(runner.send(:key_sequence, "ctrl-shift-up")).to eq("\e[1;6A")
   end
 
+  it "honors a deleted PATH during requirement checks" do
+    config = Shellfie::SessionConfig.new({ version: 2, terminal: { env: { "PATH" => nil } }, requires: ["ruby"], steps: [] })
+
+    expect { described_class.new(config).run }.to raise_error(Shellfie::DependencyError, /ruby/)
+  end
+
+  it "runs a command in its step working directory and checks a text golden" do
+    Dir.mktmpdir do |dir|
+      subdir = File.join(dir, "subdir")
+      Dir.mkdir(subdir)
+      config = Shellfie::SessionConfig.new(
+        {
+          version: 2,
+          terminal: { shell: "/bin/sh", cwd: dir, columns: 200, rows: 10, timeout: 2 },
+          steps: [{ run: "pwd", cwd: "subdir", visibility: "visible" }]
+        },
+        path: File.join(dir, "session.yml")
+      )
+
+      expect(described_class.new(config).run.screen.to_s).to include(subdir)
+
+      File.write(File.join(dir, "expected.txt"), "expected\n")
+      runner = described_class.new(config)
+      runner.instance_variable_set(:@session, Shellfie::Session.new(columns: 20, rows: 2))
+      runner.instance_variable_get(:@session).record("expected")
+      expect { runner.send(:expect_condition, { golden: "expected.txt" }) }.not_to raise_error
+    end
+  end
+
   it "preserves command output that has no trailing newline" do
     config = Shellfie::SessionConfig.new(
       {

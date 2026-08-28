@@ -26,6 +26,9 @@ RSpec.describe "configuration schemas" do
     expect(v1.valid?({ "animation" => { "final_delay" => 86_400_001 }, "lines" => [{ "output" => "x" }] })).to be false
     expect(v1.valid?({ "frames" => [{ "output" => "x", "delay" => 86_400_001 }] })).to be false
     expect(v1.valid?({ "frames" => [{ "prompt" => "$ ", "delay" => 1 }] })).to be false
+    expect(v1.valid?({ "color_scheme" => "not-real", "lines" => [{ "output" => "x" }] })).to be false
+    expect(v1.valid?({ "lines" => Array.new(10_001) { { "output" => "x" } } })).to be false
+    expect(v1.valid?({ "frames" => Array.new(501) { { "output" => "x" } } })).to be false
     expect(v2.valid?({ "version" => 2, "steps" => [{ "run" => "x", "sleep" => "1s", "typo" => true }] })).to be false
     expect(v2.valid?({ "version" => 2, "steps" => [], "render" => { "window" => { "width" => "nope" } } })).to be false
     expect(v2.valid?({ "version" => 2, "steps" => [], "render" => { "window" => { "width" => 120, "padding" => 100 } } })).to be false
@@ -34,6 +37,11 @@ RSpec.describe "configuration schemas" do
     expect(v2.valid?({ "version" => 2, "steps" => [{ "sleep" => "86401s" }] })).to be false
     expect(v2.valid?({ "version" => 2, "steps" => [{ "type" => "x", "speed" => "1000.1cps" }] })).to be false
     expect(v2.valid?({ "version" => 2, "steps" => [{ "wait" => "x" * 513 }] })).to be false
+    expect(v2.valid?({ "version" => 2, "steps" => [{ "type" => "x", "async" => true }] })).to be false
+    expect(v2.valid?({ "version" => 2, "terminal" => { "env" => { "BAD=NAME" => "x" } }, "steps" => [] })).to be false
+    expect(v2.valid?({ "version" => 2, "steps" => [{ "run" => "x", "async" => true, "visibility" => "hidden" }] })).to be false
+    expect(v2.valid?({ "version" => 2, "steps" => Array.new(101) { |index| { "capture" => "c#{index}" } } })).to be false
+    expect(v2.valid?({ "version" => 2, "steps" => [], "outputs" => [{ "path" => "x", "format" => "PNG" }] })).to be false
   end
 
   it "accepts runtime boundary values" do
@@ -47,7 +55,7 @@ RSpec.describe "configuration schemas" do
                        "steps" => [
                          { "sleep" => "86400s" },
                          { "type" => "x", "speed" => "1000.0cps" },
-                         { "wait" => "x" * 512 }
+                         { "wait" => "😀" * 512 }
                        ],
                        "render" => {
                          "window" => { "width" => 120, "padding" => 40 },

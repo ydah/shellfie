@@ -99,18 +99,34 @@ module Shellfie
       raise ConfigError, "Input and -o output are required" unless input && options[:output]
       raise ValidationError, "interval must be positive" unless options[:interval].positive?
 
+      watched = [File.realpath(input)]
       previous = nil
-      # ponytail: polls the root config only; add filesystem events and include tracking if large projects need them.
       loop do
-        modified = File.mtime(input)
-        if modified != previous
-          CLI.new(["generate", input, "-o", options[:output], "--force"]).run
-          previous = modified
+        current = watch_snapshot(watched)
+        if current != previous
+          begin
+            watched = Parser.parse(input).source_paths
+            CLI.new(["generate", input, "-o", options[:output], "--force"]).run
+          rescue SystemExit
+            nil
+          rescue Shellfie::Error => e
+            warn_error "Error: #{e.message}"
+          end
+          previous = watch_snapshot(watched)
         end
         sleep options[:interval]
       end
     rescue Interrupt
       puts "Stopped"
+    end
+
+    def watch_snapshot(paths)
+      paths.to_h do |path|
+        modified = File.mtime(path)
+        [path, modified]
+      rescue SystemCallError
+        [path, nil]
+      end
     end
 
     def templates

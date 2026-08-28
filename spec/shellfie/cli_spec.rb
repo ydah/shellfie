@@ -230,6 +230,7 @@ RSpec.describe Shellfie::CLI do
     end
 
     it "inspects a config" do
+      allow_any_instance_of(described_class).to receive(:configuration_version).and_return(1)
       allow(Shellfie).to receive(:inspect_config).and_return(
         config: { version: 1, title: "Test", lines: [{}], frames: [] },
         theme: "macos",
@@ -238,6 +239,17 @@ RSpec.describe Shellfie::CLI do
       cli = described_class.new(["inspect", "config.yml"])
 
       expect { cli.run }.to output(/Estimated size: 600x200/).to_stdout
+    end
+
+
+    it "inspects a version 2 session" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "session.yml")
+        File.write(path, "version: 2\nterminal:\n  columns: 90\n  rows: 12\nsteps: []\n")
+
+        expect { described_class.new(["inspect", "--json", path]).run }
+          .to output(/"mode": "run".*"steps": 0/m).to_stdout
+      end
     end
   end
 end

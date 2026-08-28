@@ -53,6 +53,17 @@ RSpec.describe Shellfie::TerminalScreen do
     expect(screen.to_s).to eq("界X")
   end
 
+  it "defers autowrap until the next printable character" do
+    screen = described_class.new(columns: 5, rows: 2)
+
+    screen.feed("abcde\rX")
+    expect(screen.lines).to eq(["Xbcde"])
+
+    screen = described_class.new(columns: 5, rows: 2)
+    screen.feed("abcdeX")
+    expect(screen.lines).to eq(%w[abcde X])
+  end
+
   it "clears both cells when erasing from inside a wide grapheme" do
     screen = described_class.new(columns: 10, rows: 2)
 

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "tmpdir"
 
 RSpec.describe Shellfie::SessionConfig do
   it "validates and normalizes version 2 sessions" do
@@ -22,6 +23,23 @@ RSpec.describe Shellfie::SessionConfig do
     expect do
       described_class.new({ version: 2, requires: ["ruby; rm"], steps: [{ run: "x", type: "y" }] })
     end.to raise_error(Shellfie::ValidationError)
+
+    expect do
+      described_class.new({ version: 2, steps: [{ type: "x", async: true }] })
+    end.to raise_error(Shellfie::ValidationError, /async/)
+
+    expect do
+      described_class.new({ version: 2, title: 123, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /title/)
+    expect do
+      described_class.new({ version: 2, terminal: { prompt: 123 }, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /prompt/)
+    expect do
+      described_class.new({ version: 2, steps: [{ wait: { screen: 123 } }] })
+    end.to raise_error(Shellfie::ValidationError, /wait\.screen/)
+    expect do
+      described_class.new({ version: 2, steps: [{ expect: { screen_contains: 123 } }] })
+    end.to raise_error(Shellfie::ValidationError, /expect\.screen_contains/)
   end
 
   it "validates waits, asynchronous steps, captures, and terminal bounds" do
@@ -43,6 +61,15 @@ RSpec.describe Shellfie::SessionConfig do
     expect(config.outputs.first[:capture]).to eq("ready")
   end
 
+  it "accepts step working directories and text goldens" do
+    config = described_class.new({
+      version: 2,
+      steps: [{ run: "pwd", cwd: "subdir" }, { expect: { golden: "expected.txt" } }]
+    })
+
+    expect(config.steps).to include({ run: "pwd", cwd: "subdir" }, { expect: { golden: "expected.txt" } })
+  end
+
   it "rejects cyclic aliases, non-symbolizable keys, and unbounded durations" do
     Dir.mktmpdir do |dir|
       path = File.join(dir, "session.yml")
@@ -56,5 +83,16 @@ RSpec.describe Shellfie::SessionConfig do
     expect do
       described_class.new({ version: 2, steps: [{ sleep: "#{"9" * 1_000}s" }] })
     end.to raise_error(Shellfie::ValidationError, /finite/)
+  end
+
+
+  it "reports exact source locations" do
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "session.yml")
+      File.write(path, "version: 2\nterminal:\n  columns: nope\nsteps: []\n")
+
+      expect { described_class.parse(path) }
+        .to raise_error(Shellfie::ValidationError, /session\.yml:3:3: terminal\.columns/)
+    end
   end
 end

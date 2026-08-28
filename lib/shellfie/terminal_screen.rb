@@ -23,6 +23,7 @@ module Shellfie
       @scroll_bottom = rows - 1
       @primary_state = nil
       @pending_control = +""
+      @wrap_pending = false
       @ansi_parser = AnsiParser.new
     end
 
@@ -61,12 +62,15 @@ module Shellfie
       return if token.start_with?("\e]")
       match = CSI.match(token)
       @ansi_parser.parse(token) if match && match[3] == "m"
-      return process_csi(match[1], match[3]) if match
+      if match
+        @wrap_pending = false unless match[3] == "m"
+        return process_csi(match[1], match[3])
+      end
 
       case token
-      when "\r" then @column = 0
+      when "\r" then @column = 0; @wrap_pending = false
       when "\n" then newline
-      when "\b" then @column = [@column - 1, 0].max
+      when "\b" then @column = [@column - 1, 0].max; @wrap_pending = false
       when "\t" then (@tab_width - (@column % @tab_width)).times { write(" ") }
       when "\a" then nil
       when "\e7" then @saved_cursor = [@row, @column]
@@ -110,19 +114,23 @@ module Shellfie
 
       width = TextMetrics.grapheme_width(grapheme)
       return if width.zero?
+      newline if @wrap_pending
       newline if @column + width > @columns
 
       clear_wide_cell(@row, @column)
       @cells[@row][@column] = @ansi_parser.parse(grapheme).first
       @cells[@row][@column + 1] = CONTINUATION if width == 2 && @column + 1 < @columns
       @column += width
-      newline if @column >= @columns
+      if @column >= @columns
+        @column = @columns - 1
+        @wrap_pending = true
+      end
     end
 
     def extend_previous_grapheme(grapheme)
       return false if @column.zero?
 
-      owner_column = @column - 1
+      owner_column = @wrap_pending ? @column : @column - 1
       owner_column -= 1 if @cells[@row][owner_column].equal?(CONTINUATION)
       owner = @cells[@row][owner_column]
       return false unless owner && grapheme_extension?(owner.text, grapheme)
@@ -133,6 +141,10 @@ module Shellfie
       if old_width == 1 && new_width == 2 && owner_column + 1 < @columns
         @cells[@row][owner_column + 1] = CONTINUATION
         @column += 1
+        if @column >= @columns
+          @column = @columns - 1
+          @wrap_pending = true
+        end
       end
       true
     end
@@ -149,6 +161,7 @@ module Shellfie
     end
 
     def newline
+      @wrap_pending = false
       if @row == @scroll_bottom
         @cells.delete_at(@scroll_top)
         @cells.insert(@scroll_bottom, Array.new(@columns))
@@ -188,9 +201,10 @@ module Shellfie
     def enter_alternate_screen
       return if @primary_state
 
-      @primary_state = [@cells, @row, @column, @saved_cursor, @scroll_top, @scroll_bottom]
+      @primary_state = [@cells, @row, @column, @saved_cursor, @scroll_top, @scroll_bottom, @wrap_pending]
       @cells = Array.new(@rows) { Array.new(@columns) }
       @row = @column = @scroll_top = 0
+      @wrap_pending = false
       @scroll_bottom = @rows - 1
       @saved_cursor = [0, 0]
     end
@@ -198,7 +212,7 @@ module Shellfie
     def leave_alternate_screen
       return unless @primary_state
 
-      @cells, @row, @column, @saved_cursor, @scroll_top, @scroll_bottom = @primary_state
+      @cells, @row, @column, @saved_cursor, @scroll_top, @scroll_bottom, @wrap_pending = @primary_state
       @primary_state = nil
     end
 

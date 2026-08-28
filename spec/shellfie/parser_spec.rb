@@ -176,6 +176,18 @@ RSpec.describe Shellfie::Parser do
       end
     end
 
+    it "reports nested source lines and included source files" do
+      Dir.mktmpdir do |dir|
+        included = File.join(dir, "included.yml")
+        File.write(included, "window:\n  width: 1\n")
+        path = File.join(dir, "root.yml")
+        File.write(path, "include: included.yml\nlines:\n  - output: ok\n")
+
+        expect { described_class.parse(path) }
+          .to raise_error(Shellfie::ValidationError, /included\.yml:2:3: window\.width/)
+      end
+    end
+
     it "can restrict includes to the root configuration directory" do
       Dir.mktmpdir do |dir|
         root = File.join(dir, "root")

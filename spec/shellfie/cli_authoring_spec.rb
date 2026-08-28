@@ -22,6 +22,25 @@ RSpec.describe Shellfie::CLI do
     expect { described_class.new(["completion", "bash"]).run }.to output(/complete.*shellfie/).to_stdout
   end
 
+  it "watches included configuration files" do
+    Dir.mktmpdir do |dir|
+      included = File.join(dir, "included.yml")
+      input = File.join(dir, "root.yml")
+      File.write(included, "title: First\n")
+      File.write(input, "include: included.yml\nlines:\n  - output: ok\n")
+      cli = described_class.new(["watch", input, "-o", File.join(dir, "out.svg"), "--interval", "0.01"])
+      generator = instance_double(described_class, run: nil)
+      expect(described_class).to receive(:new).twice.and_return(generator)
+      sleeps = 0
+      allow(cli).to receive(:sleep) do
+        sleeps += 1
+        sleeps == 1 ? File.write(included, "title: Second\n") : raise(Interrupt)
+      end
+
+      expect { cli.run }.to output(/Stopped/).to_stdout
+    end
+  end
+
   def capture_stdout
     original = $stdout
     output = StringIO.new

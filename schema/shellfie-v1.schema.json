@@ -10,7 +10,7 @@
     "include_policy": { "enum": ["allow", "root"] },
     "theme": { "enum": ["macos", "ubuntu", "windows", "custom"] },
     "window_theme": { "enum": ["macos", "ubuntu", "windows"] },
-    "color_scheme": { "type": ["string", "null"] },
+    "color_scheme": { "enum": ["dracula", "one_dark", "solarized_dark", "catppuccin_mocha", null] },
     "colors": {
       "type": "object",
       "propertyNames": { "enum": ["background", "foreground", "title_bar", "title_text", "title_bar_border", "border", "selection", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "bright_black", "bright_red", "bright_green", "bright_yellow", "bright_blue", "bright_magenta", "bright_cyan", "bright_white"] },
@@ -105,8 +105,8 @@
         "max_temp_bytes": { "type": "integer", "minimum": 1, "maximum": 8000000000 }
       }
     },
-    "lines": { "type": "array", "items": { "$ref": "#/$defs/line" } },
-    "frames": { "type": "array", "items": { "$ref": "#/$defs/frame" } }
+    "lines": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/line" } },
+    "frames": { "type": "array", "maxItems": 500, "items": { "$ref": "#/$defs/frame" } }
   },
   "anyOf": [{ "required": ["lines"] }, { "required": ["frames"] }],
   "$defs": {

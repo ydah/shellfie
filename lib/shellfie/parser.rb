@@ -20,7 +20,7 @@ module Shellfie
         return parse_string($stdin.read(MAX_INCLUDE_BYTES + 1), base_dir: Dir.pwd) if path == "-"
         source_path = File.realpath(path)
         content = read_config(source_path)
-        state = { files: 1, bytes: content.bytesize, cache: {} }
+        state = { files: 1, bytes: content.bytesize, cache: {}, sources: {} }
         parse_string(content, base_dir: File.dirname(source_path), include_stack: [source_path], source_name: source_path,
                               include_state: state)
       rescue Errno::ENOENT
@@ -33,7 +33,7 @@ module Shellfie
         raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
         YamlSafety.validate_tree!(raw)
         if base_dir
-          include_state ||= { files: 1, bytes: content.bytesize, cache: {} }
+          include_state ||= { files: 1, bytes: content.bytesize, cache: {}, sources: {} }
           raw = apply_includes(raw, base_dir, stack: include_stack, root: base_dir, state: include_state)
         end
         validate_config(raw)
@@ -44,10 +44,8 @@ module Shellfie
       rescue ValidationError => e
         raise e unless source_name
 
-        key = e.message[/key\(s\):\s*([A-Za-z_][A-Za-z0-9_]*)/, 1]
-        line = key && content.lines.index { |source_line| source_line.match?(/^\s*#{Regexp.escape(key)}\s*:/) }
-        location = line ? "#{source_name}:#{line + 1}" : source_name
-        raise ValidationError, "#{location}: #{e.message}"
+        documents = [[source_name, content]] + include_state.fetch(:sources, {}).to_a.reverse
+        raise YamlSafety.annotate_validation_error(e, documents)
       end
 
       private
@@ -102,6 +100,7 @@ module Shellfie
           included_raw = state[:cache][include_file]
           unless included_raw
             included_content = read_config(include_file)
+            state[:sources][include_file] = included_content
             state[:bytes] += included_content.bytesize
             if state[:bytes] > MAX_TOTAL_INCLUDE_BYTES
               raise ParseError, "Included YAML is too large in total (max #{MAX_TOTAL_INCLUDE_BYTES} bytes)"

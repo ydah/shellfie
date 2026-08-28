@@ -77,6 +77,26 @@ module Shellfie
       input_file = @args.shift
       raise ConfigError, "Input file is required" unless input_file
 
+      if configuration_version(input_file) == 2
+        session = SessionConfig.parse(input_file)
+        info = {
+          config: session.to_h,
+          mode: session.mode,
+          terminal: session.terminal,
+          steps: session.steps.size,
+          outputs: session.outputs
+        }
+        return puts(JSON.pretty_generate(info)) if json
+
+        puts "Session:"
+        puts "  Version: 2"
+        puts "  Mode: #{session.mode}"
+        puts "  Terminal: #{session.terminal[:columns]}x#{session.terminal[:rows]} (#{session.terminal[:shell]})"
+        puts "  Steps: #{session.steps.size}"
+        puts "  Outputs: #{session.outputs.size}"
+        return
+      end
+
       info = Shellfie.inspect_config(input_file)
       return puts(JSON.pretty_generate(info)) if json
       puts "Config:"

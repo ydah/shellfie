@@ -12,8 +12,12 @@ module Shellfie
     MAX_DURATION = 86_400
     MAX_COUNT = 10_000
     MAX_CAPTURES = 100
-    MAX_PATTERN_BYTES = 512
+    MAX_PATTERN_LENGTH = 512
     ACTIONS = %i[run type key sleep wait expect capture hide show].freeze
+    STEP_OPTION_KEYS = {
+      run: %i[visibility timeout async cwd], type: %i[speed], key: %i[count async timeout],
+      sleep: [], wait: %i[timeout], expect: [], capture: [], hide: [], show: []
+    }.freeze
     TOP_LEVEL_KEYS = %i[version mode title theme terminal requires steps outputs render redact].freeze
     TERMINAL_KEYS = %i[shell columns rows cwd env timeout prompt].freeze
     OUTPUT_KEYS = %i[path format animate scale shadow transparent capture].freeze
@@ -24,8 +28,14 @@ module Shellfie
 
     def self.parse(path)
       source_path = File.realpath(path)
-      raw = YamlSafety.load_file(source_path, max_bytes: MAX_BYTES, label: "Session")
+      content = YamlSafety.read_file(source_path, max_bytes: MAX_BYTES, label: "Session")
+      raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
+      YamlSafety.validate_tree!(raw)
       new(raw, path: source_path)
+    rescue ValidationError => e
+      raise YamlSafety.annotate_validation_error(e, [[source_path, content]])
+    rescue Psych::Exception => e
+      raise ParseError, "Invalid session YAML syntax: #{e.message}"
     rescue Errno::ENOENT
       raise ParseError, "Session file not found: #{path}"
     end
@@ -37,6 +47,7 @@ module Shellfie
       raise ValidationError, "Unknown session key(s): #{unknown.join(", ")}" unless unknown.empty?
       raise ValidationError, "Session config version must be 2" unless raw[:version] == 2
       raise ValidationError, "Session config must contain steps" unless raw.key?(:steps)
+      raise ValidationError, "Session title must be a string" if raw.key?(:title) && !raw[:title].is_a?(String)
 
       @path = path
       @mode = (raw[:mode] || "run").to_s
@@ -113,6 +124,7 @@ module Shellfie
       raise ValidationError, "terminal.columns must be at most 500" if terminal[:columns] > 500
       raise ValidationError, "terminal.rows must be at most 200" if terminal[:rows] > 200
       raise ValidationError, "terminal.cwd must be a string" unless terminal[:cwd].is_a?(String)
+      raise ValidationError, "terminal.prompt must be a string" unless terminal[:prompt].is_a?(String)
       raise ValidationError, "terminal.env must be a mapping" unless terminal[:env].is_a?(Hash)
       unless terminal[:env].all? { |key, value| key.to_s.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/) && (value.nil? || value.is_a?(String)) }
         raise ValidationError, "terminal.env keys must be names and values must be strings or null"
@@ -134,7 +146,7 @@ module Shellfie
         if output[:capture] && !capture_names.include?(output[:capture])
           raise ValidationError, "outputs[#{index}] references unknown capture: #{output[:capture]}"
         end
-        if output[:format] && !OUTPUT_FORMATS.include?(output[:format].to_s.downcase)
+        if output[:format] && !OUTPUT_FORMATS.include?(output[:format].to_s)
           raise ValidationError, "outputs[#{index}].format is unsupported"
         end
         if output[:scale] && (!output[:scale].is_a?(Integer) || !output[:scale].between?(1, 3))
@@ -147,8 +159,8 @@ module Shellfie
         end
       end
       raise ValidationError, "Too many redaction patterns (max 100)" if redactions.size > 100
-      if redactions.any? { |pattern| pattern.to_s.bytesize > MAX_PATTERN_BYTES }
-        raise ValidationError, "Redaction patterns must be at most #{MAX_PATTERN_BYTES} bytes"
+      if redactions.any? { |pattern| pattern.to_s.length > MAX_PATTERN_LENGTH }
+        raise ValidationError, "Redaction patterns must be at most #{MAX_PATTERN_LENGTH} characters"
       end
       raise ValidationError, "Redaction patterns must be strings" unless redactions.all?(String)
       redactions.each { |pattern| Regexp.new(pattern) }
@@ -181,7 +193,7 @@ module Shellfie
       actions = step.keys & ACTIONS
       raise ValidationError, "steps[#{index}] must contain exactly one action" unless actions.size == 1
 
-      allowed = actions + %i[visibility timeout speed count async]
+      allowed = actions + STEP_OPTION_KEYS.fetch(actions.first)
       validate_mapping_keys!(step, allowed, "steps[#{index}]")
       action = actions.first
       value = step[action]
@@ -201,6 +213,9 @@ module Shellfie
       end
       if step.key?(:async) && ![true, false].include?(step[:async])
         raise ValidationError, "steps[#{index}].async must be true or false"
+      end
+      if step.key?(:cwd) && !step[:cwd].is_a?(String)
+        raise ValidationError, "steps[#{index}].cwd must be a string"
       end
       if action == :run && step[:async] && step.fetch(:visibility, "visible") == "hidden"
         raise ValidationError, "steps[#{index}] cannot hide an asynchronous run"
@@ -230,11 +245,16 @@ module Shellfie
         raise ValidationError, "steps[#{index}].wait.exit must be true"
       end
       validate_pattern_size!(condition[:screen] || condition[:line], "steps[#{index}].wait")
+      %i[screen line].each do |key|
+        if condition.key?(key) && !condition[key].is_a?(String)
+          raise ValidationError, "steps[#{index}].wait.#{key} must be a string"
+        end
+      end
     end
 
     def validate_expect!(value, index)
       condition = symbolize_hash(value)
-      validate_mapping_keys!(condition, %i[screen_contains screen exit_status cursor_row cursor_column], "steps[#{index}].expect")
+      validate_mapping_keys!(condition, %i[screen_contains screen exit_status cursor_row cursor_column golden], "steps[#{index}].expect")
       raise ValidationError, "steps[#{index}].expect must contain a condition" if condition.empty?
       if condition.key?(:exit_status) && (!condition[:exit_status].is_a?(Integer) || !condition[:exit_status].between?(0, 255))
         raise ValidationError, "steps[#{index}].expect.exit_status must be between 0 and 255"
@@ -246,6 +266,14 @@ module Shellfie
         end
       end
       validate_pattern_size!(condition[:screen], "steps[#{index}].expect")
+      %i[screen screen_contains].each do |key|
+        if condition.key?(key) && !condition[key].is_a?(String)
+          raise ValidationError, "steps[#{index}].expect.#{key} must be a string"
+        end
+      end
+      if condition.key?(:golden) && !condition[:golden].is_a?(String)
+        raise ValidationError, "steps[#{index}].expect.golden must be a string"
+      end
     end
 
     def validate_mapping_keys!(hash, allowed, context)
@@ -269,9 +297,9 @@ module Shellfie
     end
 
     def validate_pattern_size!(pattern, context)
-      return unless pattern && pattern.to_s.bytesize > MAX_PATTERN_BYTES
+      return unless pattern && pattern.to_s.length > MAX_PATTERN_LENGTH
 
-      raise ValidationError, "#{context} pattern must be at most #{MAX_PATTERN_BYTES} bytes"
+      raise ValidationError, "#{context} pattern must be at most #{MAX_PATTERN_LENGTH} characters"
     end
   end
 end

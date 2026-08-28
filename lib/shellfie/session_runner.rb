@@ -6,6 +6,7 @@ require "securerandom"
 require "timeout"
 require "fileutils"
 require "tmpdir"
+require "shellwords"
 require_relative "errors"
 require_relative "session"
 require_relative "text_metrics"
@@ -14,6 +15,7 @@ module Shellfie
   class SessionRunner
     MAX_OUTPUT_BYTES = 10 * 1_048_576
     REGEXP_TIMEOUT = 0.1
+    MAX_GOLDEN_BYTES = 1_048_576
     KEYS = {
       "enter" => "\r", "tab" => "\t", "esc" => "\e", "escape" => "\e",
       "up" => "\e[A", "down" => "\e[B", "right" => "\e[C", "left" => "\e[D",
@@ -30,6 +32,7 @@ module Shellfie
 
     def run
       check_requirements!
+      validate_working_directories!
       @session = Session.new(columns: terminal[:columns], rows: terminal[:rows], title: @config.title)
       @live_screen = TerminalScreen.new(columns: terminal[:columns], rows: terminal[:rows])
       start_pty
@@ -219,6 +222,7 @@ module Shellfie
     end
 
     def execute_command(command, step, visible:)
+      command = "(cd #{Shellwords.escape(step_directory(step[:cwd]))} && #{command})" if step[:cwd]
       start = buffer_size
       @master.write("#{command}\n")
       if step[:async]
@@ -322,6 +326,12 @@ module Shellfie
       if condition.key?(:exit_status) && @session.exit_status != condition[:exit_status]
         raise ExecutionError, "Expected exit status #{condition[:exit_status]}, got #{@session.exit_status.inspect}"
       end
+      if condition[:golden]
+        path = File.expand_path(condition[:golden], @config.base_dir)
+        expected = File.open(path, "rb") { |file| file.read(MAX_GOLDEN_BYTES + 1) }
+        raise ResourceLimitError, "Text golden is too large (max #{MAX_GOLDEN_BYTES} bytes)" if expected.bytesize > MAX_GOLDEN_BYTES
+        raise ExecutionError, "Text golden mismatch: #{condition[:golden]}" unless expected == "#{current}\n"
+      end
       %i[row column].each do |coordinate|
         expected = condition[:"cursor_#{coordinate}"]
         actual = @session.screen.public_send(coordinate)
@@ -329,6 +339,8 @@ module Shellfie
       end
     rescue RegexpError => e
       raise ValidationError, "Invalid expect pattern: #{e.message}"
+    rescue Errno::ENOENT
+      raise FileSystemError, "Text golden not found: #{condition[:golden]}"
     end
 
     def wait_for(pattern, timeout:, screen: false, offset: 0)
@@ -363,6 +375,17 @@ module Shellfie
     def check_requirements!
       missing = @config.requires.reject { |command| resolve_command(command) }
       raise DependencyError, "Required command(s) not found: #{missing.join(", ")}" unless missing.empty?
+    end
+
+    def validate_working_directories!
+      paths = [File.expand_path(terminal[:cwd], @config.base_dir)]
+      paths.concat(@config.steps.filter_map { |step| step_directory(step[:cwd]) if step[:cwd] })
+      missing = paths.find { |path| !File.directory?(path) }
+      raise FileSystemError, "Working directory not found: #{missing}" if missing
+    end
+
+    def step_directory(path)
+      File.expand_path(path, File.expand_path(terminal[:cwd], @config.base_dir))
     end
 
     def decode_terminal_bytes(chunk, final: false)
@@ -412,7 +435,15 @@ module Shellfie
         return path if File.executable?(path)
       end
 
-      (terminal[:env]["PATH"] || terminal[:env][:PATH] || ENV.fetch("PATH", "")).to_s.split(File::PATH_SEPARATOR)
+      env = terminal[:env]
+      path = if env.key?("PATH")
+               env["PATH"]
+             elsif env.key?(:PATH)
+               env[:PATH]
+             else
+               ENV.fetch("PATH", "")
+             end
+      path.to_s.split(File::PATH_SEPARATOR)
          .map { |path| File.join(path, command) }
          .find { |candidate| File.file?(candidate) && File.executable?(candidate) }
     end
