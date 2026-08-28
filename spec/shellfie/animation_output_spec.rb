@@ -2,6 +2,7 @@
 
 require "spec_helper"
 require "tmpdir"
+require "shellfie/cli"
 
 RSpec.describe "animation output support" do
   it "accepts event-duration PNG sequences as an animated CLI format" do
@@ -14,6 +15,8 @@ RSpec.describe "animation output support" do
     generator = instance_double(Shellfie::GifGenerator, generate: "out.apng")
 
     allow(Shellfie::Parser).to receive(:parse).with("config.yml").and_return(config)
+    allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick!)
+    allow(Shellfie::DependencyChecker).to receive(:ensure_ffmpeg!)
     expect(Shellfie::GifGenerator).to receive(:new).and_return(generator)
 
     cli.run

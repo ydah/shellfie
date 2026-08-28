@@ -3,6 +3,7 @@
 require "spec_helper"
 require "tempfile"
 
+unless Gem.win_platform?
 RSpec.describe Shellfie::SessionRunner do
   it "types, executes, waits, asserts, captures, and redacts a PTY session" do
     config = Shellfie::SessionConfig.new(
@@ -136,4 +137,5 @@ RSpec.describe Shellfie::SessionRunner do
 
     expect(blocked).to be true
   end
+end
 end
