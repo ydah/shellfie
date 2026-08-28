@@ -15,8 +15,9 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 3.0.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["source_code_uri"] = "#{spec.homepage}/tree/v#{spec.version}"
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
+  spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.files = Dir.chdir(__dir__) do
     Dir.glob("{exe,lib,assets,schema}/**/*", File::FNM_DOTMATCH).select { |f| File.file?(f) }.concat(%w[README.md CHANGELOG.md LICENSE]).reject do |f|
@@ -28,5 +29,5 @@ Gem::Specification.new do |spec|
   spec.executables = %w[shellfie shf]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "mini_magick", ">= 4.12"
+  spec.add_dependency "mini_magick", ">= 4.12", "< 6"
 end
