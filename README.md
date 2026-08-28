@@ -115,6 +115,8 @@ The repository also provides a Docker image definition and a Docker-based GitHub
     check: "true"
 ```
 
+Version tags are release-gated: `vX.Y.Z` must match `Shellfie::VERSION`. A successful tagged build runs the full suite, attests and uploads the gem, and creates the matching GitHub Release.
+
 Common `generate` options:
 
 | Option | Description |

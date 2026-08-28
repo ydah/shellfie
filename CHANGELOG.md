@@ -24,6 +24,7 @@
 - Preserve length-bounded, allowlisted OSC 8 links in SVG/HTML behind an explicit OSC policy.
 - Add validated GIF color/optimization, WebP lossless/quality/method, APNG prediction, and loop-count controls.
 - Add non-mutating `generate --check` support and expose it through the GitHub Action.
+- Gate release tags against the gem version and publish attested gem artifacts to GitHub Releases.
 
 ## 0.1.1 - 2026-01-12
 
