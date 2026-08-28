@@ -4,6 +4,12 @@ require "spec_helper"
 
 RSpec.describe Shellfie::Parser do
   describe ".parse_string validation" do
+    it "rejects oversized direct input before parsing" do
+      oversized = "x" * (described_class::MAX_INCLUDE_BYTES + 1)
+
+      expect { described_class.parse_string(oversized) }.to raise_error(Shellfie::ParseError, /too large/)
+    end
+
     it "raises ParseError for invalid YAML" do
       expect { described_class.parse_string("{ invalid: yaml: content }") }.to raise_error(Shellfie::ParseError)
     end

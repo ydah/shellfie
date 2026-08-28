@@ -74,6 +74,9 @@ module Shellfie
     rescue OptionParser::ParseError => e
       warn_error "Error: #{e.message}"
       exit 1
+    rescue SystemCallError => e
+      warn_error "Error: #{e.message}"
+      exit 5
     end
 
     private

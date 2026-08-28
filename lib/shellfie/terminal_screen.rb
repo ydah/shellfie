@@ -5,7 +5,7 @@ require_relative "text_metrics"
 module Shellfie
   class TerminalScreen
     CSI = /\A\e\[([0-9;?]*)([ -\/]*)?([@-~])\z/
-    TOKENS = /\e\].*?(?:\a|\e\\)|\e\[[0-9;?]*[ -\/]*[@-~]|\X/m
+    TOKENS = /\e\].*?(?:\a|\e\\)|\e\[[0-9;?]*[ -\/]*[@-~]|\e[78DEM]|[\r\n\b\t\a]|\X/m
     CONTINUATION = Object.new.freeze
 
     attr_reader :row, :column, :rows, :columns
@@ -18,6 +18,9 @@ module Shellfie
       @row = 0
       @column = 0
       @saved_cursor = [0, 0]
+      @scroll_top = 0
+      @scroll_bottom = rows - 1
+      @primary_state = nil
     end
 
     def feed(text)
@@ -47,11 +50,17 @@ module Shellfie
       when "\b" then @column = [@column - 1, 0].max
       when "\t" then (@tab_width - (@column % @tab_width)).times { write(" ") }
       when "\a" then nil
+      when "\e7" then @saved_cursor = [@row, @column]
+      when "\e8" then @row, @column = @saved_cursor
+      when "\eD" then newline
+      when "\eE" then newline
+      when "\eM" then reverse_index
       else write(token)
       end
     end
 
     def process_csi(params, command)
+      private_mode = params.start_with?("?")
       values = params.delete_prefix("?").split(";").map { |value| Integer(value, exception: false) || 0 }
       amount = values.first.to_i.positive? ? values.first : 1
       case command
@@ -71,6 +80,9 @@ module Shellfie
       when "M" then delete_lines(amount)
       when "s" then @saved_cursor = [@row, @column]
       when "u" then @row, @column = @saved_cursor
+      when "r" then set_scroll_region(values)
+      when "h" then enter_alternate_screen if private_mode && (values & [47, 1047, 1049]).any?
+      when "l" then leave_alternate_screen if private_mode && (values & [47, 1047, 1049]).any?
       end
     end
 
@@ -87,6 +99,13 @@ module Shellfie
     end
 
     def newline
+      if @row == @scroll_bottom
+        @cells.delete_at(@scroll_top)
+        @cells.insert(@scroll_bottom, Array.new(@columns))
+        @column = 0
+        return
+      end
+
       @row += 1
       @column = 0
       return if @row < @rows
@@ -94,6 +113,43 @@ module Shellfie
       @cells.shift
       @cells << Array.new(@columns)
       @row = @rows - 1
+    end
+
+    def reverse_index
+      if @row == @scroll_top
+        @cells.insert(@scroll_top, Array.new(@columns))
+        @cells.delete_at(@scroll_bottom + 1)
+      else
+        @row = [@row - 1, 0].max
+      end
+    end
+
+    def set_scroll_region(values)
+      top = (values[0].to_i.nonzero? || 1) - 1
+      bottom = (values[1].to_i.nonzero? || @rows) - 1
+      return unless top.between?(0, @rows - 1) && bottom.between?(0, @rows - 1) && top < bottom
+
+      @scroll_top = top
+      @scroll_bottom = bottom
+      @row = 0
+      @column = 0
+    end
+
+    def enter_alternate_screen
+      return if @primary_state
+
+      @primary_state = [@cells, @row, @column, @saved_cursor, @scroll_top, @scroll_bottom]
+      @cells = Array.new(@rows) { Array.new(@columns) }
+      @row = @column = @scroll_top = 0
+      @scroll_bottom = @rows - 1
+      @saved_cursor = [0, 0]
+    end
+
+    def leave_alternate_screen
+      return unless @primary_state
+
+      @cells, @row, @column, @saved_cursor, @scroll_top, @scroll_bottom = @primary_state
+      @primary_state = nil
     end
 
     def position(values)
@@ -104,7 +160,7 @@ module Shellfie
     def erase_display(mode)
       case mode
       when 1
-        @cells[0...@row].each(&:clear)
+        (0...@row).each { |index| @cells[index] = Array.new(@columns) }
         @cells[@row][0..@column] = Array.new(@column + 1)
       when 2, 3
         @cells = Array.new(@rows) { Array.new(@columns) }

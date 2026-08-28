@@ -11,7 +11,11 @@ module Shellfie
     end
 
     def render(geometry, output_path, transparent: false)
-      File.write(output_path, document(geometry, transparent: transparent))
+      File.write(output_path, to_svg(geometry, transparent: transparent))
+    end
+
+    def to_svg(geometry, transparent: false)
+      document(geometry, transparent: transparent)
     end
 
     private
@@ -21,7 +25,9 @@ module Shellfie
     def document(geometry, transparent:)
       <<~SVG
         <?xml version="1.0" encoding="UTF-8"?>
-        <svg xmlns="http://www.w3.org/2000/svg" width="#{geometry[:canvas_width]}" height="#{geometry[:canvas_height]}" viewBox="0 0 #{geometry[:canvas_width]} #{geometry[:canvas_height]}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="#{geometry[:canvas_width]}" height="#{geometry[:canvas_height]}" viewBox="0 0 #{geometry[:canvas_width]} #{geometry[:canvas_height]}" role="img" aria-labelledby="shellfie-title shellfie-description">
+          <title id="shellfie-title">#{escape(config.title)}</title>
+          <desc id="shellfie-description">Terminal session rendered by Shellfie</desc>
           #{definitions(geometry)}
           #{canvas(geometry, transparent)}
           #{window(geometry)}

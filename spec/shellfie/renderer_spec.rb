@@ -147,6 +147,19 @@ RSpec.describe Shellfie::Renderer do
         expect(svg).to include("<svg")
         expect(svg).to include(">svg</text>")
         expect(svg).not_to include("data:image/png;base64,")
+        expect(svg).to include("role=\"img\"")
+      end
+    end
+
+    it "renders a standalone accessible HTML terminal" do
+      Dir.mktmpdir("shellfie-spec") do |dir|
+        output = File.join(dir, "terminal.html")
+        config = Shellfie::Config.new(title: "Demo <terminal>", lines: [Shellfie::Line.new(output: "hello & goodbye")])
+
+        described_class.new(config).render(output, shadow: false, format: "html")
+
+        html = File.read(output)
+        expect(html).to include("<!doctype html>", "role=\"img\"", "Demo &lt;terminal&gt;", "hello &amp; goodbye")
       end
     end
   end

@@ -13,7 +13,7 @@ module Shellfie
       include ParserValidation
 
       def parse(path)
-        return parse_string($stdin.read, base_dir: Dir.pwd) if path == "-"
+        return parse_string($stdin.read(MAX_INCLUDE_BYTES + 1), base_dir: Dir.pwd) if path == "-"
         raise ParseError, "Configuration file not found: #{path}" unless File.exist?(path)
 
         source_path = File.realpath(path)
@@ -22,6 +22,8 @@ module Shellfie
       end
 
       def parse_string(content, base_dir: nil, include_stack: [], source_name: nil)
+        raise ParseError, "Configuration is too large (max #{MAX_INCLUDE_BYTES} bytes)" if content.bytesize > MAX_INCLUDE_BYTES
+
         raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
         raw = apply_includes(raw, base_dir, stack: include_stack, root: base_dir) if base_dir
         validate_config(raw)

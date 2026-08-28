@@ -38,6 +38,7 @@ steps:
 outputs:
   - path: session.svg
     format: svg
+    capture: complete
 
   - path: session.txt
     format: txt

@@ -80,10 +80,11 @@ Execute a real terminal session only when requested, save a cassette, and replay
 ```bash
 shellfie run examples/session.yml -o session.svg
 shellfie record examples/session.yml -o session.mp4 --cassette session.json
+shellfie record examples/session.yml -o session.svg --yaml editable-recording.yml
 shellfie replay session.json -o session.gif --animate
 ```
 
-Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, `wait`, `expect`, `hide`, `show`, named `capture`, redaction patterns, and multiple `outputs`. `run` uses Ruby's PTY support and is optional; normal `generate` remains deterministic and never executes config content. Cassette replay does not execute the recorded commands.
+Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, live-screen/exit/stable-screen `wait`, `expect`, `hide`, `show`, named `capture`, redaction patterns, and multiple `outputs`. Set `async: true` on `run` or `key: enter` before interacting with a long-running or full-screen process, then use `wait` to synchronize. An output can select an intermediate screen with `capture: NAME`. `run` uses Ruby's PTY support and is optional; normal `generate` remains deterministic and never executes config content. Cassette replay does not execute the recorded commands; `record --yaml` also writes an editable version 1 animation.
 
 Authoring commands:
 
@@ -116,7 +117,7 @@ Common `generate` options:
 | `-a, --animate` | Render animation |
 | `-s, --scale FACTOR` | Output scale: `1`, `2`, or `3` |
 | `-w, --width PIXELS` | Override window width |
-| `--format FORMAT` | `png`, `gif`, `svg`, `svg-raster`, `webp`, `apng`, `mp4`, `webm`, `txt`, or `json` |
+| `--format FORMAT` | `png`, `gif`, `svg`, `svg-raster`, `webp`, `apng`, `mp4`, `webm`, `html`, `txt`, or `json` |
 | `--typing-rate CPS` | Override typing rate in characters per second |
 | `--framerate FPS` | Set output timing precision |
 | `--playback-speed FACTOR` | Speed up or slow down the final timeline |
@@ -126,7 +127,7 @@ Common `generate` options:
 | `--no-header` | Headless output |
 | `--force` | Overwrite existing files |
 
-Static output supports `png`, native selectable-text `svg`, legacy `svg-raster`, and `webp`.
+Static output supports `png`, native selectable-text `svg`, accessible standalone `html`, legacy `svg-raster`, and `webp`.
 Animated output supports `gif`, `webp`, `apng`, `mp4`, and `webm` (`ffmpeg` is required for video). Semantic transcripts support `txt` and `json`.
 
 ## Configuration

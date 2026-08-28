@@ -17,4 +17,15 @@ RSpec.describe Shellfie::Cassette do
       expect(replay.exit_status).to eq(0)
     end
   end
+
+  it "exports an editable compose configuration" do
+    session = Shellfie::Session.new(columns: 20, rows: 4, title: "Recording")
+    session.record("hello", delay: 0.25, visible: true)
+
+    expect(session.compose_hash).to include(
+      "version" => 1,
+      "title" => "Recording",
+      "frames" => [{ "output" => "hello", "delay" => 250 }]
+    )
+  end
 end

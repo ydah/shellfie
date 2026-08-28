@@ -14,9 +14,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "shell": { "type": "string" }, "columns": { "type": "integer", "minimum": 1 },
-        "rows": { "type": "integer", "minimum": 1 }, "cwd": { "type": "string" },
-        "env": { "type": "object", "additionalProperties": { "type": "string" } },
+        "shell": { "type": "string" }, "columns": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "rows": { "type": "integer", "minimum": 1, "maximum": 200 }, "cwd": { "type": "string" },
+        "env": { "type": "object", "additionalProperties": { "type": ["string", "null"] } },
         "timeout": { "$ref": "#/$defs/duration" }, "prompt": { "type": "string" }
       }
     },
@@ -35,9 +35,45 @@
           "type": "object",
           "properties": {
             "run": { "type": "string" }, "type": { "type": "string" }, "key": { "type": "string" },
-            "sleep": { "$ref": "#/$defs/duration" }, "wait": {}, "expect": {}, "capture": { "type": "string" },
+            "sleep": { "$ref": "#/$defs/duration" }, "wait": { "$ref": "#/$defs/wait" },
+            "expect": { "$ref": "#/$defs/expect" }, "capture": { "type": "string" },
             "hide": {}, "show": {}, "visibility": { "enum": ["visible", "hidden"] },
-            "timeout": { "$ref": "#/$defs/duration" }, "speed": {}, "count": { "type": "integer", "minimum": 1 }
+            "timeout": { "$ref": "#/$defs/duration" }, "speed": {}, "count": { "type": "integer", "minimum": 1 },
+            "async": { "type": "boolean" }
+          },
+          "minProperties": 1
+        }
+      ]
+    },
+    "wait": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "screen": { "type": "string" }, "line": { "type": "string" },
+            "stable": { "$ref": "#/$defs/duration" }, "exit": { "const": true },
+            "timeout": { "$ref": "#/$defs/duration" }
+          },
+          "oneOf": [
+            { "required": ["screen"] }, { "required": ["line"] },
+            { "required": ["stable"] }, { "required": ["exit"] }
+          ]
+        }
+      ]
+    },
+    "expect": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "screen_contains": { "type": "string" }, "screen": { "type": "string" },
+            "exit_status": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "cursor_row": { "type": "integer", "minimum": 0 },
+            "cursor_column": { "type": "integer", "minimum": 0 }
           },
           "minProperties": 1
         }
@@ -49,9 +85,10 @@
       "additionalProperties": false,
       "properties": {
         "path": { "type": "string" },
-        "format": { "enum": ["png", "gif", "svg", "svg-raster", "webp", "apng", "mp4", "webm", "txt", "json"] },
+        "format": { "enum": ["png", "gif", "svg", "svg-raster", "webp", "apng", "mp4", "webm", "html", "txt", "json"] },
         "animate": { "type": "boolean" }, "scale": { "type": "integer", "minimum": 1, "maximum": 3 },
-        "shadow": { "type": "boolean" }, "transparent": { "type": "boolean" }
+        "shadow": { "type": "boolean" }, "transparent": { "type": "boolean" },
+        "capture": { "type": "string" }
       }
     }
   }

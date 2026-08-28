@@ -2,7 +2,9 @@
 
 require "fileutils"
 require "optparse"
+require "yaml"
 require_relative "cassette"
+require_relative "output_writer"
 require_relative "session_config"
 
 module Shellfie
@@ -19,8 +21,10 @@ module Shellfie
       require_relative "session_runner"
       session = SessionRunner.new(config).run
       cassette_path = @options[:cassette]
-      raise ConfigError, "record requires --cassette PATH" if record && !cassette_path
+      yaml_path = @options[:yaml]
+      raise ConfigError, "record requires --cassette PATH or --yaml PATH" if record && !cassette_path && !yaml_path
       write_cassette(cassette_path, session) if cassette_path
+      write_recording(yaml_path, session) if yaml_path
       render_session_outputs(session, config.outputs, base_dir: config.base_dir, theme: config.theme, render: config.render)
     end
 
@@ -38,6 +42,7 @@ module Shellfie
         opts.banner = "Usage: shellfie #{record ? "record" : "run"} SESSION.yml [options]"
         session_output_options(opts)
         opts.on("--cassette PATH", "Write an offline replay cassette") { |path| @options[:cassette] = path }
+        opts.on("--yaml PATH", "Write an editable compose recording") { |path| @options[:yaml] = path } if record
       end
     end
 
@@ -80,7 +85,11 @@ module Shellfie
       resolved.each do |path, format, output|
         ensure_output_writable!(path)
         animate = output.fetch(:animate, @options[:animate] || CLIGenerate::ANIMATED_FORMATS.include?(format))
-        config = session.render_config(theme: theme, options: render, animated: animate)
+        capture = output[:capture]
+        captured_lines = capture && (session.captures[capture] || session.captures[capture.to_sym])
+        raise ConfigError, "Unknown capture: #{capture}" if capture && !captured_lines
+
+        config = session.render_config(theme: theme, options: render, animated: animate, lines: captured_lines)
         original_options = @options
         @options = @options.merge(output.slice(:scale, :shadow, :transparent))
         write_rendered_output(config, path, animate: animate, format: format)
@@ -96,6 +105,16 @@ module Shellfie
       end
 
       Cassette.write(path, session)
+      puts "Recorded: #{path}" unless @options[:quiet]
+    end
+
+    def write_recording(path, session)
+      FileUtils.mkdir_p(File.dirname(path)) unless File.dirname(path) == "."
+      if File.exist?(path) && !@options[:force]
+        raise FileSystemError, "Recording already exists: #{path} (use --force to overwrite)"
+      end
+
+      OutputWriter.write(path, extension: "yml") { |temporary_path| File.write(temporary_path, YAML.dump(session.compose_hash)) }
       puts "Recorded: #{path}" unless @options[:quiet]
     end
   end

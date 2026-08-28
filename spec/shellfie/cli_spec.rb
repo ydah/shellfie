@@ -108,6 +108,29 @@ RSpec.describe Shellfie::CLI do
       end
     end
 
+    it "renders a named session capture" do
+      session = Shellfie::Session.new(columns: 40, rows: 4)
+      session.record("first")
+      session.capture("first")
+      session.record("\nsecond")
+      cli = described_class.new([])
+      cli.instance_variable_set(:@options, { quiet: true })
+
+      Dir.mktmpdir("shellfie-capture-output") do |dir|
+        path = File.join(dir, "capture.txt")
+        cli.send(
+          :render_session_outputs,
+          session,
+          [{ path: path, format: "txt", capture: "first" }],
+          base_dir: dir,
+          theme: "macos",
+          render: {}
+        )
+
+        expect(File.read(path)).to eq("first\n")
+      end
+    end
+
     it "prints doctor checks" do
       allow(Shellfie::DependencyChecker).to receive(:doctor).and_return([
                                                                           { name: "Ruby", detail: "3.4.0", ok: true }

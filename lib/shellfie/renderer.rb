@@ -5,6 +5,7 @@ require_relative "ansi_parser"
 require_relative "dependency_checker"
 require_relative "font_resolver"
 require_relative "format_resolver"
+require_relative "html_renderer"
 require_relative "output_writer"
 require_relative "raster_painter"
 require_relative "render_chrome_cache"
@@ -28,10 +29,10 @@ module Shellfie
 
     def render(output_path, scale: 1, shadow: true, transparent: false, format: nil, io: nil)
       extension = FormatResolver.resolve(output_path, explicit: format, default: "png")
-      check_dependencies! unless extension == "svg"
+      check_dependencies! unless %w[svg html].include?(extension)
       lines = build_lines
       OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
-        render_method = { "svg" => :create_svg_image, "svg-raster" => :create_svg_raster_image }.fetch(extension, :create_image)
+        render_method = { "svg" => :create_svg_image, "svg-raster" => :create_svg_raster_image, "html" => :create_html }.fetch(extension, :create_image)
         send(render_method, lines, temporary_path, scale: scale, shadow: shadow, transparent: transparent)
       end
     rescue MiniMagick::Error => e
@@ -103,6 +104,11 @@ module Shellfie
 
     def create_svg_raster_image(lines, output_path, scale:, shadow:, transparent:)
       SvgRasterWrapper.write(output_path) { |png_path| create_image(lines, png_path, scale: scale, shadow: shadow, transparent: transparent) }
+    end
+
+    def create_html(lines, output_path, scale:, shadow:, transparent:)
+      geometry = build_geometry(lines, scale: scale, shadow: shadow)
+      HtmlRenderer.new(config: config, theme: theme).render(geometry, output_path, transparent: transparent)
     end
 
     def build_geometry(lines, scale:, shadow:)

@@ -23,4 +23,23 @@ RSpec.describe Shellfie::SessionConfig do
       described_class.new({ version: 2, requires: ["ruby; rm"], steps: [{ run: "x", type: "y" }] })
     end.to raise_error(Shellfie::ValidationError)
   end
+
+  it "validates waits, asynchronous steps, captures, and terminal bounds" do
+    expect do
+      described_class.new({ version: 2, terminal: { columns: 501 }, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /columns/)
+
+    expect do
+      described_class.new({ version: 2, steps: [{ wait: { screen: "x", stable: "1s" } }] })
+    end.to raise_error(Shellfie::ValidationError, /one condition/)
+
+    config = described_class.new({
+      version: 2,
+      terminal: { env: { "REMOVE_ME" => nil } },
+      steps: [{ key: "enter", async: true }, { capture: "ready" }],
+      outputs: [{ path: "capture.svg", capture: "ready" }]
+    })
+    expect(config.terminal[:env]).to eq("REMOVE_ME" => nil)
+    expect(config.outputs.first[:capture]).to eq("ready")
+  end
 end

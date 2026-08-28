@@ -119,7 +119,7 @@ module Shellfie
         Commands:
           generate    Generate image from configuration file
           run         Execute and render a version 2 terminal session
-          record      Run a session and save an offline cassette
+          record      Run a session and save a cassette or editable YAML
           replay      Render an existing cassette without executing commands
           new         Create a config from a template
           format      Normalize YAML formatting
@@ -151,7 +151,7 @@ module Shellfie
           --overflow MODE        Line overflow mode: clip, wrap, scroll
           --wrap, --no-wrap      Enable or disable long-line wrapping
           --exact-size           Match canvas to configured window size
-          --format FORMAT        Also: mp4, webm, txt, json
+          --format FORMAT        Also: mp4, webm, html, txt, json
           --force                Overwrite existing output files
           --quiet                Suppress non-error output
           --verbose              Print progress details

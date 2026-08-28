@@ -9,6 +9,10 @@ module Shellfie
     attr_reader :events, :captures, :exit_status, :screen
 
     def initialize(columns:, rows:, title: "Terminal Session", events: [], captures: {}, exit_status: nil)
+      unless columns.is_a?(Integer) && columns.between?(1, 500) && rows.is_a?(Integer) && rows.between?(1, 200)
+        raise ParseError, "Invalid session dimensions"
+      end
+
       @title = title
       @events = events
       @captures = captures
@@ -29,7 +33,7 @@ module Shellfie
       captures[name] = screen.lines
     end
 
-    def render_config(theme:, options: {}, animated: false)
+    def render_config(theme:, options: {}, animated: false, lines: nil)
       base = {
         theme: theme,
         title: @title,
@@ -39,13 +43,28 @@ module Shellfie
         headless: options.fetch(:headless, false)
       }
       if animated
+        raise ValidationError, "Captured screens cannot be rendered as animations" if lines
+
         frames = events.select { |event| event[:visible] && !event[:text].to_s.empty? }.map do |event|
           Frame.new(output: event[:text], delay: [(event[:delay].to_f * 1_000).round, 1].max)
         end
         Config.new(**base, frames: frames)
       else
-        Config.new(**base, lines: screen.lines.map { |line| Line.new(output: line) })
+        Config.new(**base, lines: (lines || screen.lines).map { |line| Line.new(output: line) })
       end
+    end
+
+    def compose_hash
+      {
+        "version" => 1,
+        "title" => @title,
+        "window" => { "width" => screen.columns * 8, "visible_lines" => screen.rows },
+        "frames" => events.filter_map do |event|
+          next unless event[:visible] && !event[:text].to_s.empty?
+
+          { "output" => event[:text], "delay" => [(event[:delay].to_f * 1_000).round, 1].max }
+        end
+      }
     end
 
     def to_h
