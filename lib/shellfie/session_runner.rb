@@ -111,6 +111,7 @@ module Shellfie
       nil
     ensure
       @master&.close unless @master&.closed?
+      @slave&.close unless @slave&.closed?
       @reader_thread&.join(0.2)
       FileUtils.rm_rf(@session_home) if @session_home
     end
@@ -139,8 +140,8 @@ module Shellfie
       @master.write("#{command}\n")
       if step[:async]
         wait_for_quiet(0.03)
-        event = @session.record(redact(buffer_from(start)), delay: 0.03, visible: @visible && visible)
-        @recorded_offset = buffer_size
+        text, @recorded_offset = buffer_snapshot_from(start)
+        event = @session.record(redact(text), delay: 0.03, visible: @visible && visible)
         return event
       end
 
@@ -157,8 +158,7 @@ module Shellfie
         sleep(delay) if delay.positive?
       end
       wait_for_quiet(0.03)
-      typed = buffer_from(start)
-      @recorded_offset = buffer_size
+      typed, @recorded_offset = buffer_snapshot_from(start)
       @session.record(redact(typed), delay: delay * TextMetrics.graphemes(text).size, visible: @visible)
     end
 
@@ -173,8 +173,8 @@ module Shellfie
         @session.record(redact(text), delay: 0.1, visible: @visible, status: status)
       else
         wait_for_quiet(0.03)
-        @recorded_offset = buffer_size
-        @session.record(redact(buffer_from(start)), delay: 0.03, visible: @visible)
+        text, @recorded_offset = buffer_snapshot_from(start)
+        @session.record(redact(text), delay: 0.03, visible: @visible)
       end
     end
 
@@ -349,10 +349,10 @@ module Shellfie
     end
 
     def flush_pending
-      finish = buffer_size
+      text, finish = buffer_snapshot_from(@recorded_offset)
       return if finish <= @recorded_offset
 
-      @session.record(redact(buffer_from(@recorded_offset)), delay: 0.03, visible: @visible)
+      @session.record(redact(text), delay: 0.03, visible: @visible)
       @recorded_offset = finish
     end
 
@@ -378,6 +378,10 @@ module Shellfie
 
     def buffer_from(index)
       @mutex.synchronize { @buffer.byteslice(index..) || "" }
+    end
+
+    def buffer_snapshot_from(index)
+      @mutex.synchronize { [@buffer.byteslice(index..) || "", @buffer.bytesize] }
     end
 
     def check_reader_error!

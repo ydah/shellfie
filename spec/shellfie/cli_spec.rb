@@ -131,6 +131,15 @@ RSpec.describe Shellfie::CLI do
       end
     end
 
+    it "does not execute replay mode as a live session" do
+      cli = described_class.new(["run", "session.yml", "-o", "out.txt"])
+      config = Shellfie::SessionConfig.new({ version: 2, mode: "replay", steps: [] })
+      allow(Shellfie::SessionConfig).to receive(:parse).and_return(config)
+      expect(Shellfie::SessionRunner).not_to receive(:new)
+
+      expect { cli.run }.to output(/use shellfie replay/).to_stderr.and raise_error(SystemExit)
+    end
+
     it "prints doctor checks" do
       allow(Shellfie::DependencyChecker).to receive(:doctor).and_return([
                                                                           { name: "Ruby", detail: "3.4.0", ok: true }

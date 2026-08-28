@@ -18,6 +18,7 @@ module Shellfie
       raise ConfigError, "Session configuration is required" unless input
 
       config = SessionConfig.parse(input)
+      raise ConfigError, "mode: replay is not executable; use shellfie replay CASSETTE.json" if config.mode == "replay"
       require_relative "session_runner"
       session = SessionRunner.new(config).run
       cassette_path = @options[:cassette]
