@@ -4,6 +4,7 @@ require "did_you_mean"
 
 module Shellfie
   module ParserValidation
+    MAX_FRAME_DELAY_MS = 86_400_000
     TOP_LEVEL_KEYS = %i[
       version include include_policy theme window_theme color_scheme colors window_decoration title window font animation cursor lines frames
       headless limits
@@ -21,7 +22,7 @@ module Shellfie
     CURSOR_KEYS = %i[style color].freeze
     LIMIT_KEYS = %i[max_lines max_frames max_render_frames max_characters max_pixels max_total_pixels max_temp_bytes].freeze
     LINE_KEYS = %i[prompt command output prompt_color command_color output_color selected].freeze
-    FRAME_KEYS = %i[prompt type output delay prompt_color command_color output_color].freeze
+    FRAME_KEYS = %i[prompt type output screen delay prompt_color command_color output_color].freeze
     COLOR_KEYS = %i[
       background foreground title_bar title_text title_bar_border border selection black red green yellow blue magenta cyan
       white bright_black bright_red bright_green bright_yellow bright_blue bright_magenta bright_cyan bright_white
@@ -133,17 +134,25 @@ module Shellfie
     def validate_frame_shape!(frame, index)
       raise ValidationError, "frames[#{index}].prompt requires type" if frame[:prompt] && frame[:type].nil?
 
-      if frame.values_at(:type, :output, :delay).all?(&:nil?)
-        raise ValidationError, "frames[#{index}] must include type, output, or delay"
+      if frame.values_at(:type, :output, :screen, :delay).all?(&:nil?)
+        raise ValidationError, "frames[#{index}] must include type, output, screen, or delay"
       end
 
       validate_string_value!(frame[:prompt], "frames[#{index}].prompt") if frame.key?(:prompt)
       validate_string_value!(frame[:type], "frames[#{index}].type") if frame.key?(:type)
       validate_string_value!(frame[:output], "frames[#{index}].output") if frame.key?(:output)
+      if frame.key?(:screen) && (!frame[:screen].is_a?(Array) || !frame[:screen].all?(String))
+        raise ValidationError, "frames[#{index}].screen must be an array of strings"
+      end
       validate_string_value!(frame[:prompt_color], "frames[#{index}].prompt_color") if frame.key?(:prompt_color)
       validate_string_value!(frame[:command_color], "frames[#{index}].command_color") if frame.key?(:command_color)
       validate_string_value!(frame[:output_color], "frames[#{index}].output_color") if frame.key?(:output_color)
-      validate_non_negative_integer!(frame[:delay], "frames[#{index}].delay") if frame.key?(:delay)
+      if frame.key?(:delay)
+        validate_non_negative_integer!(frame[:delay], "frames[#{index}].delay")
+        if frame[:delay] > MAX_FRAME_DELAY_MS
+          raise ValidationError, "frames[#{index}].delay must be at most #{MAX_FRAME_DELAY_MS}"
+        end
+      end
     end
 
     def validate_string_value!(value, name)

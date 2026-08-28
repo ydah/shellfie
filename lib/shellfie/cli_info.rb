@@ -50,8 +50,7 @@ module Shellfie
       input_file = @args.shift
       raise ConfigError, "Input file is required" unless input_file
 
-      raw = YAML.safe_load_file(input_file, symbolize_names: true, aliases: true)
-      if raw&.dig(:version) == 2
+      if configuration_version(input_file) == 2
         session = SessionConfig.parse(input_file)
         puts "✓ Session configuration is valid"
         puts "  Steps: #{session.steps.size}"

@@ -22,6 +22,12 @@ RSpec.describe Shellfie::Parser do
       end
     end
 
+    it "rejects cyclic YAML aliases before config normalization" do
+      yaml = "colors:\n  background: &cycle [*cycle]\nlines:\n  - output: ok\n"
+
+      expect { described_class.parse_string(yaml) }.to raise_error(Shellfie::ParseError, /must not contain cycles/)
+    end
+
     it "raises ParseError for invalid YAML" do
       expect { described_class.parse_string("{ invalid: yaml: content }") }.to raise_error(Shellfie::ParseError)
     end
@@ -130,7 +136,7 @@ RSpec.describe Shellfie::Parser do
       yaml = <<~YAML
         window:
           width: 120
-          padding: 60
+          padding: 40
           visible_lines: 0
         lines:
           - output: "test"

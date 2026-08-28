@@ -2,6 +2,7 @@
 
 require "json"
 require_relative "animation_frame_builder"
+require_relative "ansi_parser"
 require_relative "output_writer"
 
 module Shellfie
@@ -29,7 +30,7 @@ module Shellfie
     def text
       final_lines.flat_map do |line|
         command = "#{line.prompt}#{line.command}" if line.prompt || line.command
-        [command, line.output].compact
+        [command, line.output].compact.map { |value| plain_text(value) }
       end.join("\n") + "\n"
     end
 
@@ -37,9 +38,22 @@ module Shellfie
       {
         version: 1,
         title: config.title,
-        lines: final_lines.map(&:to_h),
-        events: config.frames.map(&:to_h)
+        lines: final_lines.map { |line| plain_value(line.to_h) },
+        events: config.frames.map { |frame| plain_value(frame.to_h) }
       }
+    end
+
+    def plain_value(value)
+      case value
+      when String then plain_text(value)
+      when Array then value.map { |item| plain_value(item) }
+      when Hash then value.transform_values { |item| plain_value(item) }
+      else value
+      end
+    end
+
+    def plain_text(value)
+      AnsiParser.new(state_mode: :line).parse(value.to_s).map(&:text).join
     end
   end
 end

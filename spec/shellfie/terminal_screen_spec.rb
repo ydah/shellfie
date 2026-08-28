@@ -53,6 +53,34 @@ RSpec.describe Shellfie::TerminalScreen do
     expect(screen.to_s).to eq("界X")
   end
 
+  it "clears both cells when erasing from inside a wide grapheme" do
+    screen = described_class.new(columns: 10, rows: 2)
+
+    screen.feed("界\e[2G\e[KX")
+
+    expect(screen.to_s).to eq(" X")
+    expect(Shellfie::TextMetrics.cell_width(screen.to_s)).to eq(2)
+  end
+
+  it "carries incomplete terminal controls across feed boundaries" do
+    screen = described_class.new(columns: 20, rows: 2)
+
+    screen.feed("abc\e[")
+    screen.feed("2J")
+
+    expect(screen.to_s).to eq("")
+  end
+
+  it "joins grapheme extensions split across feed boundaries" do
+    screen = described_class.new(columns: 20, rows: 2)
+
+    screen.feed("e").feed("\u0301")
+    screen.feed(" 👨\u200d").feed("👩")
+
+    expect(screen.to_s).to eq("é 👨‍👩")
+    expect(Shellfie::TextMetrics.graphemes(screen.to_s)).to eq(["é", " ", "👨‍👩"])
+  end
+
   it "supports saved cursor positions and display clearing" do
     screen = described_class.new(columns: 8, rows: 2)
 

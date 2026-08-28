@@ -40,6 +40,7 @@ RSpec.describe Shellfie::Config do
     it "validates window dimensions" do
       expect { described_class.new(window: { width: 0 }) }.to raise_error(Shellfie::ValidationError, /window.width/)
       expect { described_class.new(window: { padding: -1 }) }.to raise_error(Shellfie::ValidationError, /window.padding/)
+      expect { described_class.new(window: { width: 200, padding: 41 }) }.to raise_error(Shellfie::ValidationError, /padding/)
     end
 
     it "validates opacity and overflow mode" do
@@ -59,6 +60,13 @@ RSpec.describe Shellfie::Config do
       expect do
         described_class.new(window: { background_gradient: ["#000000"] })
       end.to raise_error(Shellfie::ValidationError, /background_gradient/)
+    end
+
+    it "validates custom decoration and color value types" do
+      expect do
+        described_class.new(window_decoration: { title_bar_height: "nope" })
+      end.to raise_error(Shellfie::ValidationError, /title_bar_height/)
+      expect { described_class.new(colors: { foreground: 1 }) }.to raise_error(Shellfie::ValidationError, /colors/)
     end
 
     it "validates animation settings" do

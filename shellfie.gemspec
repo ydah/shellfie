@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.email = ["t.yudai92@gmail.com"]
 
   spec.summary = "Terminal screenshot-style image generator"
-  spec.description = "Generate beautiful terminal screenshot-style PNG images and animated GIFs from YAML configuration files. Perfect for README files and documentation."
+  spec.description = "Compile YAML terminal scenes or recorded sessions into accessible HTML, semantic transcripts, SVG, raster images, and animations."
   spec.homepage = "https://github.com/ydah/shellfie"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0.0"

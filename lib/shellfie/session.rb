@@ -22,15 +22,15 @@ module Shellfie
     end
 
     def record(text, delay: 0, visible: true, status: nil)
-      event = { text: text, delay: delay, visible: visible, status: status }
-      events << event
       screen.feed(text) if visible
+      event = { text: visible ? text : "", delay: delay, visible: visible, status: status }
+      events << event
       @exit_status = status unless status.nil?
       event
     end
 
     def capture(name)
-      captures[name] = screen.lines
+      captures[name] = screen.render_lines
     end
 
     def render_config(theme:, options: {}, animated: false, lines: nil)
@@ -45,25 +45,30 @@ module Shellfie
       if animated
         raise ValidationError, "Captured screens cannot be rendered as animations" if lines
 
-        frames = events.select { |event| event[:visible] && !event[:text].to_s.empty? }.map do |event|
-          Frame.new(output: event[:text], delay: [(event[:delay].to_f * 1_000).round, 1].max)
+        frames = []
+        each_snapshot do |event, snapshot|
+          frame = Frame.new(screen: snapshot, delay: [(event[:delay].to_f * 1_000).round, 1].max)
+          frames << frame
         end
         Config.new(**base, frames: frames)
       else
-        Config.new(**base, lines: (lines || screen.lines).map { |line| Line.new(output: line) })
+        Config.new(**base, lines: (lines || screen.render_lines).map { |line| Line.new(output: line) })
       end
     end
 
     def compose_hash
+      frames = []
+      each_snapshot do |event, snapshot|
+        frames << {
+          "screen" => snapshot,
+          "delay" => [(event[:delay].to_f * 1_000).round, 1].max
+        }
+      end
       {
         "version" => 1,
         "title" => @title,
         "window" => { "width" => screen.columns * 8, "visible_lines" => screen.rows },
-        "frames" => events.filter_map do |event|
-          next unless event[:visible] && !event[:text].to_s.empty?
-
-          { "output" => event[:text], "delay" => [(event[:delay].to_f * 1_000).round, 1].max }
-        end
+        "frames" => frames
       }
     end
 
@@ -77,6 +82,27 @@ module Shellfie
         captures: captures,
         exit_status: exit_status
       }
+    end
+
+    private
+
+    def each_snapshot
+      replay = TerminalScreen.new(columns: screen.columns, rows: screen.rows)
+      count = characters = 0
+      events.each do |event|
+        next unless event[:visible] && !event[:text].to_s.empty?
+
+        count += 1
+        raise ResourceLimitError, "Too many session frames (max #{Config::DEFAULTS[:limits][:max_frames]})" if count > Config::DEFAULTS[:limits][:max_frames]
+
+        replay.feed(event[:text])
+        snapshot = event[:screen] || replay.render_lines
+        characters += snapshot.sum(&:length)
+        if characters > Config::DEFAULTS[:limits][:max_characters]
+          raise ResourceLimitError, "Session snapshots are too large (max #{Config::DEFAULTS[:limits][:max_characters]} characters)"
+        end
+        yield event, snapshot
+      end
     end
   end
 end

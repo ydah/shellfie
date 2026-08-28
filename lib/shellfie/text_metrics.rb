@@ -5,7 +5,9 @@ module Shellfie
     module_function
 
     def graphemes(text)
-      text.to_s.scan(/\X/)
+      string = text.to_s.dup
+      string.force_encoding(Encoding::UTF_8)
+      string.scrub.scan(/\X/)
     end
 
     def cell_width(text)

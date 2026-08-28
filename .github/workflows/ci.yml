@@ -67,7 +67,7 @@ jobs:
           bundle exec ruby -Ilib -rshellfie -e "(Dir['examples/*.yml'] - ['examples/session.yml']).sort.each { |path| config = Shellfie.parse(path); format = config.animated? ? 'gif' : 'png'; Shellfie.render(config, output: File.join('tmp/ci/examples', File.basename(path, '.yml') + '.' + format), animate: config.animated?, shadow: false, format: format) }"
           gem build shellfie.gemspec
           gem install mini_magick --no-document
-          gem install --local shellfie-*.gem --no-document --ignore-dependencies
+          ruby -e "exec Gem.ruby, '-S', 'gem', 'install', '--local', Dir['shellfie-*.gem'].fetch(0), '--no-document', '--ignore-dependencies'"
           shellfie version
 
   media:
@@ -85,10 +85,25 @@ jobs:
           bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/out.mp4 --force --quiet
           bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/out.webm --force --quiet
           bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/out.apng --force --quiet
+          bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/out.gif --force --quiet
+          bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/out.webp --force --quiet
           bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/frames --format png-sequence --force --quiet
-          ruby -ropen3 -e 'ARGV.each { |path| output, status = Open3.capture2("ffprobe", "-v", "error", "-select_streams", "v:0", "-count_frames", "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0", path); abort(path + " did not decode as animation") unless status.success? && output.to_i > 1 }' tmp/media/out.mp4 tmp/media/out.webm tmp/media/out.apng
+          bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/media/fast-frames --format png-sequence --playback-speed 2 --force --quiet
+          ruby -ropen3 -e 'ARGV.each { |path| output, status = Open3.capture2("ffprobe", "-v", "error", "-select_streams", "v:0", "-count_frames", "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0", path); abort(path + " did not decode as animation") unless status.success? && output.to_i > 1 }' tmp/media/out.mp4 tmp/media/out.webm tmp/media/out.apng tmp/media/out.gif tmp/media/out.webp
           ruby -rjson -e 'manifest = JSON.parse(File.read(ARGV.fetch(0))); abort "PNG sequence is not animated" unless manifest.fetch("frames").size > 1' tmp/media/frames/timeline.json
+          ruby -rjson -e 'normal, fast = ARGV.map { |path| JSON.parse(File.read(path)).fetch("frames").sum { |frame| frame.fetch("delay_ms") } }; abort "playback speed was not applied" unless (normal - fast * 2).abs < 0.01' tmp/media/frames/timeline.json tmp/media/fast-frames/timeline.json
           ruby -rjson -ropen3 -e 'expected = JSON.parse(File.read(ARGV.shift)).fetch("frames").sum { |frame| frame.fetch("delay_ms") } / 1000.0; ARGV.each { |path| packet_mode = path.end_with?(".apng"); fields = packet_mode ? ["-show_packets", "-show_entries", "packet=pts_time,duration_time"] : ["-show_entries", "format=duration"]; output, status = Open3.capture2("ffprobe", "-v", "error", *fields, "-of", "json", path); data = JSON.parse(output); actual = packet_mode ? data.fetch("packets").last.values_at("pts_time", "duration_time").sum(&:to_f) : data.fetch("format").fetch("duration").to_f; abort(path + " duration differs from the timeline") unless status.success? && (actual - expected).abs < 0.1 }' tmp/media/frames/timeline.json tmp/media/out.mp4 tmp/media/out.webm tmp/media/out.apng
+          ruby -rjson -ropen3 -e 'expected = JSON.parse(File.read(ARGV.shift)).fetch("frames").sum { |frame| frame.fetch("delay_ms") }; ARGV.each { |path| output, status = Open3.capture2("identify", "-format", "%T\n", path); actual = output.lines.sum(&:to_i) * 10; abort(path + " duration differs from the timeline") unless status.success? && (actual - expected).abs < 20 }' tmp/media/frames/timeline.json tmp/media/out.gif tmp/media/out.webp
           bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/media/one.svg --force --quiet
           bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/media/two.svg --force --quiet
           cmp tmp/media/one.svg tmp/media/two.svg
+          ffmpeg -v error -xerror -i tmp/media/out.apng -f null -
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build container
+        run: docker build -t shellfie-ci .
+      - name: Render through container
+        run: docker run --rm -v "$PWD:/work" shellfie-ci generate /work/examples/simple.yml -o /work/tmp/container.png --force --quiet

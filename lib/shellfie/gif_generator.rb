@@ -121,8 +121,8 @@ module Shellfie
         convert.dispose "none" if format == "gif"
         convert.loop config.animation[:loop] ? 0 : 1
 
-        images.each do |img|
-          convert.delay gif_delay(img[:delay])
+        animation_entries(images).each do |delay, img|
+          convert.delay delay
           convert << img[:path]
         end
 
@@ -149,7 +149,9 @@ module Shellfie
     end
 
     def write_png_sequence(images, output_path)
-      raise FileSystemError, "PNG sequence output already exists: #{output_path}" if File.exist?(output_path)
+      if Dir.exist?(output_path) && !replaceable_sequence_directory?(output_path)
+        raise FileSystemError, "Refusing to replace a non-Shellfie directory: #{output_path}"
+      end
 
       parent = File.dirname(File.expand_path(output_path))
       FileUtils.mkdir_p(parent)
@@ -157,20 +159,51 @@ module Shellfie
       frames = images.each_with_index.map do |image, index|
         filename = "frame_#{format("%04d", index)}.png"
         FileUtils.cp(image[:path], File.join(temporary, filename))
-        { file: filename, delay_ms: image[:delay] }
+        { file: filename, delay_ms: image[:delay] / config.animation[:playback_speed] }
       end
       File.write(File.join(temporary, "timeline.json"), JSON.pretty_generate(version: 1, frames: frames))
+      backup = "#{temporary}-previous"
+      File.rename(output_path, backup) if File.exist?(output_path)
       File.rename(temporary, output_path)
+      FileUtils.rm_rf(backup)
       output_path
+    rescue StandardError
+      File.rename(backup, output_path) if backup && File.exist?(backup) && !File.exist?(output_path)
+      raise
     ensure
       FileUtils.rm_rf(temporary) if temporary && Dir.exist?(temporary)
+      FileUtils.rm_rf(backup) if backup && File.exist?(backup)
     end
 
-    def gif_delay(milliseconds)
-      frame_ms = 1_000.0 / config.animation[:framerate]
-      adjusted = milliseconds / config.animation[:playback_speed]
-      quantized = [(adjusted / frame_ms).round * frame_ms, frame_ms].max
-      [(quantized / 10.0).round, 1].max
+    def replaceable_sequence_directory?(path)
+      entries = Dir.children(path)
+      return true if entries.empty?
+      return false unless entries.include?("timeline.json")
+
+      entries.all? { |entry| entry == "timeline.json" || entry.match?(/\Aframe_\d{4}\.png\z/) }
+    end
+
+    def animation_delays(images)
+      elapsed = 0.0
+      emitted = 0
+      images.map do |image|
+        elapsed += image[:delay] / config.animation[:playback_speed]
+        target = [(elapsed / 10.0).round, emitted + 1].max
+        (target - emitted).tap { emitted = target }
+      end
+    end
+
+    def animation_entries(images)
+      target_ticks = [(images.sum { |image| image[:delay] } / config.animation[:playback_speed] / 10.0).round, 1].max
+      return animation_delays(images).zip(images) if target_ticks >= images.size
+
+      elapsed = 0.0
+      ends = images.map { |image| elapsed += image[:delay] / config.animation[:playback_speed] }
+      indexes = (1..target_ticks).map do |tick|
+        ends.index { |finish| finish >= tick * 10 } || images.size - 1
+      end
+      indexes[-1] = images.size - 1
+      indexes.chunk(&:itself).map { |index, ticks| [ticks.size, images[index]] }
     end
 
     def warn_frame_count(frames)
@@ -201,6 +234,13 @@ module Shellfie
     end
 
     def validate_workload!(frames, scale:, shadow:)
+      speed = Rational(config.animation[:playback_speed].to_s)
+      encoded_frames = (frames.sum { |frame| frame[:delay] } * config.animation[:framerate] / (1_000 * speed)).ceil
+      if encoded_frames > config.limits[:max_render_frames]
+        raise ResourceLimitError,
+              "Animation timeline would encode #{encoded_frames} frames (max #{config.limits[:max_render_frames]})"
+      end
+
       visible_lines = fixed_visible_lines(frames)
       max_pixels = frames.map do |frame|
         frame_config = create_frame_config(frame[:lines], window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {}))

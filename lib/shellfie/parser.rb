@@ -4,30 +4,41 @@ require "yaml"
 require_relative "config"
 require_relative "errors"
 require_relative "parser_validation"
+require_relative "yaml_safety"
 
 module Shellfie
   class Parser
     MAX_INCLUDE_BYTES = 1_048_576
+    MAX_INCLUDE_DEPTH = 50
+    MAX_INCLUDE_FILES = 100
+    MAX_TOTAL_INCLUDE_BYTES = 10 * MAX_INCLUDE_BYTES
 
     class << self
       include ParserValidation
 
       def parse(path)
         return parse_string($stdin.read(MAX_INCLUDE_BYTES + 1), base_dir: Dir.pwd) if path == "-"
-        raise ParseError, "Configuration file not found: #{path}" unless File.exist?(path)
-
         source_path = File.realpath(path)
         content = read_config(source_path)
-        parse_string(content, base_dir: File.dirname(source_path), include_stack: [source_path], source_name: source_path)
+        state = { files: 1, bytes: content.bytesize, cache: {} }
+        parse_string(content, base_dir: File.dirname(source_path), include_stack: [source_path], source_name: source_path,
+                              include_state: state)
+      rescue Errno::ENOENT
+        raise ParseError, "Configuration file not found: #{path}"
       end
 
-      def parse_string(content, base_dir: nil, include_stack: [], source_name: nil)
+      def parse_string(content, base_dir: nil, include_stack: [], source_name: nil, include_state: nil)
         raise ParseError, "Configuration is too large (max #{MAX_INCLUDE_BYTES} bytes)" if content.bytesize > MAX_INCLUDE_BYTES
 
         raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
-        raw = apply_includes(raw, base_dir, stack: include_stack, root: base_dir) if base_dir
+        YamlSafety.validate_tree!(raw)
+        if base_dir
+          include_state ||= { files: 1, bytes: content.bytesize, cache: {} }
+          raw = apply_includes(raw, base_dir, stack: include_stack, root: base_dir, state: include_state)
+        end
         validate_config(raw)
-        build_config(raw)
+        sources = (include_stack + Array(include_state&.dig(:cache)&.keys)).uniq
+        build_config(raw, source_paths: sources)
       rescue Psych::Exception => e
         raise ParseError, "Invalid YAML syntax: #{e.message}"
       rescue ValidationError => e
@@ -41,7 +52,7 @@ module Shellfie
 
       private
 
-      def build_config(raw)
+      def build_config(raw, source_paths: [])
         options = {
           version: raw[:version],
           theme: raw[:theme],
@@ -57,14 +68,16 @@ module Shellfie
           cursor: symbolize_hash(raw[:cursor]),
           limits: symbolize_hash(raw[:limits]),
           frames: parse_frames(raw[:frames]),
-          headless: raw[:headless] || false
+          headless: raw[:headless] || false,
+          source_paths: source_paths
         }.compact
 
         Config.new(options)
       end
 
-      def apply_includes(raw, base_dir, stack: [], root: base_dir, policy: nil)
+      def apply_includes(raw, base_dir, stack: [], root: base_dir, policy: nil, state:, depth: 0)
         return raw unless raw.is_a?(Hash) && raw[:include]
+        raise ParseError, "YAML include depth exceeds #{MAX_INCLUDE_DEPTH}" if depth >= MAX_INCLUDE_DEPTH
 
         policy ||= raw[:include_policy] || "allow"
         raise ParseError, "include_policy must be allow or root" unless %w[allow root].include?(policy)
@@ -84,13 +97,27 @@ module Shellfie
             raise ParseError, "Circular YAML include: #{chain}"
           end
 
-          included_raw = YAML.safe_load(read_config(include_file), symbolize_names: true, aliases: true)
+          state[:files] += 1
+          raise ParseError, "Too many YAML includes (max #{MAX_INCLUDE_FILES})" if state[:files] > MAX_INCLUDE_FILES
+          included_raw = state[:cache][include_file]
+          unless included_raw
+            included_content = read_config(include_file)
+            state[:bytes] += included_content.bytesize
+            if state[:bytes] > MAX_TOTAL_INCLUDE_BYTES
+              raise ParseError, "Included YAML is too large in total (max #{MAX_TOTAL_INCLUDE_BYTES} bytes)"
+            end
+            included_raw = YAML.safe_load(included_content, symbolize_names: true, aliases: true)
+            YamlSafety.validate_tree!(included_raw)
+            state[:cache][include_file] = included_raw
+          end
           included_raw = apply_includes(
             included_raw,
             File.dirname(include_file),
             stack: stack + [include_file],
             root: root,
-            policy: policy
+            policy: policy,
+            state: state,
+            depth: depth + 1
           )
           deep_merge(merged, included_raw || {})
         end
@@ -99,10 +126,7 @@ module Shellfie
       end
 
       def read_config(path)
-        size = File.size(path)
-        raise ParseError, "Configuration file is too large: #{path} (max #{MAX_INCLUDE_BYTES} bytes)" if size > MAX_INCLUDE_BYTES
-
-        File.read(path)
+        YamlSafety.read_file(path, max_bytes: MAX_INCLUDE_BYTES)
       end
 
       def deep_merge(base, overrides)
@@ -141,6 +165,7 @@ module Shellfie
             prompt: frame[:prompt],
             type: frame[:type],
             output: frame[:output],
+            screen: frame[:screen],
             delay: frame[:delay] || 0,
             prompt_color: frame[:prompt_color],
             command_color: frame[:command_color],
@@ -184,10 +209,10 @@ module Shellfie
   end
 
   class Frame
-    attr_reader :prompt, :type, :output, :delay, :prompt_color, :command_color, :output_color
+    attr_reader :prompt, :type, :output, :delay, :prompt_color, :command_color, :output_color, :screen
 
     def initialize(prompt: nil, type: nil, output: nil, delay: 0, prompt_color: nil, command_color: nil,
-                   output_color: nil)
+                   output_color: nil, screen: nil)
       @prompt = prompt
       @type = type
       @output = output
@@ -195,6 +220,7 @@ module Shellfie
       @prompt_color = prompt_color
       @command_color = command_color
       @output_color = output_color
+      @screen = screen
       freeze
     end
 
@@ -206,12 +232,13 @@ module Shellfie
         delay: delay,
         prompt_color: prompt_color,
         command_color: command_color,
-        output_color: output_color
+        output_color: output_color,
+        screen: screen
       }.compact
     end
 
     def to_s
-      [prompt, type, output, delay].compact.join("\n")
+      [prompt, type, output, screen, delay].compact.join("\n")
     end
   end
 end

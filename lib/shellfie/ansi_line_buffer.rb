@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
+require_relative "text_metrics"
+
 module Shellfie
   class AnsiLineBuffer
+    CONTINUATION = Object.new.freeze
+
     def initialize(tab_width: 8)
       @cells = []
       @column = 0
@@ -24,9 +28,14 @@ module Shellfie
       when "\a"
         nil
       else
+        width = TextMetrics.grapheme_width(char)
+        return if width.zero?
+
+        clear_wide_cell(@column)
         @cells[@column] = "#{@pending_escape}#{char}"
+        @cells[@column + 1] = CONTINUATION if width == 2
         @pending_escape = +""
-        @column += 1
+        @column += width
       end
     end
 
@@ -57,7 +66,7 @@ module Shellfie
       last = @cells.rindex { |cell| !cell.nil? }
       return @pending_escape unless last
 
-      @cells[0..last].map { |cell| cell || " " }.join + @pending_escape
+      @cells[0..last].map { |cell| cell.equal?(CONTINUATION) ? "" : (cell || " ") }.join + @pending_escape
     end
 
     private
@@ -84,6 +93,11 @@ module Shellfie
 
     def clear_range(range)
       range.each { |index| @cells[index] = nil if index < @cells.length }
+    end
+
+    def clear_wide_cell(column)
+      @cells[column - 1] = nil if column.positive? && @cells[column].equal?(CONTINUATION)
+      @cells[column + 1] = nil if @cells[column + 1].equal?(CONTINUATION)
     end
   end
 end

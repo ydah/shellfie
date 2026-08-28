@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - 2026-08-28
 
 - Make frame delays consistent and preserve `lines` as the initial animation screen.
 - Render native selectable-text SVG, with `svg-raster` kept as an explicit legacy format.
@@ -9,8 +9,6 @@
 - Add an optional PTY session runner with live/exit/stable waits, assertions, named capture outputs, redaction, multi-output rendering, editable recording, and offline cassette replay.
 - Add a shared terminal screen model, duplicate-frame coalescing, MP4/WebM, event-duration PNG sequences, accessible HTML, and semantic TXT/JSON transcripts.
 - Add JSON Schemas, source locations with typo suggestions, authoring commands, manifests, a GitHub Action, Docker packaging, and project security/contribution metadata.
-
-## Unreleased
 
 ## 0.1.1 - 2026-01-12
 

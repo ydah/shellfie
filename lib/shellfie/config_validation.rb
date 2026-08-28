@@ -2,10 +2,22 @@
 
 module Shellfie
   module ConfigValidation
+    RESOURCE_LIMIT_CEILINGS = {
+      max_lines: 10_000,
+      max_frames: 500,
+      max_render_frames: 2_000,
+      max_characters: 200_000,
+      max_pixels: 50_000_000,
+      max_total_pixels: 2_000_000_000,
+      max_temp_bytes: 8_000_000_000
+    }.freeze
+    MAX_FRAME_DELAY_MS = 86_400_000
+
     def validate!
       validate_version!
       validate_theme!
       validate_window!
+      validate_appearance!
       validate_font!
       validate_animation!
       validate_cursor!
@@ -46,6 +58,7 @@ module Shellfie
       validate_color_scheme!
       validate_positive_integer!(@window[:width], "window.width")
       validate_non_negative_integer!(@window[:padding], "window.padding")
+      raise ValidationError, "window.padding must be at most 40" if @window[:padding] > 40
       %i[opacity scroll_offset].each { |key| validate_number_range!(@window[key], "window.#{key}", 0.0, 1.0) }
       validate_optional_positive_integer!(@window[:visible_lines], "window.visible_lines")
       validate_optional_positive_integer!(@window[:max_lines], "window.max_lines")
@@ -59,6 +72,29 @@ module Shellfie
       validate_ansi_state!
       validate_background_gradient!
       validate_minimum_width!
+    end
+
+    def validate_appearance!
+      raise ValidationError, "title must be a string" unless @title.is_a?(String)
+      unless @colors.values.all?(String)
+        raise ValidationError, "colors values must be strings"
+      end
+      %i[title_bar_height button_size button_spacing button_width corner_radius].each do |key|
+        next unless @window_decoration.key?(key)
+
+        validate_non_negative_number!(@window_decoration[key], "window_decoration.#{key}")
+      end
+      return unless @window_decoration.key?(:shadow)
+
+      shadow = @window_decoration[:shadow]
+      raise ValidationError, "window_decoration.shadow must be a mapping" unless shadow.is_a?(Hash)
+      validate_non_negative_number!(shadow[:blur], "window_decoration.shadow.blur") if shadow.key?(:blur)
+      %i[offset_x offset_y].each do |key|
+        validate_finite_number!(shadow[key], "window_decoration.shadow.#{key}") if shadow.key?(key)
+      end
+      if shadow.key?(:color) && !shadow[:color].is_a?(String)
+        raise ValidationError, "window_decoration.shadow.color must be a string"
+      end
     end
 
     def validate_font!
@@ -77,6 +113,11 @@ module Shellfie
       validate_positive_integer!(@animation[:typing_chunk_size], "animation.typing_chunk_size")
       validate_non_negative_integer!(@animation[:output_delay], "animation.output_delay")
       validate_non_negative_integer!(@animation[:final_delay], "animation.final_delay")
+      %i[typing_speed command_delay output_delay final_delay].each do |key|
+        if @animation[key] > MAX_FRAME_DELAY_MS
+          raise ValidationError, "animation.#{key} must be at most #{MAX_FRAME_DELAY_MS}"
+        end
+      end
       validate_optional_positive_integer!(@animation[:max_frames], "animation.max_frames")
       validate_boolean!(@animation[:cursor_blink], "animation.cursor_blink")
       validate_boolean!(@animation[:loop], "animation.loop")
@@ -85,6 +126,8 @@ module Shellfie
       validate_inclusion!(@animation[:scroll_easing], "animation.scroll_easing", self.class::VALID_SCROLL_EASINGS)
       validate_positive_integer!(@animation[:framerate], "animation.framerate")
       validate_positive_number!(@animation[:playback_speed], "animation.playback_speed")
+      raise ValidationError, "animation.framerate must be at most 120" if @animation[:framerate] > 120
+      raise ValidationError, "animation.playback_speed must be at most 100" if @animation[:playback_speed] > 100
     end
 
     def validate_cursor!
@@ -96,11 +139,21 @@ module Shellfie
     def validate_lines!
       raise ValidationError, "lines must be an Array" unless @lines.is_a?(Array)
       raise ValidationError, "frames must be an Array" unless @frames.is_a?(Array)
+      @frames.each_with_index do |frame, index|
+        unless frame.respond_to?(:delay) && frame.delay.is_a?(Integer) && frame.delay.between?(0, MAX_FRAME_DELAY_MS)
+          raise ValidationError, "frames[#{index}].delay must be between 0 and #{MAX_FRAME_DELAY_MS}"
+        end
+      end
     end
 
     def validate_limits!
+      unknown = @limits.keys - RESOURCE_LIMIT_CEILINGS.keys
+      raise ValidationError, "Unknown limits key(s): #{unknown.join(", ")}" unless unknown.empty?
+
       @limits.each_key do |key|
         validate_positive_integer!(@limits[key], "limits.#{key}")
+        ceiling = RESOURCE_LIMIT_CEILINGS.fetch(key)
+        raise ValidationError, "limits.#{key} must be at most #{ceiling}" if @limits[key] > ceiling
       end
     end
 
@@ -139,10 +192,9 @@ module Shellfie
     end
 
     def validate_minimum_width!
-      min_width = [120, (@window[:padding] * 2) + 40].max
-      return if @window[:width] >= min_width
+      return if @window[:width] >= 120
 
-      raise ValidationError, "window.width must be at least #{min_width}px for the configured padding"
+      raise ValidationError, "window.width must be at least 120px"
     end
 
     def validate_optional_positive_integer!(value, name)
@@ -176,9 +228,21 @@ module Shellfie
     end
 
     def validate_positive_number!(value, name)
-      return if value.is_a?(Numeric) && value.positive?
+      return if value.is_a?(Numeric) && value.finite? && value.positive?
 
       raise ValidationError, "#{name} must be a positive number"
+    end
+
+    def validate_non_negative_number!(value, name)
+      return if value.is_a?(Numeric) && value.finite? && value >= 0
+
+      raise ValidationError, "#{name} must be a non-negative number"
+    end
+
+    def validate_finite_number!(value, name)
+      return if value.is_a?(Numeric) && value.finite?
+
+      raise ValidationError, "#{name} must be a finite number"
     end
 
     def validate_number_range!(value, name, min, max)

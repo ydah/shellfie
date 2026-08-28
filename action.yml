@@ -1,5 +1,5 @@
 name: Shellfie Render
-description: Render a Shellfie YAML config in a reproducible container
+description: Render a Shellfie YAML config in a consistent container environment
 inputs:
   input:
     description: Compose configuration path

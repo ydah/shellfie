@@ -61,7 +61,7 @@ module Shellfie
           check("Image formats", details[:formats].empty? ? "unavailable" : details[:formats].join(", "),
                 (required_formats - details[:formats]).empty?),
           check("Fonts", details[:font_count].to_s, details[:font_count].positive?),
-          check("ffmpeg", video_version || "not found", !video_version.nil?),
+          check("ffmpeg (optional)", video_version || "not found; required only for APNG/MP4/WebM", true),
           check("Writable output", output_dir, File.writable?(output_dir)),
           check("Encoding", Encoding.default_external.name, true)
         ]

@@ -81,6 +81,37 @@ module Shellfie
 
     private
 
+    def canonical_output_path(path)
+      expanded = File.expand_path(path)
+      missing = []
+      current = expanded
+      until File.exist?(current)
+        parent = File.dirname(current)
+        break if parent == current
+
+        missing.unshift(File.basename(current))
+        current = parent
+      end
+      File.join(File.realpath(current), *missing)
+    rescue Errno::ENOENT
+      expanded
+    end
+
+    def configuration_version(path)
+      raw = YamlSafety.load_file(path, max_bytes: Parser::MAX_INCLUDE_BYTES)
+      raw.is_a?(Hash) ? raw[:version] : nil
+    end
+
+    def replaceable_png_sequence_directory?(path)
+      entries = Dir.children(path)
+      entries.empty? || (entries.include?("timeline.json") &&
+        entries.all? { |entry| entry == "timeline.json" || entry.match?(/\Aframe_\d{4}\.png\z/) })
+    end
+
+    def path_within?(path, directory)
+      path == directory || path.start_with?("#{directory}#{File::SEPARATOR}")
+    end
+
     def warn_error(message)
       $stderr.puts message
     end

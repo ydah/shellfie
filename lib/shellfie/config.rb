@@ -55,7 +55,7 @@ module Shellfie
     DEFAULTS = deep_freeze(deep_dup(ConfigDefaults::VALUES))
 
     attr_reader :version, :theme, :window_theme, :color_scheme, :colors, :window_decoration, :title, :window, :font,
-                :lines, :animation, :frames, :headless, :cursor, :limits
+                :lines, :animation, :frames, :headless, :cursor, :limits, :source_paths
 
     def initialize(options = {})
       options = self.class.normalize_keys(options)
@@ -75,6 +75,7 @@ module Shellfie
       @cursor = merged[:cursor]
       @limits = merged[:limits]
       @headless = merged[:headless] || false
+      @source_paths = Array(options[:source_paths])
 
       validate!
       freeze_state!
@@ -139,6 +140,7 @@ module Shellfie
       @lines = self.class.deep_freeze(@lines)
       @frames = self.class.deep_freeze(@frames)
       @title.freeze
+      @source_paths = self.class.deep_freeze(@source_paths)
       @theme.freeze
       @window_theme.freeze if @window_theme
       @color_scheme.freeze if @color_scheme

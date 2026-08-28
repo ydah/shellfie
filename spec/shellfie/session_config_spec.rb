@@ -42,4 +42,19 @@ RSpec.describe Shellfie::SessionConfig do
     expect(config.terminal[:env]).to eq("REMOVE_ME" => nil)
     expect(config.outputs.first[:capture]).to eq("ready")
   end
+
+  it "rejects cyclic aliases, non-symbolizable keys, and unbounded durations" do
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "session.yml")
+      File.write(path, "version: 2\nsteps: &cycle\n  - wait: *cycle\n")
+      expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /cycles/)
+    end
+
+    expect do
+      described_class.new({ version: 2, steps: [], terminal: { 1 => "bad" } })
+    end.to raise_error(Shellfie::ValidationError, /keys/)
+    expect do
+      described_class.new({ version: 2, steps: [{ sleep: "#{"9" * 1_000}s" }] })
+    end.to raise_error(Shellfie::ValidationError, /finite/)
+  end
 end

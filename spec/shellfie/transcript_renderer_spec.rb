@@ -7,7 +7,7 @@ require "tmpdir"
 RSpec.describe Shellfie::TranscriptRenderer do
   it "writes the final semantic transcript as text and JSON" do
     config = Shellfie::Config.new(
-      lines: [Shellfie::Line.new(output: "ready")],
+      lines: [Shellfie::Line.new(output: "\e[31mready\e[0m")],
       animation: { final_delay: 0 },
       frames: [Shellfie::Frame.new(prompt: "$ ", type: "go", delay: 1)]
     )
@@ -19,7 +19,9 @@ RSpec.describe Shellfie::TranscriptRenderer do
       described_class.new(config).render(json_path, format: "json")
 
       expect(File.read(text_path)).to eq("ready\n$ go\n")
-      expect(JSON.parse(File.read(json_path))).to include("title" => "Terminal", "version" => 1)
+      document = JSON.parse(File.read(json_path))
+      expect(document).to include("title" => "Terminal", "version" => 1)
+      expect(document.dig("lines", 0, "output")).to eq("ready")
     end
   end
 end

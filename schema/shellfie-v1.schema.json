@@ -11,16 +11,37 @@
     "theme": { "enum": ["macos", "ubuntu", "windows", "custom"] },
     "window_theme": { "enum": ["macos", "ubuntu", "windows"] },
     "color_scheme": { "type": ["string", "null"] },
-    "colors": { "type": "object" },
-    "window_decoration": { "type": "object" },
+    "colors": {
+      "type": "object",
+      "propertyNames": { "enum": ["background", "foreground", "title_bar", "title_text", "title_bar_border", "border", "selection", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "bright_black", "bright_red", "bright_green", "bright_yellow", "bright_blue", "bright_magenta", "bright_cyan", "bright_white"] },
+      "additionalProperties": { "type": "string" }
+    },
+    "window_decoration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title_bar_height": { "type": "number", "minimum": 0 },
+        "button_size": { "type": "number", "minimum": 0 },
+        "button_spacing": { "type": "number", "minimum": 0 },
+        "button_width": { "type": "number", "minimum": 0 },
+        "corner_radius": { "type": "number", "minimum": 0 },
+        "shadow": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "blur": { "type": "number", "minimum": 0 }, "offset_x": { "type": "number" },
+            "offset_y": { "type": "number" }, "color": { "type": "string" }
+          }
+        }
+      }
+    },
     "title": { "type": "string" },
     "headless": { "type": "boolean" },
     "window": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "width": { "type": "integer", "minimum": 1 },
-        "padding": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 120 },
+        "padding": { "type": "integer", "minimum": 0, "maximum": 40 },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "visible_lines": { "type": ["integer", "null"], "minimum": 1 },
         "max_lines": { "type": ["integer", "null"], "minimum": 1 },
@@ -52,24 +73,38 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "typing_speed": { "type": "integer", "minimum": 0 },
-        "command_delay": { "type": "integer", "minimum": 0 },
+        "typing_speed": { "type": "integer", "minimum": 0, "maximum": 86400000 },
+        "command_delay": { "type": "integer", "minimum": 0, "maximum": 86400000 },
         "cursor_blink": { "type": "boolean" },
         "loop": { "type": "boolean" },
         "typing_jitter": { "type": "number", "minimum": 0, "maximum": 1 },
         "typing_chunk_size": { "type": "integer", "minimum": 1 },
-        "output_delay": { "type": "integer", "minimum": 0 },
-        "final_delay": { "type": "integer", "minimum": 0 },
+        "output_delay": { "type": "integer", "minimum": 0, "maximum": 86400000 },
+        "final_delay": { "type": "integer", "minimum": 0, "maximum": 86400000 },
         "max_frames": { "type": ["integer", "null"], "minimum": 1 },
         "dither": { "type": "boolean" },
         "palette": { "enum": ["global", "adaptive", "theme"] },
         "scroll_easing": { "enum": ["linear", "ease_in", "ease_out", "ease_in_out"] },
-        "framerate": { "type": "integer", "minimum": 1 },
-        "playback_speed": { "type": "number", "exclusiveMinimum": 0 }
+        "framerate": { "type": "integer", "minimum": 1, "maximum": 120 },
+        "playback_speed": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 }
       }
     },
-    "cursor": { "type": "object" },
-    "limits": { "type": "object" },
+    "cursor": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "style": { "enum": ["block", "bar", "underline"] }, "color": { "type": ["string", "null"] } }
+    },
+    "limits": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "max_lines": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "max_frames": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "max_render_frames": { "type": "integer", "minimum": 1, "maximum": 2000 },
+        "max_characters": { "type": "integer", "minimum": 1, "maximum": 200000 },
+        "max_pixels": { "type": "integer", "minimum": 1, "maximum": 50000000 },
+        "max_total_pixels": { "type": "integer", "minimum": 1, "maximum": 2000000000 },
+        "max_temp_bytes": { "type": "integer", "minimum": 1, "maximum": 8000000000 }
+      }
+    },
     "lines": { "type": "array", "items": { "$ref": "#/$defs/line" } },
     "frames": { "type": "array", "items": { "$ref": "#/$defs/frame" } }
   },
@@ -90,10 +125,14 @@
       "additionalProperties": false,
       "properties": {
         "prompt": { "type": "string" }, "type": { "type": "string" }, "output": { "type": "string" },
-        "delay": { "type": "integer", "minimum": 0 }, "prompt_color": { "type": "string" },
+        "screen": { "type": "array", "items": { "type": "string" } },
+        "delay": { "type": "integer", "minimum": 0, "maximum": 86400000 }, "prompt_color": { "type": "string" },
         "command_color": { "type": "string" }, "output_color": { "type": "string" }
       },
-      "anyOf": [{ "required": ["type"] }, { "required": ["output"] }, { "required": ["delay"] }]
+      "allOf": [
+        { "anyOf": [{ "required": ["type"] }, { "required": ["output"] }, { "required": ["screen"] }, { "required": ["delay"] }] },
+        { "if": { "required": ["prompt"] }, "then": { "required": ["type"] } }
+      ]
     }
   }
 }

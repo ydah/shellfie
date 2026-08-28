@@ -133,6 +133,11 @@ RSpec.describe Shellfie::AnsiParser do
 
       expect(tab_parser.parse("a\tb").first.text).to eq("a   b")
       expect(tab_parser.parse("abcd\tb").first.text).to eq("abcd    b")
+      expect(described_class.new(tab_width: 8).parse("界\tX").first.text).to eq("界      X")
+    end
+
+    it "uses terminal cell width when overwriting wide graphemes" do
+      expect(described_class.new.parse("界\bX").first.text).to eq(" X")
     end
 
     it "applies simple cursor movement" do

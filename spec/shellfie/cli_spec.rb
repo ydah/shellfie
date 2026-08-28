@@ -68,6 +68,51 @@ RSpec.describe Shellfie::CLI do
       end
     end
 
+    it "rejects a manifest path that would overwrite generated output" do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "ok")])
+      allow(Shellfie::Parser).to receive(:parse).and_return(config)
+      expect(Shellfie::Renderer).not_to receive(:new)
+
+      cli = described_class.new(["generate", "config.yml", "-o", "out.png", "--manifest", "out.png", "--force"])
+
+      expect { cli.run }.to output(/Manifest path conflicts/).to_stderr.and raise_error(SystemExit)
+    end
+
+    it "rejects input/output collisions and stdout manifests before rendering" do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "ok")])
+      allow(Shellfie::Parser).to receive(:parse).and_return(config)
+      expect(Shellfie::Renderer).not_to receive(:new)
+
+      cli = described_class.new(["generate", "config.yml", "-o", "config.yml", "--format", "png", "--force"])
+      expect { cli.run }.to output(/conflicts with an input/).to_stderr.and raise_error(SystemExit)
+
+      cli = described_class.new(["generate", "config.yml", "-o", "-", "--format", "png", "--manifest", "m.json"])
+      expect { cli.run }.to output(/manifest cannot/).to_stderr.and raise_error(SystemExit)
+    end
+
+    it "preflights every batch target before rendering any output" do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "ok")])
+      allow(Shellfie::Parser).to receive(:parse).and_return(config)
+      expect(Shellfie::Renderer).not_to receive(:new)
+
+      Dir.mktmpdir("shellfie-preflight") do |dir|
+        File.write(File.join(dir, "b.png"), "old")
+        cli = described_class.new(["generate", "a.yml", "b.yml", "-o", "#{dir}/", "--quiet"])
+        expect { cli.run }.to output(/already exists/).to_stderr.and raise_error(SystemExit)
+        expect(File.exist?(File.join(dir, "a.png"))).to be false
+      end
+    end
+
+    it "rejects an invalid output parent before rendering" do
+      Dir.mktmpdir do |dir|
+        parent = File.join(dir, "not-a-directory")
+        File.write(parent, "x")
+
+        expect { described_class.new([]).send(:ensure_output_writable!, File.join(parent, "out.png")) }
+          .to raise_error(Shellfie::FileSystemError, /not writable/)
+      end
+    end
+
     it "preserves custom config fields while applying generate overrides" do
       config = Shellfie::Config.new(
         colors: { foreground: "#123456" },
@@ -138,6 +183,44 @@ RSpec.describe Shellfie::CLI do
       expect(Shellfie::SessionRunner).not_to receive(:new)
 
       expect { cli.run }.to output(/use shellfie replay/).to_stderr.and raise_error(SystemExit)
+    end
+
+    it "rejects missing outputs and artifact collisions before executing a session" do
+      no_outputs = Shellfie::SessionConfig.new({ version: 2, steps: [{ run: "touch marker" }] })
+      allow(Shellfie::SessionConfig).to receive(:parse).and_return(no_outputs)
+      expect(Shellfie::SessionRunner).not_to receive(:new)
+
+      expect { described_class.new(["run", "session.yml"]).run }
+        .to output(/Output is required/).to_stderr.and raise_error(SystemExit)
+
+      collision = Shellfie::SessionConfig.new(
+        { version: 2, steps: [], outputs: [{ path: "same.svg", format: "svg" }] }
+      )
+      allow(Shellfie::SessionConfig).to receive(:parse).and_return(collision)
+      expect do
+        described_class.new(["record", "session.yml", "--cassette", "same.svg", "--force"]).run
+      end.to output(/same path/).to_stderr.and raise_error(SystemExit)
+
+      expect do
+        described_class.new(["run", "session.yml", "-o", "out.png", "--animate"]).run
+      end.to output(/animated output/).to_stderr.and raise_error(SystemExit)
+    end
+
+    it "checks render dependencies before executing session commands" do
+      Dir.mktmpdir do |dir|
+        output = File.join(dir, "missing", "out.mp4")
+        config = Shellfie::SessionConfig.new(
+          { version: 2, steps: [{ run: "side effect" }], outputs: [{ path: output, format: "mp4" }] }
+        )
+        allow(Shellfie::SessionConfig).to receive(:parse).and_return(config)
+        allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick!)
+        allow(Shellfie::DependencyChecker).to receive(:ensure_ffmpeg!).and_raise(Shellfie::DependencyError, "missing")
+        expect(Shellfie::SessionRunner).not_to receive(:new)
+
+        expect { described_class.new(["run", "session.yml"]).run }
+          .to output(/missing/).to_stderr.and raise_error(SystemExit)
+        expect(Dir.exist?(File.dirname(output))).to be false
+      end
     end
 
     it "prints doctor checks" do

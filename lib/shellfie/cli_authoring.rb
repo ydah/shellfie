@@ -22,7 +22,9 @@ module Shellfie
       raise FileSystemError, "File already exists: #{path} (use --force to overwrite)" if File.exist?(path) && !options[:force]
 
       FileUtils.mkdir_p(File.dirname(path)) unless File.dirname(path) == "."
-      File.write(path, templates.fetch(options[:template]))
+      OutputWriter.write(path, extension: "yml") do |temporary_path|
+        File.write(temporary_path, templates.fetch(options[:template]))
+      end
       puts "Created: #{path}"
     end
 
@@ -32,8 +34,10 @@ module Shellfie
       path = @args.shift
       raise ConfigError, "Configuration file is required" unless path
 
-      original = File.read(path)
-      normalized = YAML.dump(YAML.safe_load(original, aliases: true))
+      original = YamlSafety.read_file(path, max_bytes: Parser::MAX_INCLUDE_BYTES)
+      normalized = YAML.dump(
+        YamlSafety.load_file(path, max_bytes: Parser::MAX_INCLUDE_BYTES, symbolize_names: false)
+      )
       if check
         raise ValidationError, "Configuration is not formatted: #{path}" unless original == normalized
         puts "Formatted: #{path}"
@@ -61,7 +65,7 @@ module Shellfie
       raise ConfigError, "Configuration file is required" unless path
       raise ValidationError, "compile format must be json or yaml" unless %w[json yaml].include?(output_format)
 
-      version = YAML.safe_load_file(path, symbolize_names: true, aliases: true)&.dig(:version)
+      version = configuration_version(path)
       value = version == 2 ? SessionConfig.parse(path).to_h : Parser.parse(path).to_h
       puts(output_format == "json" ? JSON.pretty_generate(value) : YAML.dump(value))
     end

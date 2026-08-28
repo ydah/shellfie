@@ -22,6 +22,7 @@ module Shellfie
       raise ConfigError, "Output file is required (use -o option)" unless @options[:output]
       raise ConfigError, "stdout output supports only one input file" if @options[:output] == "-" && input_files.size > 1
       raise ConfigError, "--format is required when writing to stdout" if @options[:output] == "-" && !@options[:format]
+      raise ConfigError, "--manifest cannot be used when writing output to stdout" if @options[:output] == "-" && @options[:manifest]
       jobs = input_files.map do |input_file|
         config = apply_overrides(Parser.parse(input_file))
         animate = animation_output?(config)
@@ -33,10 +34,50 @@ module Shellfie
       end
       duplicate = jobs.group_by(&:last).find { |_path, grouped| grouped.size > 1 }&.first
       raise ConfigError, "Multiple inputs resolve to the same output: #{duplicate}" if duplicate
+      input_paths = jobs.flat_map { |config, _animate, _format, _output| config.source_paths }
+                        .concat(input_files.reject { |path| path == "-" })
+                        .map { |path| canonical_output_path(path) }.uniq
+      output_collision = jobs.find do |_config, _animate, _format, output_path|
+        output_path != "-" && input_paths.include?(canonical_output_path(output_path))
+      end
+      raise ConfigError, "Generated output conflicts with an input file: #{output_collision.last}" if output_collision
+      directory_collision = jobs.find do |_config, _animate, format, output_path|
+        next false unless format == "png-sequence"
+
+        directory = canonical_output_path(output_path)
+        input_paths.any? { |path| path_within?(path, directory) }
+      end
+      if directory_collision
+        raise ConfigError, "PNG sequence output contains an input file: #{directory_collision.last}"
+      end
+      if @options[:manifest]
+        raise ConfigError, "Manifest output cannot be stdout" if @options[:manifest] == "-"
+
+        manifest_path = canonical_output_path(@options[:manifest])
+        collision = jobs.any? do |_config, _animate, _format, output_path|
+          output_path != "-" && canonical_output_path(output_path) == manifest_path
+        end
+        raise ConfigError, "Manifest path conflicts with a generated output: #{@options[:manifest]}" if collision
+        raise ConfigError, "Manifest path conflicts with an input file: #{@options[:manifest]}" if input_paths.include?(manifest_path)
+        sequence_dirs = jobs.filter_map do |_config, _animate, format, output_path|
+          canonical_output_path(output_path) if format == "png-sequence"
+        end
+        nested = sequence_dirs.any? do |directory|
+          path_within?(manifest_path, directory) || path_within?(directory, manifest_path)
+        end
+        raise ConfigError, "Manifest path conflicts with a PNG sequence directory: #{@options[:manifest]}" if nested
+      end
 
       manifests = []
+      preflight_render_dependencies!(jobs.map { |_config, _animate, format, _output_path| format })
+      jobs.each do |_config, _animate, format, output_path|
+        if format == "png-sequence" && Dir.exist?(output_path) && !replaceable_png_sequence_directory?(output_path)
+          raise FileSystemError, "Refusing to replace a non-Shellfie directory: #{output_path}"
+        end
+      end
+      jobs.each { |_config, _animate, _format, output_path| ensure_output_writable!(output_path) }
+      ensure_output_writable!(@options[:manifest]) if @options[:manifest]
       jobs.each do |config, animate, format, output_path|
-        ensure_output_writable!(output_path)
         write_rendered_output(config, output_path, animate: animate, format: format)
         manifests << ReproducibilityManifest.build(config, output_path: output_path, format: format) if @options[:manifest]
       end
@@ -85,7 +126,7 @@ module Shellfie
                else
                  generate_static_image(config, output_path, format)
                end
-      puts "Generated: #{result}" unless output_path == "-" || @options[:quiet]
+      $stderr.puts "Generated: #{result}" unless output_path == "-" || @options[:quiet]
     end
 
     def generate_animation(config, output_path, format)
@@ -125,7 +166,8 @@ module Shellfie
         animation: config.animation.merge(animation_overrides),
         lines: config.lines,
         frames: config.frames,
-        headless: @options[:headless] || config.headless
+        headless: @options[:headless] || config.headless,
+        source_paths: config.source_paths
       )
       Config.new(options)
     end
@@ -178,6 +220,8 @@ module Shellfie
     end
 
     def validate_output_mode!(format, animate)
+      raise ConfigError, "MP4 output does not support transparency" if format == "mp4" && @options[:transparent]
+
       if SEMANTIC_FORMATS.include?(format)
         return
       elsif animate && ANIMATED_FORMATS.include?(format)
@@ -193,11 +237,20 @@ module Shellfie
     def ensure_output_writable!(path)
       return if path == "-"
 
-      directory = File.dirname(path)
-      FileUtils.mkdir_p(directory) unless directory == "." || Dir.exist?(directory)
-      return if @options[:force] || !File.exist?(path)
+      if File.exist?(path) && !@options[:force]
+        raise FileSystemError, "Output file already exists: #{path} (use --force to overwrite)"
+      end
 
-      raise FileSystemError, "Output file already exists: #{path} (use --force to overwrite)"
+      directory = File.dirname(File.expand_path(path))
+      directory = File.dirname(directory) until File.exist?(directory)
+      return if File.directory?(directory) && File.writable?(directory)
+
+      raise FileSystemError, "Output directory is not writable: #{directory}"
+    end
+
+    def preflight_render_dependencies!(formats)
+      DependencyChecker.ensure_imagemagick! if (formats - %w[svg html txt json]).any?
+      DependencyChecker.ensure_ffmpeg! if (formats & %w[apng mp4 webm]).any?
     end
 
     def expand_input_paths(args)
@@ -223,13 +276,13 @@ module Shellfie
 
     def output_path_for(input_file, format, multiple:)
       return @options[:output] if @options[:output] == "-"
-      return @options[:output] unless multiple || batch_directory?(@options[:output])
+      return @options[:output] unless multiple || batch_directory?(@options[:output], format)
 
       File.join(@options[:output], "#{File.basename(input_file, File.extname(input_file))}.#{format}")
     end
 
-    def batch_directory?(path)
-      path.end_with?(File::SEPARATOR) || Dir.exist?(path)
+    def batch_directory?(path, format = nil)
+      path.end_with?(File::SEPARATOR) || (Dir.exist?(path) && format != "png-sequence")
     end
 
     def warn_verbose(message)
@@ -243,7 +296,7 @@ module Shellfie
       FileUtils.mkdir_p(File.dirname(path)) unless File.dirname(path) == "."
       value = manifests.size == 1 ? manifests.first : manifests
       OutputWriter.write(path, extension: "json") { |temporary_path| File.write(temporary_path, JSON.pretty_generate(value)) }
-      puts "Manifest: #{path}" unless @options[:quiet]
+      $stderr.puts "Manifest: #{path}" unless @options[:quiet]
     end
   end
 end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "text_metrics"
+require_relative "ansi_parser"
 
 module Shellfie
   class TerminalScreen
@@ -21,16 +22,33 @@ module Shellfie
       @scroll_top = 0
       @scroll_bottom = rows - 1
       @primary_state = nil
+      @pending_control = +""
+      @ansi_parser = AnsiParser.new
     end
 
     def feed(text)
-      text.to_s.scan(TOKENS).each { |token| process(token) }
+      input = @pending_control << text.to_s
+      input, @pending_control = split_incomplete_control(input)
+      input.scan(TOKENS).each { |token| process(token) }
       self
     end
 
     def lines
-      @cells.map { |cells| cells.reject { |cell| cell.equal?(CONTINUATION) }.map { |cell| cell || " " }.join.rstrip }
-            .then { |all| all[0..(all.rindex { |line| !line.empty? } || 0)] }
+      visible_rows.map { |cells| cells.reject { |cell| cell.equal?(CONTINUATION) }.map { |cell| cell&.text || " " }.join.rstrip }
+    end
+
+    def render_lines
+      visible_rows.map do |cells|
+        visible = cells.reject { |cell| cell.equal?(CONTINUATION) }
+        last = visible.rindex { |cell| cell && cell.text != " " }
+        next "" unless last
+
+        visible[0..last].chunk { |cell| style_key(cell) }.map do |_style, group|
+          cells_in_style = group.to_a
+          text = cells_in_style.map { |cell| cell&.text || " " }.join
+          styled_cell(cells_in_style.first, text)
+        end.join
+      end
     end
 
     def to_s
@@ -42,6 +60,7 @@ module Shellfie
     def process(token)
       return if token.start_with?("\e]")
       match = CSI.match(token)
+      @ansi_parser.parse(token) if match && match[3] == "m"
       return process_csi(match[1], match[3]) if match
 
       case token
@@ -87,15 +106,46 @@ module Shellfie
     end
 
     def write(grapheme)
+      return if extend_previous_grapheme(grapheme)
+
       width = TextMetrics.grapheme_width(grapheme)
       return if width.zero?
       newline if @column + width > @columns
 
       clear_wide_cell(@row, @column)
-      @cells[@row][@column] = grapheme
+      @cells[@row][@column] = @ansi_parser.parse(grapheme).first
       @cells[@row][@column + 1] = CONTINUATION if width == 2 && @column + 1 < @columns
       @column += width
       newline if @column >= @columns
+    end
+
+    def extend_previous_grapheme(grapheme)
+      return false if @column.zero?
+
+      owner_column = @column - 1
+      owner_column -= 1 if @cells[@row][owner_column].equal?(CONTINUATION)
+      owner = @cells[@row][owner_column]
+      return false unless owner && grapheme_extension?(owner.text, grapheme)
+
+      old_width = TextMetrics.grapheme_width(owner.text)
+      owner.text << grapheme
+      new_width = TextMetrics.grapheme_width(owner.text)
+      if old_width == 1 && new_width == 2 && owner_column + 1 < @columns
+        @cells[@row][owner_column + 1] = CONTINUATION
+        @column += 1
+      end
+      true
+    end
+
+    def grapheme_extension?(previous, current)
+      codepoint = current.codepoints.first
+      TextMetrics.combining?(codepoint) || codepoint == 0x200d || codepoint == 0xfe0e || codepoint == 0xfe0f ||
+        (0x1f3fb..0x1f3ff).cover?(codepoint) || previous.end_with?("\u200d") ||
+        regional_indicator?(previous.codepoints.last) && regional_indicator?(codepoint)
+    end
+
+    def regional_indicator?(codepoint)
+      codepoint && (0x1f1e6..0x1f1ff).cover?(codepoint)
     end
 
     def newline
@@ -161,7 +211,7 @@ module Shellfie
       case mode
       when 1
         (0...@row).each { |index| @cells[index] = Array.new(@columns) }
-        @cells[@row][0..@column] = Array.new(@column + 1)
+        erase_line(1)
       when 2, 3
         @cells = Array.new(@rows) { Array.new(@columns) }
       else
@@ -176,17 +226,24 @@ module Shellfie
               when 2 then 0...@columns
               else @column...@columns
               end
-      range.each { |index| @cells[@row][index] = nil }
+      range.each do |index|
+        clear_wide_cell(@row, index)
+        @cells[@row][index] = nil
+      end
     end
 
     def insert_characters(amount)
+      clear_wide_cell(@row, @column)
       amount.times { @cells[@row].insert(@column, nil) }
       @cells[@row] = @cells[@row].first(@columns)
+      repair_wide_cells(@row)
     end
 
     def delete_characters(amount)
+      (@column...[@column + amount, @columns].min).each { |index| clear_wide_cell(@row, index) }
       @cells[@row].slice!(@column, amount)
       @cells[@row].concat(Array.new(amount)).slice!(@columns..)
+      repair_wide_cells(@row)
     end
 
     def insert_lines(amount)
@@ -202,6 +259,67 @@ module Shellfie
     def clear_wide_cell(row, column)
       @cells[row][column - 1] = nil if column.positive? && @cells[row][column].equal?(CONTINUATION)
       @cells[row][column + 1] = nil if @cells[row][column + 1].equal?(CONTINUATION)
+    end
+
+    def repair_wide_cells(row)
+      @cells[row].each_with_index do |cell, column|
+        if cell.equal?(CONTINUATION)
+          owner = column.positive? && @cells[row][column - 1]
+          @cells[row][column] = nil unless owner && TextMetrics.grapheme_width(owner.text) == 2
+        elsif cell && TextMetrics.grapheme_width(cell.text) == 2 && !@cells[row][column + 1].equal?(CONTINUATION)
+          @cells[row][column] = nil
+        end
+      end
+    end
+
+    def split_incomplete_control(text)
+      if (start = text.rindex("\e]")) && !text[start..].match?(/\A\e\].*?(?:\a|\e\\)/m)
+        return [text[0...start], text[start..]]
+      end
+      if (start = text.rindex("\e[")) && text[start..].match?(/\A\e\[[0-9;?]*[ -\/]*\z/)
+        return [text[0...start], text[start..]]
+      end
+      return [text[0...-1], "\e"] if text.end_with?("\e")
+
+      [text, +""]
+    end
+
+    def visible_rows
+      last = @cells.rindex { |cells| cells.any? { |cell| cell && !cell.equal?(CONTINUATION) } } || 0
+      @cells[0..last]
+    end
+
+    def styled_cell(cell, text = cell&.text || " ")
+      return text unless cell
+
+      codes = []
+      codes << 1 if cell.bold
+      codes << 2 if cell.dim
+      codes << 3 if cell.italic
+      codes << 4 if cell.underline
+      codes << 7 if cell.reverse
+      codes << 9 if cell.strikethrough
+      codes << 53 if cell.overline
+      codes.concat(color_codes(cell.foreground, 38)) if cell.foreground
+      codes.concat(color_codes(cell.background, 48)) if cell.background
+      return text if codes.empty?
+
+      "\e[#{codes.join(";")}m#{text}\e[0m"
+    end
+
+    def style_key(cell)
+      return nil unless cell
+
+      [cell.foreground, cell.background, cell.bold, cell.italic, cell.underline, cell.dim, cell.reverse,
+       cell.strikethrough, cell.overline]
+    end
+
+    def color_codes(color, prefix)
+      standard = prefix == 38 ? AnsiColors::COLORS.key(color) : AnsiColors::BG_COLORS.key(color)
+      return [standard] if standard
+      return [] unless color.match?(/\A#[0-9a-fA-F]{6}\z/)
+
+      [prefix, 2, color[1, 2].to_i(16), color[3, 2].to_i(16), color[5, 2].to_i(16)]
     end
   end
 end

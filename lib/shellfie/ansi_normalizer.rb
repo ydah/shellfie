@@ -12,6 +12,7 @@ module Shellfie
     module_function
 
     def normalize(text, tab_width: 8)
+      text = TextMetrics.graphemes(text).join
       text = text.gsub(OSC_REGEX, "")
       text = apply_line_controls(text, tab_width: tab_width)
       text.gsub(CSI_CONTROL_REGEX, "")
@@ -42,7 +43,7 @@ module Shellfie
           next
         end
 
-        buffer.write_character(scanner.getch)
+        buffer.write_character(scanner.scan(/\X/))
       end
 
       buffer.to_s

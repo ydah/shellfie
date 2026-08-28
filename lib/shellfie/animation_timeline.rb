@@ -12,6 +12,7 @@ module Shellfie
       return enum_for(:each) unless block_given?
 
       @config.frames.each do |frame|
+        yield Event.new(kind: :screen, frame: frame) if frame.screen
         yield Event.new(kind: :command, frame: frame) if frame.type
         yield Event.new(kind: :output, frame: frame) if frame.output
         yield Event.new(kind: :pause, frame: frame) if pause_frame?(frame)
@@ -21,7 +22,7 @@ module Shellfie
     private
 
     def pause_frame?(frame)
-      frame.delay&.positive? && frame.output.nil? && frame.type.nil?
+      frame.delay&.positive? && frame.output.nil? && frame.type.nil? && frame.screen.nil?
     end
   end
 end

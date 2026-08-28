@@ -187,5 +187,15 @@ RSpec.describe Shellfie::Parser do
         expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /escapes the configuration root/)
       end
     end
+
+    it "bounds the total number of include references" do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "shared.yml"), "lines:\n  - output: shared\n")
+        path = File.join(dir, "root.yml")
+        File.write(path, "include:\n#{("  - shared.yml\n" * (described_class::MAX_INCLUDE_FILES + 1))}")
+
+        expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /Too many YAML includes/)
+      end
+    end
   end
 end

@@ -63,11 +63,22 @@ RSpec.describe Shellfie::GifGenerator do
       expect(frames.map { |frame| frame[:delay] }).to include(50)
     end
 
-    it "clamps GIF delay to one configured output frame" do
+    it "rounds animation delays cumulatively without duration drift" do
       config = Shellfie::Config.new(frames: [Shellfie::Frame.new(prompt: "$ ", type: "x")])
       generator = described_class.new(config)
 
-      expect(generator.send(:gif_delay, 0)).to eq(3)
+      delays = generator.send(:animation_delays, [{ delay: 33 }, { delay: 33 }, { delay: 34 }])
+      expect(delays).to eq([3, 4, 3])
+    end
+
+    it "drops unrepresentable frames while preserving high-speed duration" do
+      config = Shellfie::Config.new(animation: { playback_speed: 100 })
+      images = Array.new(32) { |index| { path: index.to_s, delay: index == 31 ? 100 : 200 } }
+
+      entries = described_class.new(config).send(:animation_entries, images)
+
+      expect(entries.sum(&:first)).to eq(6)
+      expect(entries.last.last).to equal(images.last)
     end
 
     it "uses configured cursor glyphs" do
@@ -179,6 +190,31 @@ RSpec.describe Shellfie::GifGenerator do
         manifest = JSON.parse(File.read(File.join(output, "timeline.json")))
         expect(manifest["frames"]).to eq([{ "file" => "frame_0000.png", "delay_ms" => 250 }])
         expect(File.binread(File.join(output, "frame_0000.png"))).to eq("png")
+      end
+    end
+
+    it "rejects timelines that would expand beyond the encoded frame limit" do
+      config = Shellfie::Config.new(
+        animation: { framerate: 120 },
+        frames: [Shellfie::Frame.new(output: "x", delay: 60_000)]
+      )
+      generator = described_class.new(config)
+      frames = generator.send(:build_animation_frames)
+
+      expect do
+        generator.send(:validate_workload!, frames, scale: 1, shadow: false)
+      end.to raise_error(Shellfie::ResourceLimitError, /timeline/)
+    end
+
+    it "never replaces an unrelated directory with a PNG sequence" do
+      generator = described_class.new(Shellfie::Config.new)
+
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "valuable.txt"), "keep")
+        expect do
+          generator.send(:write_png_sequence, [{ path: File.join(dir, "valuable.txt"), delay: 1 }], dir)
+        end.to raise_error(Shellfie::FileSystemError, /non-Shellfie/)
+        expect(File.read(File.join(dir, "valuable.txt"))).to eq("keep")
       end
     end
   end

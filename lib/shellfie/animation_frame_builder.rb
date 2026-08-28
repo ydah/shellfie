@@ -19,6 +19,9 @@ module Shellfie
       current_lines = @config.lines.flat_map { |line| line_data(line) }
       AnimationTimeline.new(@config).each do |event|
         case event.kind
+        when :screen
+          current_lines.replace(event.frame.screen.map { |line| { output: line } })
+          frames << { lines: build_display_lines(current_lines), delay: [event.frame.delay, 1].max }
         when :command
           frames.concat(command_frames(current_lines, event.frame))
         when :output

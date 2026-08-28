@@ -27,7 +27,7 @@ RSpec.describe Shellfie::FfmpegEncoder do
     expect(concat).to include("duration 0.5")
   end
 
-  it "preserves the final APNG hold and loop setting" do
+  it "encodes APNG as decodable 8-bit frames at the requested rate" do
     status = instance_double(Process::Status, success?: true)
     allow(Open3).to receive(:capture3).and_return(["", "", status])
 
@@ -43,12 +43,12 @@ RSpec.describe Shellfie::FfmpegEncoder do
 
     expect(Open3).to have_received(:capture3).with(
       "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", anything,
-      "-fps_mode", "vfr",
-      "-plays", "0", "-final_delay", "0.5", "-f", "apng", "/tmp/out.apng"
+      "-vf", "fps=30,format=rgba", "-fps_mode", "cfr", "-t", "0.5",
+      "-plays", "0", "-f", "apng", "/tmp/out.apng"
     )
   end
 
-  it "does not duplicate the APNG tail before applying its final delay" do
+  it "duplicates the APNG tail so concat honors its duration" do
     status = instance_double(Process::Status, success?: true)
     concat = nil
     allow(Open3).to receive(:capture3) do |*args|
@@ -66,6 +66,6 @@ RSpec.describe Shellfie::FfmpegEncoder do
       loop: true
     )
 
-    expect(concat.scan(/^file /).size).to eq(1)
+    expect(concat.scan(/^file /).size).to eq(2)
   end
 end

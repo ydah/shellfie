@@ -21,38 +21,124 @@
       }
     },
     "requires": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]+$" } },
-    "steps": { "type": "array", "items": { "$ref": "#/$defs/step" } },
+    "steps": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/step" } },
     "outputs": { "type": "array", "items": { "$ref": "#/$defs/output" } },
-    "render": { "type": "object" },
-    "redact": { "type": "array", "items": { "type": "string" } }
+    "render": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "window": {
+          "$ref": "#/$defs/window"
+        },
+        "font": {
+          "$ref": "#/$defs/font"
+        },
+        "animation": {
+          "$ref": "#/$defs/animation"
+        },
+        "headless": { "type": "boolean" }
+      }
+    },
+    "redact": { "type": "array", "maxItems": 100, "items": { "type": "string", "maxLength": 512 } }
   },
   "$defs": {
-    "duration": { "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)?(?:ms|s)?$" }] },
+    "duration": {
+      "oneOf": [
+        { "type": "number", "exclusiveMinimum": 0, "maximum": 86400 },
+        {
+          "type": "string",
+          "pattern": "^(?=.{1,32}s?$)0*(?:0\\.[0-9]*[1-9][0-9]*|(?:[1-9][0-9]{0,3}|[1-7][0-9]{4}|8[0-5][0-9]{3}|86[0-3][0-9]{2})(?:\\.[0-9]+)?|86400(?:\\.0+)?)s?$"
+        },
+        {
+          "type": "string",
+          "pattern": "^(?=.{1,32}ms$)0*(?:0\\.[0-9]*[1-9][0-9]*|(?:[1-9][0-9]{0,6}|[1-7][0-9]{7}|8[0-5][0-9]{6}|86[0-3][0-9]{5})(?:\\.[0-9]+)?|86400000(?:\\.0+)?)ms$"
+        }
+      ]
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "integer", "minimum": 120 },
+        "padding": { "type": "integer", "minimum": 0, "maximum": 40 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "visible_lines": { "type": ["integer", "null"], "minimum": 1 },
+        "max_lines": { "type": ["integer", "null"], "minimum": 1 },
+        "max_height": { "type": ["integer", "null"], "minimum": 1 },
+        "wrap": { "type": "boolean" },
+        "overflow": { "enum": ["clip", "wrap", "scroll"] },
+        "margin": { "type": ["integer", "null"], "minimum": 0 },
+        "exact_size": { "type": "boolean" },
+        "trim": { "type": "boolean" },
+        "tab_width": { "type": "integer", "minimum": 1 },
+        "ansi_state": { "enum": ["persistent", "line"] },
+        "background_gradient": { "type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+        "scroll_offset": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "font": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "family": { "type": ["string", "null"] },
+        "size": { "type": "number", "exclusiveMinimum": 0 },
+        "line_height": { "type": "number", "exclusiveMinimum": 0 },
+        "fallback_family": { "type": ["string", "null"] },
+        "italic_family": { "type": ["string", "null"] },
+        "emoji_family": { "type": ["string", "null"] }
+      }
+    },
+    "animation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "typing_speed": { "type": "integer", "minimum": 0, "maximum": 86400000 },
+        "command_delay": { "type": "integer", "minimum": 0, "maximum": 86400000 },
+        "cursor_blink": { "type": "boolean" },
+        "loop": { "type": "boolean" },
+        "typing_jitter": { "type": "number", "minimum": 0, "maximum": 1 },
+        "typing_chunk_size": { "type": "integer", "minimum": 1 },
+        "output_delay": { "type": "integer", "minimum": 0, "maximum": 86400000 },
+        "final_delay": { "type": "integer", "minimum": 0, "maximum": 86400000 },
+        "max_frames": { "type": ["integer", "null"], "minimum": 1 },
+        "dither": { "type": "boolean" },
+        "palette": { "enum": ["global", "adaptive", "theme"] },
+        "scroll_easing": { "enum": ["linear", "ease_in", "ease_out", "ease_in_out"] },
+        "framerate": { "type": "integer", "minimum": 1, "maximum": 120 },
+        "playback_speed": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 }
+      }
+    },
     "step": {
       "oneOf": [
         { "type": "string", "enum": ["hide", "show"] },
         {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "run": { "type": "string" }, "type": { "type": "string" }, "key": { "type": "string" },
             "sleep": { "$ref": "#/$defs/duration" }, "wait": { "$ref": "#/$defs/wait" },
             "expect": { "$ref": "#/$defs/expect" }, "capture": { "type": "string" },
-            "hide": {}, "show": {}, "visibility": { "enum": ["visible", "hidden"] },
-            "timeout": { "$ref": "#/$defs/duration" }, "speed": {}, "count": { "type": "integer", "minimum": 1 },
+            "hide": { "const": true }, "show": { "const": true }, "visibility": { "enum": ["visible", "hidden"] },
+            "timeout": { "$ref": "#/$defs/duration" },
+            "speed": { "type": "string", "maxLength": 32, "pattern": "^0*(?:[1-9][0-9]{0,2}(?:\\.[0-9]+)?|1000(?:\\.0+)?)cps$" },
+            "count": { "type": "integer", "minimum": 1, "maximum": 10000 },
             "async": { "type": "boolean" }
           },
-          "minProperties": 1
+          "oneOf": [
+            { "required": ["run"] }, { "required": ["type"] }, { "required": ["key"] },
+            { "required": ["sleep"] }, { "required": ["wait"] }, { "required": ["expect"] },
+            { "required": ["capture"] }, { "required": ["hide"] }, { "required": ["show"] }
+          ]
         }
       ]
     },
     "wait": {
       "oneOf": [
-        { "type": "string" },
+        { "type": "string", "maxLength": 512 },
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "screen": { "type": "string" }, "line": { "type": "string" },
+            "screen": { "type": "string", "maxLength": 512 }, "line": { "type": "string", "maxLength": 512 },
             "stable": { "$ref": "#/$defs/duration" }, "exit": { "const": true },
             "timeout": { "$ref": "#/$defs/duration" }
           },
@@ -70,7 +156,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "screen_contains": { "type": "string" }, "screen": { "type": "string" },
+            "screen_contains": { "type": "string" }, "screen": { "type": "string", "maxLength": 512 },
             "exit_status": { "type": "integer", "minimum": 0, "maximum": 255 },
             "cursor_row": { "type": "integer", "minimum": 0 },
             "cursor_column": { "type": "integer", "minimum": 0 }
