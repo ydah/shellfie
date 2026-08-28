@@ -119,7 +119,7 @@ Common `generate` options:
 | `-a, --animate` | Render animation |
 | `-s, --scale FACTOR` | Output scale: `1`, `2`, or `3` |
 | `-w, --width PIXELS` | Override window width |
-| `--format FORMAT` | `png`, `gif`, `svg`, `svg-raster`, `webp`, `apng`, `mp4`, `webm`, `png-sequence`, `html`, `txt`, or `json` |
+| `--format FORMAT` | `png`, `gif`, `svg`, `svg-raster`, `webp`, `apng`, `mp4`, `webm`, `png-sequence`, `html`, `txt`, `ansi`, `json`, or `asciicast` |
 | `--typing-rate CPS` | Override typing rate in characters per second |
 | `--framerate FPS` | Set output timing precision |
 | `--seed N` | Set the deterministic animation jitter seed |
@@ -131,7 +131,7 @@ Common `generate` options:
 | `--force` | Overwrite existing files |
 
 Static output supports `png`, native selectable-text `svg`, accessible standalone `html`, legacy `svg-raster`, and `webp`.
-Animated output supports `gif`, `webp`, `apng`, `mp4`, `webm`, and event-duration `png-sequence` directories with a `timeline.json` manifest (`ffmpeg` is required for video). Semantic transcripts support `txt` and `json`.
+Animated output supports `gif`, `webp`, `apng`, `mp4`, `webm`, and event-duration `png-sequence` directories with a `timeline.json` manifest (`ffmpeg` is required for video). Semantic transcripts support plain `txt`, ANSI-preserving `ansi`, structured `json`, and asciinema v2 `asciicast`/`cast`.
 
 ## Configuration
 

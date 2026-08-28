@@ -13,7 +13,13 @@ module Shellfie
 
     def render(output_path, format:, io: nil)
       OutputWriter.write(output_path, extension: format, io: io) do |temporary_path|
-        File.write(temporary_path, format == "json" ? JSON.pretty_generate(document) : text)
+        value = case format
+                when "json" then JSON.pretty_generate(document)
+                when "ansi" then ansi_text
+                when "asciicast", "cast" then asciicast
+                else text
+                end
+        File.write(temporary_path, value)
       end
     end
 
@@ -32,6 +38,33 @@ module Shellfie
         command = "#{line.prompt}#{line.command}" if line.prompt || line.command
         [command, line.output].compact.map { |value| plain_text(value) }
       end.join("\n") + "\n"
+    end
+
+    def ansi_text
+      final_lines.flat_map do |line|
+        command = "#{line.prompt}#{line.command}" if line.prompt || line.command
+        [command, line.output].compact
+      end.join("\n") + "\n"
+    end
+
+    def asciicast
+      width = [config.window[:width].to_i / 8, 1].max
+      header = { version: 2, width: width, height: [final_lines.size, 1].max, env: { "TERM" => "xterm-256color" } }
+      elapsed = 0.0
+      source = config.frames.empty? ? [{ text: ansi_text, delay: 0 }] : config.frames.map do |frame|
+        { text: frame_to_ansi(frame), delay: frame.delay }
+      end
+      events = source.map do |event|
+        value = [elapsed.round(6), "o", event[:text]]
+        elapsed += event[:delay].to_f / 1_000
+        value
+      end
+      ([JSON.generate(header)] + events.map { |event| JSON.generate(event) }).join("\n") + "\n"
+    end
+
+    def frame_to_ansi(frame)
+      command = "#{frame.prompt}#{frame.command}" if frame.prompt || frame.command
+      [command, frame.output].compact.join("\r\n") + "\r\n"
     end
 
     def document

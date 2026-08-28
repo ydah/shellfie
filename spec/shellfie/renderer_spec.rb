@@ -160,6 +160,7 @@ RSpec.describe Shellfie::Renderer do
 
         html = File.read(output)
         expect(html).to include("<!doctype html>", "role=\"img\"", "Demo &lt;terminal&gt;", "hello &amp; goodbye")
+        expect(html).to include("Toggle color theme", "data-theme")
       end
     end
   end

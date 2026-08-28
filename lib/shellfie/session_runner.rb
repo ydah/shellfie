@@ -220,7 +220,10 @@ module Shellfie
       when :run then execute_command(step[:run], step, visible: step.fetch(:visibility, step[:async] ? "visible" : "hidden") != "hidden")
       when :type then type(step[:type], step)
       when :key then key(step[:key], step)
-      when :sleep then sleep(parse_duration(step[:sleep]))
+      when :sleep
+        delay = parse_duration(step[:sleep])
+        @session.record("", delay: delay, visible: @visible)
+        sleep(delay)
       when :wait
         wait_condition(step[:wait], timeout: step_timeout(step))
         flush_pending
@@ -557,6 +560,7 @@ module Shellfie
 
     def redact(text)
       clean = @prompt_marker ? text.to_s.gsub("\e]9;#{@prompt_marker}\a", "") : text.to_s
+      clean = clean.gsub(@session_home, "~") if @session_home
       @redactions.reduce(clean) do |result, pattern|
         with_regexp_timeout { result.gsub(pattern, "[REDACTED]") }
       end

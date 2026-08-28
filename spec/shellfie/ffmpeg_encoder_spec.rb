@@ -68,4 +68,17 @@ RSpec.describe Shellfie::FfmpegEncoder do
 
     expect(concat.scan(/^file /).size).to eq(2)
   end
+
+  it "gives a zero-delay still frame a decodable video duration" do
+    status = instance_double(Process::Status, success?: true)
+    args = nil
+    allow(Open3).to receive(:capture3) { |*value| args = value; ["", "", status] }
+
+    described_class.encode(
+      [{ path: "/tmp/frame.png", delay: 0 }], "/tmp/out.mp4",
+      format: "mp4", command: "ffmpeg", framerate: 25, playback_speed: 1.0, loop: false
+    )
+
+    expect(args[args.index("-t") + 1].to_f).to be >= 0.04
+  end
 end

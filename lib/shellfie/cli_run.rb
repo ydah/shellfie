@@ -22,7 +22,7 @@ module Shellfie
       cassette_path = @options[:cassette]
       yaml_path = @options[:yaml]
       raise ConfigError, "record requires --cassette PATH or --yaml PATH" if record && !cassette_path && !yaml_path
-      resolved_outputs = resolve_session_outputs(config.outputs, base_dir: config.base_dir)
+      resolved_outputs = resolve_session_outputs(config.outputs, base_dir: config.base_dir, allow_empty: record && (cassette_path || yaml_path))
       preflight_session_artifacts!(resolved_outputs, cassette_path, yaml_path, input_path: config.path)
       preflight_render_dependencies!(resolved_outputs.map { |_path, format, _output| format })
       raise DependencyError, "Live sessions are not supported on native Windows" if Gem.win_platform?
@@ -87,13 +87,13 @@ module Shellfie
       end
     end
 
-    def resolve_session_outputs(configured_outputs, base_dir:)
+    def resolve_session_outputs(configured_outputs, base_dir:, allow_empty: false)
       outputs = if @options[:output]
                   [{ path: @options[:output], format: @options[:format], animate: @options[:animate] }]
                 else
                   configured_outputs
                 end
-      raise ConfigError, "Output is required with -o or outputs in the session config" if outputs.empty?
+      raise ConfigError, "Output is required with -o or outputs in the session config" if outputs.empty? && !allow_empty
 
       resolved = outputs.map do |output|
         path = output[:path] == "-" ? "-" : File.expand_path(output[:path], base_dir)

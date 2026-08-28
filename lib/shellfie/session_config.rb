@@ -23,7 +23,7 @@ module Shellfie
     TOP_LEVEL_KEYS = %i[version mode title theme terminal requires steps outputs render redact].freeze
     TERMINAL_KEYS = %i[shell columns rows cwd env env_allowlist timeout total_timeout prompt].freeze
     OUTPUT_KEYS = %i[path format animate scale shadow transparent capture].freeze
-    OUTPUT_FORMATS = %w[png gif svg svg-raster webp apng mp4 webm png-sequence html txt json].freeze
+    OUTPUT_FORMATS = %w[png gif svg svg-raster webp apng mp4 webm png-sequence html txt ansi json asciicast cast].freeze
     RENDER_KEYS = %i[window font animation headless].freeze
 
     attr_reader :path, :mode, :title, :theme, :terminal, :requires, :steps, :outputs, :render, :redactions

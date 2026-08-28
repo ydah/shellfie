@@ -71,7 +71,9 @@ module Shellfie
       when "\r" then @column = 0; @wrap_pending = false
       when "\n" then newline(reset_column: false)
       when "\b" then @column = [@column - 1, 0].max; @wrap_pending = false
-      when "\t" then (@tab_width - (@column % @tab_width)).times { write(" ") }
+      when "\t"
+        @column = [@column + @tab_width - (@column % @tab_width), @columns - 1].min
+        @wrap_pending = false
       when "\a" then nil
       when "\e7" then @saved_cursor = [@row, @column]
       when "\e8" then @row, @column = @saved_cursor

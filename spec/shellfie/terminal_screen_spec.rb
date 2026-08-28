@@ -11,6 +11,13 @@ RSpec.describe Shellfie::TerminalScreen do
     expect(screen.lines).to eq(%w[command output])
   end
 
+  it "moves across existing cells at a tab stop without erasing them" do
+    screen = described_class.new(columns: 20, rows: 2)
+    screen.feed("abcdefghij\r\tX")
+
+    expect(screen.to_s).to start_with("abcdefghXj")
+  end
+
   it "restores the primary buffer after leaving the alternate screen" do
     screen = described_class.new(columns: 20, rows: 4)
     screen.feed("primary\e[?1049halternate")

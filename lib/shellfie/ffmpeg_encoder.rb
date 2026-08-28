@@ -8,14 +8,15 @@ module Shellfie
   class FfmpegEncoder
     def self.encode(images, output_path, format:, command:, framerate:, playback_speed:, loop:)
       list = Tempfile.new(["shellfie-frames", ".txt"])
+      minimum_delay = 1_000.0 / framerate
       images.each do |image|
         list.puts "file '#{image[:path].gsub("'", "'\\''")}'"
-        list.puts "duration #{image[:delay] / 1_000.0 / playback_speed}"
+        list.puts "duration #{[image[:delay].to_f, minimum_delay].max / 1_000.0 / playback_speed}"
       end
       list.puts "file '#{images.last[:path].gsub("'", "'\\''")}'"
       list.close
 
-      total_duration = images.sum { |image| image[:delay] } / 1_000.0 / playback_speed
+      total_duration = images.sum { |image| [image[:delay].to_f, minimum_delay].max } / 1_000.0 / playback_speed
       filters = ["fps=#{framerate}"]
       codec = case format
               when "mp4"

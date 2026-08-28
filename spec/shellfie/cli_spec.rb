@@ -222,6 +222,19 @@ RSpec.describe Shellfie::CLI do
       end.to output(/animated output/).to_stderr.and raise_error(SystemExit)
     end
 
+    it "records metadata without requiring a rendered output" do
+      Dir.mktmpdir do |dir|
+        config = Shellfie::SessionConfig.new({ version: 2, steps: [] })
+        session = Shellfie::Session.new(columns: 80, rows: 24)
+        allow(Shellfie::SessionConfig).to receive(:parse).and_return(config)
+        allow(Shellfie::SessionRunner).to receive(:new).and_return(instance_double(Shellfie::SessionRunner, run: session))
+        cassette = File.join(dir, "session.json")
+
+        expect { described_class.new(["record", "session.yml", "--cassette", cassette]).run }.not_to raise_error
+        expect(File).to exist(cassette)
+      end
+    end
+
     it "checks render dependencies before executing session commands" do
       Dir.mktmpdir do |dir|
         output = File.join(dir, "missing", "out.mp4")

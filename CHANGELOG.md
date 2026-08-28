@@ -15,6 +15,9 @@
 - Fix colon-form SGR parsing, split grapheme clusters, terminal line-feed semantics, and scroll-region line editing.
 - Add inferred output names, collision-checked output templates, PowerShell completion, and TUI/CI/theme-gallery starters.
 - Set live PTY dimensions and harden prompt synchronization against prompt-like process output.
+- Add theme-switchable accessible HTML plus ANSI-preserving and asciinema v2 transcript exports.
+- Preserve existing cells on terminal tab movement and guarantee a decodable minimum video duration.
+- Record explicit session sleeps as timeline pauses and allow cassette-only or YAML-only recording.
 
 ## 0.1.1 - 2026-01-12
 

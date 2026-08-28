@@ -24,7 +24,7 @@ module Shellfie
       when "\b"
         @column = [@column - 1, 0].max
       when "\t"
-        (@tab_width - (@column % @tab_width)).times { write_character(" ") }
+        @column += @tab_width - (@column % @tab_width)
       when "\a"
         nil
       else

@@ -10,7 +10,7 @@ module Shellfie
   module CLIGenerate
     ANIMATED_FORMATS = %w[gif webp apng mp4 webm png-sequence].freeze
     STATIC_FORMATS = %w[png svg svg-raster webp html].freeze
-    SEMANTIC_FORMATS = %w[txt json].freeze
+    SEMANTIC_FORMATS = %w[txt ansi json asciicast cast].freeze
     SUPPORTED_FORMATS = (STATIC_FORMATS + ANIMATED_FORMATS + SEMANTIC_FORMATS).uniq.freeze
 
     private
@@ -115,7 +115,7 @@ module Shellfie
         opts.on("--no-shadow", "Disable shadow effect") { @options[:shadow] = false }
         opts.on("--transparent", "Transparent background") { @options[:transparent] = true }
         opts.on("--no-header", "Disable window header (headless mode)") { @options[:headless] = true }
-        opts.on("--format FORMAT", "Output format (png, gif, svg, svg-raster, webp, apng, mp4, webm, png-sequence, html, txt, json)") { |format| @options[:format] = parse_format(format) }
+        opts.on("--format FORMAT", "Output format (png, gif, svg, svg-raster, webp, apng, mp4, webm, png-sequence, html, txt, ansi, json, asciicast)") { |format| @options[:format] = parse_format(format) }
         opts.on("--force", "Overwrite existing output files") { @options[:force] = true }
         opts.on("--quiet", "Suppress non-error output") { @options[:quiet] = true }
         opts.on("--verbose", "Print extra progress information") { @options[:verbose] = true }

@@ -208,6 +208,14 @@ RSpec.describe Shellfie::SessionRunner do
     expect(session.compose_hash["frames"].map { |frame| frame["delay"] }).to eq([200, 30])
   end
 
+  it "records explicit sleeps as deterministic timeline pauses" do
+    config = Shellfie::SessionConfig.new(
+      { version: 2, terminal: { shell: "/bin/sh", timeout: 2 }, steps: [{ sleep: "20ms" }] }
+    )
+
+    expect(described_class.new(config).run.compose_hash["frames"].map { |frame| frame["delay"] }).to eq([20])
+  end
+
   it "removes its private prompt marker from recorded events" do
     config = Shellfie::SessionConfig.new(
       {
@@ -219,6 +227,16 @@ RSpec.describe Shellfie::SessionRunner do
 
     recorded = described_class.new(config).run.events.map { |event| event[:text] }.join
     expect(recorded).not_to include("\e]9;")
+  end
+
+  it "replaces its private home directory in recorded output" do
+    config = Shellfie::SessionConfig.new(
+      { version: 2, terminal: { shell: "/bin/sh", timeout: 2 }, steps: [{ run: "printf \"$HOME\"", visibility: "visible" }] }
+    )
+
+    recorded = described_class.new(config).run.events.map { |event| event[:text] }.join
+    expect(recorded).to include("~")
+    expect(recorded).not_to include("shellfie-home")
   end
 
   it "encodes modified character and navigation keys" do
