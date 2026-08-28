@@ -3,6 +3,7 @@
 require "fileutils"
 require "optparse"
 require "json"
+require_relative "output_writer"
 require_relative "reproducibility_manifest"
 
 module Shellfie
@@ -241,7 +242,7 @@ module Shellfie
 
       FileUtils.mkdir_p(File.dirname(path)) unless File.dirname(path) == "."
       value = manifests.size == 1 ? manifests.first : manifests
-      File.write(path, JSON.pretty_generate(value))
+      OutputWriter.write(path, extension: "json") { |temporary_path| File.write(temporary_path, JSON.pretty_generate(value)) }
       puts "Manifest: #{path}" unless @options[:quiet]
     end
   end

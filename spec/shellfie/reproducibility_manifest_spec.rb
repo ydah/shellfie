@@ -17,4 +17,15 @@ RSpec.describe Shellfie::ReproducibilityManifest do
       expect(manifest[:fonts]).to include(:regular, :italic)
     end
   end
+
+  it "fingerprints directory outputs deterministically" do
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "frame.png"), "frame")
+
+      first = described_class.output_digest(dir)
+      second = described_class.output_digest(dir)
+
+      expect(first).to eq(second).and match(/\A[0-9a-f]{64}\z/)
+    end
+  end
 end
