@@ -23,9 +23,9 @@ module Shellfie
       yaml_path = @options[:yaml]
       raise ConfigError, "record requires --cassette PATH or --yaml PATH" if record && !cassette_path && !yaml_path
       resolved_outputs = resolve_session_outputs(config.outputs, base_dir: config.base_dir)
+      preflight_session_artifacts!(resolved_outputs, cassette_path, yaml_path, input_path: config.path)
       preflight_render_dependencies!(resolved_outputs.map { |_path, format, _output| format })
       raise DependencyError, "Live sessions are not supported on native Windows" if Gem.win_platform?
-      preflight_session_artifacts!(resolved_outputs, cassette_path, yaml_path, input_path: config.path)
 
       require_relative "session_runner"
       session = SessionRunner.new(config).run
