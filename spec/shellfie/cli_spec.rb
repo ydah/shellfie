@@ -140,6 +140,29 @@ RSpec.describe Shellfie::CLI do
       end
     end
 
+    it "bounds parallel batch rendering after preflight" do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "ok")])
+      allow(Shellfie::Parser).to receive(:parse).and_return(config)
+      allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick!)
+      active = maximum = 0
+      mutex = Mutex.new
+
+      Dir.mktmpdir do |dir|
+        cli = described_class.new(["generate", "a.yml", "b.yml", "c.yml", "-o", "#{dir}/", "--jobs", "2", "--quiet"])
+        allow(cli).to receive(:write_rendered_output) do
+          mutex.synchronize { active += 1; maximum = [maximum, active].max }
+          sleep 0.02
+          mutex.synchronize { active -= 1 }
+        end
+
+        cli.run
+      end
+
+      expect(maximum).to eq(2)
+      expect { described_class.new(["generate", "a.yml", "--jobs", "33"]).run }
+        .to output(/jobs must/).to_stderr.and raise_error(SystemExit)
+    end
+
     it "rejects an invalid output parent before rendering" do
       Dir.mktmpdir do |dir|
         parent = File.join(dir, "not-a-directory")

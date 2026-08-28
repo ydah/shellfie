@@ -128,6 +128,7 @@ Common `generate` options:
 | `-w, --width PIXELS` | Override window width |
 | `--format FORMAT` | `png`, `gif`, `svg`, `svg-raster`, `webp`, `apng`, `mp4`, `webm`, `png-sequence`, `html`, `txt`, `ansi`, `json`, or `asciicast` |
 | `--check` | Exit unsuccessfully when the existing output is stale; do not replace it |
+| `--jobs N` | Render up to 32 inputs in parallel after all targets pass preflight |
 | `--typing-rate CPS` | Override typing rate in characters per second |
 | `--framerate FPS` | Set output timing precision |
 | `--seed N` | Set the deterministic animation jitter seed |

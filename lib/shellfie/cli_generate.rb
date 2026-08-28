@@ -73,7 +73,6 @@ module Shellfie
         raise ConfigError, "Manifest path conflicts with a PNG sequence directory: #{@options[:manifest]}" if nested
       end
 
-      manifests = []
       preflight_render_dependencies!(jobs.map { |_config, _animate, format, _output_path| format })
       jobs.each do |_config, _animate, format, output_path|
         if format == "png-sequence" && Dir.exist?(output_path) && !replaceable_png_sequence_directory?(output_path)
@@ -88,14 +87,7 @@ module Shellfie
         end
       end
       ensure_output_writable!(@options[:manifest]) if @options[:manifest]
-      jobs.each do |config, animate, format, output_path|
-        if @options[:check]
-          check_rendered_output(config, output_path, animate: animate, format: format)
-        else
-          write_rendered_output(config, output_path, animate: animate, format: format)
-        end
-        manifests << ReproducibilityManifest.build(config, output_path: output_path, format: format) if @options[:manifest]
-      end
+      manifests = render_jobs(jobs)
       write_manifest(manifests) if @options[:manifest]
     end
 
@@ -131,13 +123,49 @@ module Shellfie
         opts.on("--format FORMAT", "Output format (png, gif, svg, svg-raster, webp, apng, mp4, webm, png-sequence, html, txt, ansi, json, asciicast)") { |format| @options[:format] = parse_format(format) }
         opts.on("--force", "Overwrite existing output files") { @options[:force] = true }
         opts.on("--check", "Fail if the existing output differs without replacing it") { @options[:check] = true }
+        opts.on("--jobs N", Integer, "Render up to N inputs in parallel (1-32)") { |value| @options[:jobs] = parse_jobs(value) }
         opts.on("--quiet", "Suppress non-error output") { @options[:quiet] = true }
         opts.on("--verbose", "Print extra progress information") { @options[:verbose] = true }
         opts.on("--manifest PATH", "Write a reproducibility manifest") { |path| @options[:manifest] = path }
       end
     end
 
-    def write_rendered_output(config, output_path, animate:, format:)
+    def render_jobs(jobs)
+      workers = [@options[:jobs] || 1, jobs.size].min
+      return jobs.filter_map { |job| render_job(job) } if workers <= 1
+
+      queue = Queue.new
+      jobs.each_with_index { |job, index| queue << [index, job] }
+      results = Array.new(jobs.size)
+      errors = Queue.new
+      Array.new(workers) do
+        Thread.new do
+          loop do
+            index, job = queue.pop(true)
+            results[index] = render_job(job)
+          rescue ThreadError
+            break
+          rescue StandardError => e
+            errors << e
+          end
+        end
+      end.each(&:join)
+      raise errors.pop unless errors.empty?
+
+      results.compact
+    end
+
+    def render_job(job)
+      config, animate, format, output_path = job
+      if @options[:check]
+        check_rendered_output(config, output_path, animate: animate, format: format)
+      else
+        write_rendered_output(config, output_path, animate: animate, format: format)
+      end
+      ReproducibilityManifest.build(config, output_path: output_path, format: format) if @options[:manifest]
+    end
+
+    def write_rendered_output(config, output_path, animate:, format:, announce: true)
       $stdout.binmode if output_path == "-"
       result = if SEMANTIC_FORMATS.include?(format)
                  TranscriptRenderer.new(config).render(output_path, format: format, io: output_path == "-" ? $stdout : nil)
@@ -146,20 +174,16 @@ module Shellfie
                else
                  generate_static_image(config, output_path, format)
                end
-      $stderr.puts "Generated: #{result}" unless output_path == "-" || @options[:quiet]
+      $stderr.puts "Generated: #{result}" if announce && output_path != "-" && !@options[:quiet]
     end
 
     def check_rendered_output(config, output_path, animate:, format:)
       Dir.mktmpdir("shellfie-check") do |dir|
         candidate = format == "png-sequence" ? File.join(dir, "sequence") : File.join(dir, "output.#{format}")
-        original_options = @options
-        @options = @options.merge(quiet: true, force: true, check: false)
-        write_rendered_output(config, candidate, animate: animate, format: format)
+        write_rendered_output(config, candidate, animate: animate, format: format, announce: false)
         expected = ReproducibilityManifest.output_digest(output_path)
         actual = ReproducibilityManifest.output_digest(candidate)
         raise ValidationError, "Generated output is stale: #{output_path}" unless expected == actual
-      ensure
-        @options = original_options
       end
       $stderr.puts "Current: #{output_path}" unless @options[:quiet]
       output_path
@@ -255,6 +279,13 @@ module Shellfie
       return seed if seed&.between?(0, 2_147_483_647)
 
       raise ValidationError, "seed must be between 0 and 2147483647"
+    end
+
+    def parse_jobs(value)
+      jobs = Integer(value, exception: false)
+      return jobs if jobs&.between?(1, 32)
+
+      raise ValidationError, "jobs must be between 1 and 32"
     end
 
     def parse_format(value)
