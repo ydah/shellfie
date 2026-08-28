@@ -276,6 +276,30 @@ RSpec.describe Shellfie::SessionRunner do
     end
   end
 
+  it "rejects working directories outside the session root when configured" do
+    Dir.mktmpdir do |dir|
+      root = File.join(dir, "root")
+      outside = File.join(dir, "outside")
+      Dir.mkdir(root)
+      Dir.mkdir(outside)
+      config = Shellfie::SessionConfig.new(
+        { version: 2, terminal: { cwd: "..", cwd_policy: "root" }, steps: [] },
+        path: File.join(root, "session.yml")
+      )
+
+      expect { described_class.new(config).send(:validate_working_directories!) }
+        .to raise_error(Shellfie::FileSystemError, /escapes the session root/)
+
+      File.symlink(outside, File.join(root, "escape"))
+      config = Shellfie::SessionConfig.new(
+        { version: 2, terminal: { cwd_policy: "root" }, steps: [{ run: "pwd", cwd: "escape" }] },
+        path: File.join(root, "session.yml")
+      )
+      expect { described_class.new(config).send(:validate_working_directories!) }
+        .to raise_error(Shellfie::FileSystemError, /escapes the session root/)
+    end
+  end
+
   it "preserves command output that has no trailing newline" do
     config = Shellfie::SessionConfig.new(
       {

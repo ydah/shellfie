@@ -22,7 +22,7 @@ module Shellfie
       sleep: [], wait: %i[timeout], expect: [], capture: [], hide: [], show: []
     }.freeze
     TOP_LEVEL_KEYS = %i[version mode title theme terminal requires steps outputs render redact].freeze
-    TERMINAL_KEYS = %i[shell columns rows cwd env env_allowlist timeout total_timeout prompt].freeze
+    TERMINAL_KEYS = %i[shell columns rows cwd cwd_policy env env_allowlist timeout total_timeout prompt].freeze
     OUTPUT_KEYS = %i[path format animate scale shadow transparent capture].freeze
     OUTPUT_FORMATS = %w[png gif svg svg-raster webp apng mp4 webm png-sequence html txt ansi json asciicast cast].freeze
     RENDER_KEYS = %i[window font animation headless].freeze
@@ -185,6 +185,7 @@ module Shellfie
         columns: 100,
         rows: 28,
         cwd: ".",
+        cwd_policy: "allow",
         env: {},
         env_allowlist: nil,
         timeout: 30,
@@ -219,6 +220,7 @@ module Shellfie
       raise ValidationError, "terminal.columns must be at most 500" if terminal[:columns] > 500
       raise ValidationError, "terminal.rows must be at most 200" if terminal[:rows] > 200
       raise ValidationError, "terminal.cwd must be a string" unless terminal[:cwd].is_a?(String)
+      raise ValidationError, "terminal.cwd_policy must be allow or root" unless %w[allow root].include?(terminal[:cwd_policy])
       raise ValidationError, "terminal.prompt must be a string" unless terminal[:prompt].is_a?(String)
       raise ValidationError, "terminal.prompt must not be blank" if terminal[:prompt].strip.empty?
       raise ValidationError, "terminal.env must be a mapping" unless terminal[:env].is_a?(Hash)

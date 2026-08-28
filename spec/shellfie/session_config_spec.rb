@@ -74,6 +74,9 @@ RSpec.describe Shellfie::SessionConfig do
     })
 
     expect(config.steps).to include({ run: "pwd", cwd: "subdir" }, { expect: { golden: "expected.txt" } })
+    expect(described_class.new({ version: 2, terminal: { cwd_policy: "root" }, steps: [] }).terminal[:cwd_policy]).to eq("root")
+    expect { described_class.new({ version: 2, terminal: { cwd_policy: "anywhere" }, steps: [] }) }
+      .to raise_error(Shellfie::ValidationError, /cwd_policy/)
   end
 
   it "loads reusable session scenarios with root policy" do

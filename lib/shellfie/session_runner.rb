@@ -443,6 +443,12 @@ module Shellfie
       paths.concat(@config.steps.filter_map { |step| step_directory(step[:cwd]) if step[:cwd] })
       missing = paths.find { |path| !File.directory?(path) }
       raise FileSystemError, "Working directory not found: #{missing}" if missing
+      return unless terminal[:cwd_policy] == "root"
+
+      root = File.realpath(@config.base_dir)
+      escaped = paths.map { |path| File.realpath(path) }
+                     .find { |path| path != root && !path.start_with?("#{root}#{File::SEPARATOR}") }
+      raise FileSystemError, "Working directory escapes the session root: #{escaped}" if escaped
     end
 
     def step_directory(path)
