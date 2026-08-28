@@ -112,8 +112,11 @@ module Shellfie
         current = watch_snapshot(watched)
         if current != previous
           begin
-            watched = Parser.parse(input).source_paths
-            CLI.new(["generate", input, "-o", options[:output], "--force"]).run
+            version = configuration_version(input)
+            config = version == 2 ? SessionConfig.parse(input) : Parser.parse(input)
+            watched = config.source_paths
+            command = version == 2 ? "run" : "generate"
+            CLI.new([command, input, "-o", options[:output], "--force"]).run
           rescue SystemExit
             nil
           rescue Shellfie::Error => e

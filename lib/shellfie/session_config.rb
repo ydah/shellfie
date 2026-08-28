@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "yaml"
+require "did_you_mean"
 require_relative "config"
 require_relative "errors"
 require_relative "parser_validation"
@@ -26,15 +27,15 @@ module Shellfie
     OUTPUT_FORMATS = %w[png gif svg svg-raster webp apng mp4 webm png-sequence html txt ansi json asciicast cast].freeze
     RENDER_KEYS = %i[window font animation headless].freeze
 
-    attr_reader :path, :mode, :title, :theme, :terminal, :requires, :steps, :outputs, :render, :redactions
+    attr_reader :path, :source_paths, :mode, :title, :theme, :terminal, :requires, :steps, :outputs, :render, :redactions
 
     def self.parse(path)
       source_path = File.realpath(path)
       state = { files: 0, bytes: 0 }
-      raw, documents = load_included(source_path, root: File.dirname(source_path), stack: [], state: state)
-      new(raw, path: source_path)
+      raw, documents, provenance = load_included(source_path, root: File.dirname(source_path), stack: [], state: state)
+      new(raw, path: source_path, source_paths: documents.map(&:first).uniq)
     rescue ValidationError => e
-      raise YamlSafety.annotate_validation_error(e, documents || [])
+      raise YamlSafety.annotate_validation_error(e, documents || [], provenance: provenance || {})
     rescue Psych::Exception => e
       raise ParseError, "Invalid session YAML syntax: #{e.message}"
     rescue Errno::ENOENT
@@ -53,7 +54,8 @@ module Shellfie
       raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
       YamlSafety.validate_tree!(raw)
       raise ParseError, "Included session must be a YAML mapping: #{path}" unless raw.is_a?(Hash)
-      return [raw, [[path, content]]] unless raw.is_a?(Hash) && raw[:include]
+      own_provenance = provenance_for(raw, path)
+      return [raw, [[path, content]], own_provenance] unless raw[:include]
 
       declared_policy = raw[:include_policy]
       if raw.key?(:include_policy) && !%w[allow root].include?(declared_policy)
@@ -63,6 +65,7 @@ module Shellfie
       policy ||= declared_policy || "allow"
 
       merged = {}
+      provenance = {}
       documents = [[path, content]]
       Array(raw[:include]).each do |included|
         raise ParseError, "Included session path must be a string" unless included.is_a?(String)
@@ -71,40 +74,75 @@ module Shellfie
         if policy == "root" && included_path != root && !included_path.start_with?("#{root}#{File::SEPARATOR}")
           raise ParseError, "Included session escapes the session root: #{included}"
         end
-        value, nested_documents = load_included(included_path, root: root, stack: stack + [path], state: state, policy: policy)
-        merged = merge_included(merged, value)
+        value, nested_documents, nested_provenance = load_included(
+          included_path, root: root, stack: stack + [path], state: state, policy: policy
+        )
+        merged, provenance = merge_included(merged, value, provenance, nested_provenance)
         documents.concat(nested_documents)
       end
       own = raw.reject { |key, _value| %i[include include_policy].include?(key) }
-      [merge_included(merged, own), documents]
+      own_provenance.reject! { |key, _value| %i[include include_policy].include?(key.first) }
+      merged, provenance = merge_included(merged, own, provenance, own_provenance)
+      [merged, documents, provenance]
     rescue Errno::ENOENT
       raise ParseError, "Included session file not found from #{path}"
     end
 
-    def self.merge_included(base, overrides)
-      base.merge(overrides) do |key, left, right|
+    def self.merge_included(base, overrides, base_provenance = {}, override_provenance = {}, prefix = [])
+      merged = base.dup
+      provenance = base_provenance.dup
+      overrides.each do |key, right|
+        left = base[key]
+        target = prefix + [key]
         if %i[steps requires outputs redact].include?(key)
-          Array(left) + Array(right)
+          offset = Array(left).size
+          merged[key] = Array(left) + Array(right)
+          copy_provenance!(provenance, override_provenance, target) do |path|
+            path.size > target.size && path[target.size].is_a?(Integer) ? target + [path[target.size] + offset] + path[(target.size + 1)..] : path
+          end
         elsif left.is_a?(Hash) && right.is_a?(Hash)
-          merge_included(left, right)
+          merged[key], provenance = merge_included(left, right, provenance, override_provenance, target)
         else
-          right
+          merged[key] = right
+          provenance.delete_if { |path, _value| path[0, target.size] == target }
+          copy_provenance!(provenance, override_provenance, target)
         end
+      end
+      [merged, provenance]
+    end
+
+    def self.provenance_for(value, source, path = [], result = {})
+      result[path] = [source, path]
+      case value
+      when Hash
+        value.each { |key, nested| provenance_for(nested, source, path + [key], result) }
+      when Array
+        value.each_with_index { |nested, index| provenance_for(nested, source, path + [index], result) }
+      end
+      result
+    end
+
+    def self.copy_provenance!(target_map, source_map, prefix)
+      source_map.each do |path, source|
+        next unless path[0, prefix.size] == prefix
+
+        target_map[block_given? ? yield(path) : path] = source
       end
     end
 
-    private_class_method :load_included, :merge_included
+    private_class_method :load_included, :merge_included, :provenance_for, :copy_provenance!
 
-    def initialize(raw, path: nil)
+    def initialize(raw, path: nil, source_paths: nil)
       raise ValidationError, "Session configuration must be a YAML mapping" unless raw.is_a?(Hash)
 
       unknown = raw.keys - TOP_LEVEL_KEYS
-      raise ValidationError, "Unknown session key(s): #{unknown.join(", ")}" unless unknown.empty?
+      raise_unknown_keys!(unknown, TOP_LEVEL_KEYS, "session")
       raise ValidationError, "Session config version must be 2" unless raw[:version] == 2
       raise ValidationError, "Session config must contain steps" unless raw.key?(:steps)
       raise ValidationError, "Session title must be a string" if raw.key?(:title) && !raw[:title].is_a?(String)
 
       @path = path
+      @source_paths = Array(source_paths || path).compact.freeze
       @mode = (raw[:mode] || "run").to_s
       @title = (raw[:title] || "Terminal Session").to_s
       @theme = (raw[:theme] || "macos").to_s
@@ -365,7 +403,18 @@ module Shellfie
 
     def validate_mapping_keys!(hash, allowed, context)
       unknown = hash.keys - allowed
-      raise ValidationError, "Unknown #{context} key(s): #{unknown.join(", ")}" unless unknown.empty?
+      raise_unknown_keys!(unknown, allowed, context)
+    end
+
+    def raise_unknown_keys!(unknown, allowed, context)
+      return if unknown.empty?
+
+      suggestions = unknown.filter_map do |key|
+        match = DidYouMean::SpellChecker.new(dictionary: allowed.map(&:to_s)).correct(key.to_s).first
+        "#{key} -> #{match}" if match
+      end
+      hint = suggestions.empty? ? "" : " (did you mean #{suggestions.join(", ")}?)"
+      raise ValidationError, "Unknown #{context} key(s): #{unknown.join(", ")}#{hint}"
     end
 
     def duration(value)

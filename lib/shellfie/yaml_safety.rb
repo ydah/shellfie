@@ -10,7 +10,15 @@ module Shellfie
 
     module_function
 
-    def annotate_validation_error(error, documents)
+    def annotate_validation_error(error, documents, provenance: {})
+      if (target = validation_path(error.message)) && (origin = provenance[target])
+        path, local_path = origin
+        content = documents.assoc(path)&.last
+        if content && (location = location_for_path(content, local_path))
+          return error.class.new("#{path}:#{location[0]}:#{location[1]}: #{error.message}")
+        end
+      end
+
       documents.each do |path, content|
         next unless path && content
 
@@ -77,6 +85,14 @@ module Shellfie
         return location if message.include?(format_path(path))
       end
       nil
+    rescue Psych::Exception
+      nil
+    end
+
+    def location_for_path(content, path)
+      locations = {}
+      collect_locations(Psych.parse(content).root, [], locations)
+      locations[path] || locations[path[0...-1]]
     rescue Psych::Exception
       nil
     end

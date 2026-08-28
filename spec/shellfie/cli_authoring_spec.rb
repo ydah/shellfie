@@ -52,6 +52,21 @@ RSpec.describe Shellfie::CLI do
     end
   end
 
+  it "runs version 2 sessions when an included file changes" do
+    Dir.mktmpdir do |dir|
+      included = File.join(dir, "steps.yml")
+      input = File.join(dir, "session.yml")
+      File.write(included, "version: 2\nsteps: []\n")
+      File.write(input, "version: 2\ninclude: steps.yml\nsteps: []\n")
+      cli = described_class.new(["watch", input, "-o", File.join(dir, "out.svg"), "--interval", "0.01"])
+      generator = instance_double(described_class, run: nil)
+      expect(described_class).to receive(:new).with(["run", input, "-o", File.join(dir, "out.svg"), "--force"]).and_return(generator)
+      allow(cli).to receive(:sleep) { raise Interrupt }
+
+      expect { cli.run }.to output(/Stopped/).to_stdout
+    end
+  end
+
   def capture_stdout
     original = $stdout
     output = StringIO.new

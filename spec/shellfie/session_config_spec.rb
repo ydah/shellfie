@@ -82,8 +82,16 @@ RSpec.describe Shellfie::SessionConfig do
       path = File.join(dir, "session.yml")
       File.write(path, "version: 2\ninclude: setup.yml\ninclude_policy: root\nsteps:\n  - run: echo main\n")
 
-      expect(described_class.parse(path).steps.map { |step| step[:run] }).to eq(["echo setup", "echo main"])
+      config = described_class.parse(path)
+      expect(config.steps.map { |step| step[:run] }).to eq(["echo setup", "echo main"])
+      expect(config.source_paths).to contain_exactly(File.realpath(path), File.realpath(File.join(dir, "setup.yml")))
     end
+  end
+
+  it "suggests corrections for misspelled session keys" do
+    expect do
+      described_class.new({ version: 2, termnal: {}, steps: [] })
+    end.to raise_error(Shellfie::ValidationError, /termnal -> terminal/)
   end
 
   it "rejects included documents that are not mappings" do
@@ -178,6 +186,18 @@ RSpec.describe Shellfie::SessionConfig do
 
       expect { described_class.parse(path) }
         .to raise_error(Shellfie::ValidationError, /session\.yml:3:3: terminal\.columns/)
+    end
+  end
+
+  it "reports the included source location after array merging" do
+    Dir.mktmpdir do |dir|
+      included = File.join(dir, "included.yml")
+      root = File.join(dir, "session.yml")
+      File.write(included, "version: 2\nsteps:\n  - type: echo bad\n    speed: nope\n")
+      File.write(root, "version: 2\ninclude: included.yml\nsteps:\n  - run: echo good\n")
+
+      expect { described_class.parse(root) }
+        .to raise_error(Shellfie::ValidationError, /included\.yml:4:5: steps\[0\]\.speed/)
     end
   end
 end

@@ -145,7 +145,7 @@ module Shellfie
           compile     Print the resolved config or session IR
           schema      Print the version 1 or 2 JSON Schema
           completion  Print bash, zsh, fish, or PowerShell completion
-          watch       Regenerate when a compose config changes
+          watch       Regenerate when a config or included file changes
           init        Output sample configuration
           themes      List available themes
           validate    Validate configuration file
