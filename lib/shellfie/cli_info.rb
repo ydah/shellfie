@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+require "json"
+require "optparse"
+require "yaml"
+
 module Shellfie
   module CLIInfo
     private
@@ -46,6 +50,15 @@ module Shellfie
       input_file = @args.shift
       raise ConfigError, "Input file is required" unless input_file
 
+      raw = YAML.safe_load_file(input_file, symbolize_names: true, aliases: true)
+      if raw&.dig(:version) == 2
+        session = SessionConfig.parse(input_file)
+        puts "✓ Session configuration is valid"
+        puts "  Steps: #{session.steps.size}"
+        puts "  Outputs: #{session.outputs.size}"
+        return
+      end
+
       config = Parser.parse(input_file)
       puts "✓ Configuration is valid"
       puts "  Theme: #{config.theme}"
@@ -60,10 +73,13 @@ module Shellfie
     end
 
     def run_inspect
+      json = false
+      OptionParser.new { |opts| opts.on("--json", "Print machine-readable JSON") { json = true } }.parse!(@args)
       input_file = @args.shift
       raise ConfigError, "Input file is required" unless input_file
 
       info = Shellfie.inspect_config(input_file)
+      return puts(JSON.pretty_generate(info)) if json
       puts "Config:"
       puts "  Version: #{info[:config][:version]}"
       puts "  Theme: #{info[:theme]}"
@@ -105,6 +121,12 @@ module Shellfie
           run         Execute and render a version 2 terminal session
           record      Run a session and save an offline cassette
           replay      Render an existing cassette without executing commands
+          new         Create a config from a template
+          format      Normalize YAML formatting
+          compile     Print the resolved config or session IR
+          schema      Print the version 1 or 2 JSON Schema
+          completion  Print bash, zsh, or fish completion
+          watch       Regenerate when a compose config changes
           init        Output sample configuration
           themes      List available themes
           validate    Validate configuration file
@@ -133,6 +155,7 @@ module Shellfie
           --force                Overwrite existing output files
           --quiet                Suppress non-error output
           --verbose              Print progress details
+          --manifest PATH        Write environment and output fingerprints
 
         Examples:
           shellfie generate config.yml -o terminal.png

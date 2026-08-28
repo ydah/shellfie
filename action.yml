@@ -1,0 +1,27 @@
+name: Shellfie Render
+description: Render a Shellfie YAML config in a reproducible container
+inputs:
+  input:
+    description: Compose configuration path
+    required: true
+  output:
+    description: Generated output path
+    required: true
+  format:
+    description: Output format
+    required: false
+    default: png
+runs:
+  using: docker
+  image: Dockerfile
+  args:
+    - generate
+    - ${{ inputs.input }}
+    - --output
+    - ${{ inputs.output }}
+    - --format
+    - ${{ inputs.format }}
+    - --force
+branding:
+  icon: terminal
+  color: green

@@ -22,6 +22,7 @@ module Shellfie
   autoload :Session, File.expand_path("shellfie/session", __dir__)
   autoload :SessionConfig, File.expand_path("shellfie/session_config", __dir__)
   autoload :SessionRunner, File.expand_path("shellfie/session_runner", __dir__)
+  autoload :ReproducibilityManifest, File.expand_path("shellfie/reproducibility_manifest", __dir__)
 
   class << self
     def parse(source)

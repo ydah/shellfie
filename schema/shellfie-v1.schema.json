@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ydah/shellfie/main/schema/shellfie-v1.schema.json",
+  "title": "Shellfie compose configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "include": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+    "include_policy": { "enum": ["allow", "root"] },
+    "theme": { "enum": ["macos", "ubuntu", "windows", "custom"] },
+    "window_theme": { "enum": ["macos", "ubuntu", "windows"] },
+    "color_scheme": { "type": ["string", "null"] },
+    "colors": { "type": "object" },
+    "window_decoration": { "type": "object" },
+    "title": { "type": "string" },
+    "headless": { "type": "boolean" },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "padding": { "type": "integer", "minimum": 0 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "visible_lines": { "type": ["integer", "null"], "minimum": 1 },
+        "max_lines": { "type": ["integer", "null"], "minimum": 1 },
+        "max_height": { "type": ["integer", "null"], "minimum": 1 },
+        "wrap": { "type": "boolean" },
+        "overflow": { "enum": ["clip", "wrap", "scroll"] },
+        "margin": { "type": ["integer", "null"], "minimum": 0 },
+        "exact_size": { "type": "boolean" },
+        "trim": { "type": "boolean" },
+        "tab_width": { "type": "integer", "minimum": 1 },
+        "ansi_state": { "enum": ["persistent", "line"] },
+        "background_gradient": { "type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+        "scroll_offset": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "font": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "family": { "type": ["string", "null"] },
+        "size": { "type": "number", "exclusiveMinimum": 0 },
+        "line_height": { "type": "number", "exclusiveMinimum": 0 },
+        "fallback_family": { "type": ["string", "null"] },
+        "italic_family": { "type": ["string", "null"] },
+        "emoji_family": { "type": ["string", "null"] }
+      }
+    },
+    "animation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "typing_speed": { "type": "integer", "minimum": 0 },
+        "command_delay": { "type": "integer", "minimum": 0 },
+        "cursor_blink": { "type": "boolean" },
+        "loop": { "type": "boolean" },
+        "typing_jitter": { "type": "number", "minimum": 0, "maximum": 1 },
+        "typing_chunk_size": { "type": "integer", "minimum": 1 },
+        "output_delay": { "type": "integer", "minimum": 0 },
+        "final_delay": { "type": "integer", "minimum": 0 },
+        "max_frames": { "type": ["integer", "null"], "minimum": 1 },
+        "dither": { "type": "boolean" },
+        "palette": { "enum": ["global", "adaptive", "theme"] },
+        "scroll_easing": { "enum": ["linear", "ease_in", "ease_out", "ease_in_out"] },
+        "framerate": { "type": "integer", "minimum": 1 },
+        "playback_speed": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "cursor": { "type": "object" },
+    "limits": { "type": "object" },
+    "lines": { "type": "array", "items": { "$ref": "#/$defs/line" } },
+    "frames": { "type": "array", "items": { "$ref": "#/$defs/frame" } }
+  },
+  "anyOf": [{ "required": ["lines"] }, { "required": ["frames"] }],
+  "$defs": {
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prompt": { "type": "string" }, "command": { "type": "string" }, "output": { "type": "string" },
+        "prompt_color": { "type": "string" }, "command_color": { "type": "string" }, "output_color": { "type": "string" },
+        "selected": { "type": "boolean" }
+      },
+      "anyOf": [{ "required": ["prompt"] }, { "required": ["command"] }, { "required": ["output"] }]
+    },
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prompt": { "type": "string" }, "type": { "type": "string" }, "output": { "type": "string" },
+        "delay": { "type": "integer", "minimum": 0 }, "prompt_color": { "type": "string" },
+        "command_color": { "type": "string" }, "output_color": { "type": "string" }
+      },
+      "anyOf": [{ "required": ["type"] }, { "required": ["output"] }, { "required": ["delay"] }]
+    }
+  }
+}

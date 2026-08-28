@@ -15,6 +15,8 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            ruby: "3.0"
+          - os: ubuntu-latest
             ruby: "3.1"
           - os: ubuntu-latest
             ruby: "3.2"
@@ -53,12 +55,16 @@ jobs:
           bundle exec ruby -Ilib exe/shellfie doctor
           bundle exec ruby -Ilib exe/shellfie validate examples/simple.yml
           bundle exec ruby -Ilib exe/shellfie inspect examples/simple.yml
+          bundle exec ruby -Ilib exe/shellfie inspect examples/simple.yml --json
+          bundle exec ruby -Ilib exe/shellfie validate examples/session.yml
+          bundle exec ruby -Ilib exe/shellfie compile examples/session.yml --format json
+          bundle exec ruby -rjson -e "JSON.parse(File.read('schema/shellfie-v1.schema.json')); JSON.parse(File.read('schema/shellfie-v2.schema.json'))"
           bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/ci/simple.png --no-shadow --force
           bundle exec ruby -Ilib exe/shellfie generate examples/simple.yml -o tmp/ci/simple.svg --format svg --no-shadow --force
           bundle exec ruby -Ilib exe/shellfie generate examples/animation.yml -o tmp/ci/animation.gif --animate --no-shadow --force
           bundle exec ruby -Ilib exe/shf version
-          bundle exec ruby -Ilib -rshellfie -e "Dir['examples/*.yml'].sort.each { |path| Shellfie.validate(path) }"
-          bundle exec ruby -Ilib -rshellfie -e "Dir['examples/*.yml'].sort.each { |path| config = Shellfie.parse(path); format = config.animated? ? 'gif' : 'png'; Shellfie.render(config, output: File.join('tmp/ci/examples', File.basename(path, '.yml') + '.' + format), animate: config.animated?, shadow: false, format: format) }"
+          bundle exec ruby -Ilib -rshellfie -e "(Dir['examples/*.yml'] - ['examples/session.yml']).sort.each { |path| Shellfie.validate(path) }"
+          bundle exec ruby -Ilib -rshellfie -e "(Dir['examples/*.yml'] - ['examples/session.yml']).sort.each { |path| config = Shellfie.parse(path); format = config.animated? ? 'gif' : 'png'; Shellfie.render(config, output: File.join('tmp/ci/examples', File.basename(path, '.yml') + '.' + format), animate: config.animated?, shadow: false, format: format) }"
           gem build shellfie.gemspec
           gem install mini_magick --no-document
           gem install --local shellfie-*.gem --no-document --ignore-dependencies

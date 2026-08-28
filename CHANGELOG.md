@@ -8,6 +8,7 @@
 - Add explicit typing rate, frame timing, playback speed, workload limits, and stronger dependency checks.
 - Add an optional PTY session runner with waits, assertions, captures, redaction, multi-output rendering, and offline cassette replay.
 - Add a shared terminal screen model, duplicate-frame coalescing, MP4/WebM, and semantic TXT/JSON transcripts.
+- Add JSON Schemas, source locations with typo suggestions, authoring commands, manifests, a GitHub Action, Docker packaging, and project security/contribution metadata.
 
 ## Unreleased
 

@@ -18,16 +18,23 @@ module Shellfie
 
         source_path = File.realpath(path)
         content = read_config(source_path)
-        parse_string(content, base_dir: File.dirname(source_path), include_stack: [source_path])
+        parse_string(content, base_dir: File.dirname(source_path), include_stack: [source_path], source_name: source_path)
       end
 
-      def parse_string(content, base_dir: nil, include_stack: [])
+      def parse_string(content, base_dir: nil, include_stack: [], source_name: nil)
         raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
-        raw = apply_includes(raw, base_dir, stack: include_stack) if base_dir
+        raw = apply_includes(raw, base_dir, stack: include_stack, root: base_dir) if base_dir
         validate_config(raw)
         build_config(raw)
       rescue Psych::SyntaxError => e
         raise ParseError, "Invalid YAML syntax: #{e.message}"
+      rescue ValidationError => e
+        raise e unless source_name
+
+        key = e.message[/key\(s\):\s*([A-Za-z_][A-Za-z0-9_]*)/, 1]
+        line = key && content.lines.index { |source_line| source_line.match?(/^\s*#{Regexp.escape(key)}\s*:/) }
+        location = line ? "#{source_name}:#{line + 1}" : source_name
+        raise ValidationError, "#{location}: #{e.message}"
       end
 
       private
@@ -54,9 +61,11 @@ module Shellfie
         Config.new(options)
       end
 
-      def apply_includes(raw, base_dir, stack: [])
+      def apply_includes(raw, base_dir, stack: [], root: base_dir, policy: nil)
         return raw unless raw.is_a?(Hash) && raw[:include]
 
+        policy ||= raw[:include_policy] || "allow"
+        raise ParseError, "include_policy must be allow or root" unless %w[allow root].include?(policy)
         includes = Array(raw[:include])
         included_config = includes.reduce({}) do |merged, include_path|
           raise ParseError, "Included configuration path must be a string" unless include_path.is_a?(String)
@@ -65,13 +74,22 @@ module Shellfie
           raise ParseError, "Included configuration file not found: #{include_path}" unless File.exist?(include_file)
 
           include_file = File.realpath(include_file)
+          if policy == "root" && include_file != root && !include_file.start_with?("#{root}#{File::SEPARATOR}")
+            raise ParseError, "Included configuration escapes the configuration root: #{include_path}"
+          end
           if stack.include?(include_file)
             chain = (stack + [include_file]).map { |path| File.basename(path) }.join(" -> ")
             raise ParseError, "Circular YAML include: #{chain}"
           end
 
           included_raw = YAML.safe_load(read_config(include_file), symbolize_names: true, aliases: true)
-          included_raw = apply_includes(included_raw, File.dirname(include_file), stack: stack + [include_file])
+          included_raw = apply_includes(
+            included_raw,
+            File.dirname(include_file),
+            stack: stack + [include_file],
+            root: root,
+            policy: policy
+          )
           deep_merge(merged, included_raw || {})
         end
 

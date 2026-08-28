@@ -43,6 +43,21 @@ module Shellfie
       path ? File.dirname(path) : Dir.pwd
     end
 
+    def to_h
+      {
+        version: 2,
+        mode: mode,
+        title: title,
+        theme: theme,
+        terminal: terminal,
+        requires: requires,
+        steps: steps,
+        outputs: outputs,
+        render: render,
+        redact: redactions
+      }
+    end
+
     private
 
     def defaults

@@ -2,6 +2,8 @@
 
 require "fileutils"
 require "optparse"
+require "json"
+require_relative "reproducibility_manifest"
 
 module Shellfie
   module CLIGenerate
@@ -30,10 +32,13 @@ module Shellfie
       duplicate = jobs.group_by(&:last).find { |_path, grouped| grouped.size > 1 }&.first
       raise ConfigError, "Multiple inputs resolve to the same output: #{duplicate}" if duplicate
 
+      manifests = []
       jobs.each do |config, animate, format, output_path|
         ensure_output_writable!(output_path)
         write_rendered_output(config, output_path, animate: animate, format: format)
+        manifests << ReproducibilityManifest.build(config, output_path: output_path, format: format) if @options[:manifest]
       end
+      write_manifest(manifests) if @options[:manifest]
     end
 
     def build_generate_parser
@@ -65,6 +70,7 @@ module Shellfie
         opts.on("--force", "Overwrite existing output files") { @options[:force] = true }
         opts.on("--quiet", "Suppress non-error output") { @options[:quiet] = true }
         opts.on("--verbose", "Print extra progress information") { @options[:verbose] = true }
+        opts.on("--manifest PATH", "Write a reproducibility manifest") { |path| @options[:manifest] = path }
       end
     end
 
@@ -226,6 +232,16 @@ module Shellfie
 
     def warn_verbose(message)
       $stderr.puts message if @options[:verbose] && !@options[:quiet]
+    end
+
+    def write_manifest(manifests)
+      path = @options[:manifest]
+      raise FileSystemError, "Manifest already exists: #{path} (use --force to overwrite)" if File.exist?(path) && !@options[:force]
+
+      FileUtils.mkdir_p(File.dirname(path)) unless File.dirname(path) == "."
+      value = manifests.size == 1 ? manifests.first : manifests
+      File.write(path, JSON.pretty_generate(value))
+      puts "Manifest: #{path}" unless @options[:quiet]
     end
   end
 end

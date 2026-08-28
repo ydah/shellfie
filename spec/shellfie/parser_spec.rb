@@ -165,5 +165,27 @@ RSpec.describe Shellfie::Parser do
         expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /path must be a string/)
       end
     end
+
+    it "reports source locations and typo suggestions" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "bad.yml")
+        File.write(path, "theem: macos\nlines:\n  - output: ok\n")
+
+        expect { described_class.parse(path) }
+          .to raise_error(Shellfie::ValidationError, /bad\.yml:1:.*theem -> theme/)
+      end
+    end
+
+    it "can restrict includes to the root configuration directory" do
+      Dir.mktmpdir do |dir|
+        root = File.join(dir, "root")
+        Dir.mkdir(root)
+        File.write(File.join(dir, "outside.yml"), "title: Outside\n")
+        path = File.join(root, "config.yml")
+        File.write(path, "include: ../outside.yml\ninclude_policy: root\nlines:\n  - output: ok\n")
+
+        expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /escapes the configuration root/)
+      end
+    end
   end
 end

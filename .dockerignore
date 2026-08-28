@@ -1,0 +1,7 @@
+.git
+.idea
+.ruby-lsp
+.serena
+tmp
+pkg
+*.gem

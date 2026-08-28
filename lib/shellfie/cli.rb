@@ -5,6 +5,7 @@ require_relative "../shellfie"
 require_relative "cli_generate"
 require_relative "cli_info"
 require_relative "cli_run"
+require_relative "cli_authoring"
 require_relative "dependency_checker"
 require_relative "transcript_renderer"
 
@@ -13,8 +14,9 @@ module Shellfie
     include CLIGenerate
     include CLIInfo
     include CLIRun
+    include CLIAuthoring
 
-    COMMANDS = %w[generate run record replay init themes validate inspect doctor version help].freeze
+    COMMANDS = %w[generate run record replay new format compile schema completion watch init themes validate inspect doctor version help].freeze
 
     def initialize(args)
       @args = args.dup
@@ -37,6 +39,18 @@ module Shellfie
         run_session(record: true)
       when "replay"
         replay_session
+      when "new"
+        run_new
+      when "format"
+        run_format
+      when "compile"
+        run_compile
+      when "schema"
+        run_schema
+      when "completion"
+        run_completion
+      when "watch"
+        run_watch
       when "themes"
         run_themes
       when "validate"

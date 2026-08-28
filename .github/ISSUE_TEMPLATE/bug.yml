@@ -1,0 +1,24 @@
+name: Bug report
+description: Report reproducible Shellfie behavior
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Minimal configuration
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: shellfie doctor output
+      render: text
+    validations:
+      required: true

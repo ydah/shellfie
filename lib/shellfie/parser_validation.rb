@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
+require "did_you_mean"
+
 module Shellfie
   module ParserValidation
     TOP_LEVEL_KEYS = %i[
-      version include theme window_theme color_scheme colors window_decoration title window font animation cursor lines frames
+      version include include_policy theme window_theme color_scheme colors window_decoration title window font animation cursor lines frames
       headless limits
     ].freeze
     WINDOW_KEYS = %i[
@@ -49,6 +51,9 @@ module Shellfie
       validate_theme!(raw[:theme]) if raw[:theme]
       validate_window_theme!(raw[:window_theme]) if raw[:window_theme]
       validate_color_scheme!(raw[:color_scheme]) if raw.key?(:color_scheme)
+      if raw[:include_policy] && !%w[allow root].include?(raw[:include_policy])
+        raise ValidationError, "include_policy must be allow or root"
+      end
 
       raise ValidationError, "Configuration must have either 'lines' or 'frames'" if raw[:lines].nil? && raw[:frames].nil?
 
@@ -85,7 +90,12 @@ module Shellfie
       unknown_keys = hash.keys - allowed_keys
       return if unknown_keys.empty?
 
-      raise ValidationError, "Unknown #{context} key(s): #{unknown_keys.join(", ")}"
+      suggestions = unknown_keys.filter_map do |key|
+        match = DidYouMean::SpellChecker.new(dictionary: allowed_keys.map(&:to_s)).correct(key.to_s).first
+        "#{key} -> #{match}" if match
+      end
+      hint = suggestions.empty? ? "" : " (did you mean #{suggestions.join(", ")}?)"
+      raise ValidationError, "Unknown #{context} key(s): #{unknown_keys.join(", ")}#{hint}"
     end
 
     def validate_lines!(lines)

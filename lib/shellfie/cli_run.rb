@@ -81,7 +81,11 @@ module Shellfie
         ensure_output_writable!(path)
         animate = output.fetch(:animate, @options[:animate] || CLIGenerate::ANIMATED_FORMATS.include?(format))
         config = session.render_config(theme: theme, options: render, animated: animate)
+        original_options = @options
+        @options = @options.merge(output.slice(:scale, :shadow, :transparent))
         write_rendered_output(config, path, animate: animate, format: format)
+      ensure
+        @options = original_options
       end
     end
 

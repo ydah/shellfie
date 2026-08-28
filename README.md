@@ -85,6 +85,28 @@ shellfie replay session.json -o session.gif --animate
 
 Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, `wait`, `expect`, `hide`, `show`, named `capture`, redaction patterns, and multiple `outputs`. `run` uses Ruby's PTY support and is optional; normal `generate` remains deterministic and never executes config content. Cassette replay does not execute the recorded commands.
 
+Authoring commands:
+
+```bash
+shellfie new terminal.yml --template static       # static, animation, run
+shellfie format terminal.yml
+shellfie compile terminal.yml --format json
+shellfie schema 1                                 # use 2 for run sessions
+shellfie completion zsh
+shellfie watch terminal.yml -o terminal.png
+```
+
+JSON Schemas live in [`schema/`](schema/). Add `# yaml-language-server: $schema=../schema/shellfie-v1.schema.json` to a compose file for editor validation. Use `--manifest manifest.json` during generation to record config/output hashes, Ruby, OS, ImageMagick, ffmpeg, and resolved font fingerprints.
+
+The repository also provides a Docker image definition and a Docker-based GitHub Action:
+
+```yaml
+- uses: ydah/shellfie@main
+  with:
+    input: examples/simple.yml
+    output: docs/terminal.png
+```
+
 Common `generate` options:
 
 | Option | Description |
@@ -179,7 +201,7 @@ Useful top-level keys:
 
 ANSI SGR colors and common styles are supported in `prompt`, `command`, and `output`, including 8-color, bright, 256-color, and RGB escape sequences. Common carriage-return, erase, and horizontal cursor controls are also supported; this is intentionally not a full terminal emulator.
 
-Configs may include other YAML files relative to their own location with `include: path.yml`. Include cycles and files larger than 1 MiB are rejected with a diagnostic chain. Resource ceilings can be set under `limits`; image pixels, animation work, temporary bytes, source frames, lines, and characters are checked before expensive work.
+Configs may include other YAML files relative to their own location with `include: path.yml`. Set `include_policy: root` to reject includes that resolve outside the root config directory. Include cycles and files larger than 1 MiB are rejected with a diagnostic chain. Resource ceilings can be set under `limits`; image pixels, animation work, temporary bytes, source frames, lines, and characters are checked before expensive work.
 
 ## Themes
 

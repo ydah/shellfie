@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ydah/shellfie/main/schema/shellfie-v2.schema.json",
+  "title": "Shellfie executable session",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "steps"],
+  "properties": {
+    "version": { "const": 2 },
+    "mode": { "enum": ["run", "replay"] },
+    "title": { "type": "string" },
+    "theme": { "enum": ["macos", "ubuntu", "windows", "custom"] },
+    "terminal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shell": { "type": "string" }, "columns": { "type": "integer", "minimum": 1 },
+        "rows": { "type": "integer", "minimum": 1 }, "cwd": { "type": "string" },
+        "env": { "type": "object", "additionalProperties": { "type": "string" } },
+        "timeout": { "$ref": "#/$defs/duration" }, "prompt": { "type": "string" }
+      }
+    },
+    "requires": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]+$" } },
+    "steps": { "type": "array", "items": { "$ref": "#/$defs/step" } },
+    "outputs": { "type": "array", "items": { "$ref": "#/$defs/output" } },
+    "render": { "type": "object" },
+    "redact": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "duration": { "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)?(?:ms|s)?$" }] },
+    "step": {
+      "oneOf": [
+        { "type": "string", "enum": ["hide", "show"] },
+        {
+          "type": "object",
+          "properties": {
+            "run": { "type": "string" }, "type": { "type": "string" }, "key": { "type": "string" },
+            "sleep": { "$ref": "#/$defs/duration" }, "wait": {}, "expect": {}, "capture": { "type": "string" },
+            "hide": {}, "show": {}, "visibility": { "enum": ["visible", "hidden"] },
+            "timeout": { "$ref": "#/$defs/duration" }, "speed": {}, "count": { "type": "integer", "minimum": 1 }
+          },
+          "minProperties": 1
+        }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "format": { "enum": ["png", "gif", "svg", "svg-raster", "webp", "apng", "mp4", "webm", "txt", "json"] },
+        "animate": { "type": "boolean" }, "scale": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "shadow": { "type": "boolean" }, "transparent": { "type": "boolean" }
+      }
+    }
+  }
+}

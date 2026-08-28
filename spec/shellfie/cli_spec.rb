@@ -98,12 +98,12 @@ RSpec.describe Shellfie::CLI do
 
       Dir.mktmpdir("shellfie-session-output") do |dir|
         outputs = [
-          { path: File.join(dir, "session.svg"), format: "svg" },
+          { path: File.join(dir, "session.svg"), format: "svg", scale: 2, shadow: false },
           { path: File.join(dir, "session.txt"), format: "txt" }
         ]
         cli.send(:render_session_outputs, session, outputs, base_dir: dir, theme: "macos", render: {})
 
-        expect(File.read(outputs[0][:path])).to include(">done</text>")
+        expect(File.read(outputs[0][:path])).to include("width=\"1240\"", ">done</text>")
         expect(File.read(outputs[1][:path])).to eq("done\n")
       end
     end
