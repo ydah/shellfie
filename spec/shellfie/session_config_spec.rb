@@ -146,6 +146,9 @@ RSpec.describe Shellfie::SessionConfig do
     expect do
       described_class.new({ version: 2, steps: [{ key: "x", delay: nil }] })
     end.to raise_error(Shellfie::ValidationError, /duration/)
+    expect do
+      described_class.new({ version: 2, steps: [{ key: "x", count: 501, delay: "1ms" }] })
+    end.to raise_error(Shellfie::ValidationError, /too many events/)
   end
 
   it "rejects cyclic aliases, non-symbolizable keys, and unbounded durations" do

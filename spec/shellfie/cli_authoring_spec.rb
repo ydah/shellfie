@@ -20,6 +20,17 @@ RSpec.describe Shellfie::CLI do
   it "prints schemas and shell completions" do
     expect { described_class.new(["schema", "2"]).run }.to output(/Shellfie executable session/).to_stdout
     expect { described_class.new(["completion", "bash"]).run }.to output(/complete.*shellfie/).to_stdout
+    expect { described_class.new(["completion", "powershell"]).run }.to output(/Register-ArgumentCompleter/).to_stdout
+  end
+
+  it "creates every documented template" do
+    Dir.mktmpdir do |dir|
+      %w[static animation run tui ci theme-gallery].each do |template|
+        path = File.join(dir, "#{template}.yml")
+        expect { described_class.new(["new", path, "--template", template]).run }.to output(/Created/).to_stdout
+        expect(File.read(path)).to include("version:")
+      end
+    end
   end
 
   it "watches included configuration files" do

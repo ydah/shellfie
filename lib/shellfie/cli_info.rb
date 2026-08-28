@@ -144,7 +144,7 @@ module Shellfie
           format      Normalize YAML formatting
           compile     Print the resolved config or session IR
           schema      Print the version 1 or 2 JSON Schema
-          completion  Print bash, zsh, or fish completion
+          completion  Print bash, zsh, fish, or PowerShell completion
           watch       Regenerate when a compose config changes
           init        Output sample configuration
           themes      List available themes
@@ -155,7 +155,7 @@ module Shellfie
           help        Show this help
 
         Generate Options:
-          -o, --output PATH      Output file path (required)
+          -o, --output PATH      Output path/template (defaults beside input)
           -t, --theme NAME       Override theme (macos, ubuntu, windows)
           -a, --animate          Generate animated GIF
           -s, --scale FACTOR     Output scale (1, 2, 3)

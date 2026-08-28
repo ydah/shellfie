@@ -64,6 +64,17 @@ RSpec.describe Shellfie::CLI do
       expect(cli.send(:animation_output?, config)).to be false
     end
 
+    it "derives safe default and templated output names" do
+      config = Shellfie::Config.new(theme: "ubuntu", lines: [Shellfie::Line.new(output: "ok")])
+      cli = described_class.new([])
+      cli.instance_variable_set(:@options, { default_output: true })
+      expect(cli.send(:output_path_for, "docs/demo.yml", "png", multiple: false, config: config)).to eq("docs/demo.png")
+
+      cli.instance_variable_set(:@options, { output: "build/{name}-{theme}-{scale}.{format}", scale: 2 })
+      expect(cli.send(:output_path_for, "docs/demo.yml", "svg", multiple: false, config: config))
+        .to eq("build/demo-ubuntu-2.svg")
+    end
+
     it "rejects batch output collisions before rendering" do
       config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "ok")])
       allow(Shellfie::Parser).to receive(:parse).and_return(config)

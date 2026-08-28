@@ -118,6 +118,34 @@ RSpec.describe Shellfie::SessionRunner do
     expect { described_class.new(config).run }.to raise_error(Shellfie::ExecutionError, /Timed out/)
   end
 
+  it "does not accept a copied prompt while a foreground process is running" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", timeout: 2 },
+        steps: [
+          { type: 'printf "$PS1"; sleep 1', speed: "1000cps" },
+          { key: "enter", async: true },
+          { wait: { prompt: true, timeout: "100ms" } }
+        ]
+      }
+    )
+
+    expect { described_class.new(config).run }.to raise_error(Shellfie::ExecutionError, /Timed out/)
+  end
+
+  it "sets the configured PTY dimensions" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", rows: 17, columns: 123, timeout: 2 },
+        steps: [{ run: "stty size", visibility: "visible" }]
+      }
+    )
+
+    expect(described_class.new(config).run.screen.to_s).to include("17 123")
+  end
+
   it "records repeated key delays for offline animation" do
     config = Shellfie::SessionConfig.new(
       {

@@ -202,6 +202,14 @@ module Shellfie
       raise ValidationError, "Session has too many steps (max 10,000)" if steps.size > 10_000
 
       steps.each_with_index { |step, index| validate_step!(step, index) }
+      expanded_events = steps.sum do |step|
+        action = (step.keys & ACTIONS).first
+        next 0 unless %i[run type key wait].include?(action)
+
+        action == :key && step[:delay] ? Integer(step[:count] || 1) : 1
+      end
+      max_events = Config::DEFAULTS[:limits][:max_frames]
+      raise ValidationError, "Session expands to too many events (max #{max_events})" if expanded_events > max_events
       capture_names = steps.filter_map { |step| step[:capture] }
       raise ValidationError, "Too many captures (max #{MAX_CAPTURES})" if capture_names.size > MAX_CAPTURES
       raise ValidationError, "Capture names must be unique" unless capture_names.uniq.size == capture_names.size

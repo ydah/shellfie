@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "pty"
+require "io/console"
+require "rbconfig"
 require "open3"
 require "securerandom"
 require "timeout"
@@ -60,7 +62,6 @@ module Shellfie
     end
 
     def start_pty
-      @master, @slave = PTY.open
       @prompt_marker = SecureRandom.hex(4)
       env = {
         "TERM" => "xterm-256color", "LANG" => "C.UTF-8", "TZ" => "UTC", "HISTFILE" => "/dev/null",
@@ -82,10 +83,8 @@ module Shellfie
       @buffer = +""
       @mutex = Mutex.new
       @condition = ConditionVariable.new
-      @pid = Process.spawn(
-        env, shell, *args, chdir: cwd, in: @slave, out: @slave, err: @slave, pgroup: true, unsetenv_others: true
-      )
-      @slave.close
+      @master, @slave, @pid = PTY.spawn(env, shell, *args, chdir: cwd, unsetenv_others: true)
+      @master.winsize = [terminal[:rows], terminal[:columns]]
       @reader_thread = Thread.new do
         loop do
           append_terminal_chunk(decode_terminal_bytes(@master.readpartial(4096)))
@@ -109,7 +108,7 @@ module Shellfie
 
       terminate_job_groups(background_job_pids)
       terminate_descendants
-      @master&.write("exit\n") unless @master&.closed?
+      @slave&.write("exit\n") unless @slave&.closed?
       Timeout.timeout(1) { Process.wait(@pid) }
     rescue Timeout::Error
       signal_process_group("TERM")
@@ -136,7 +135,7 @@ module Shellfie
       start = buffer_size
       opening = "__SHELLFIE_JOBS_#{SecureRandom.hex(6)}__"
       closing = "__SHELLFIE_JOBS_END_#{SecureRandom.hex(6)}__"
-      @master.write("printf '\n#{opening}\n'; jobs -p; printf '#{closing}\n'\n")
+      @slave.write("printf '\n#{opening}\n'; jobs -p; printf '#{closing}\n'\n")
       wait_for(/\r?\n#{Regexp.escape(closing)}\r?\n/, timeout: 0.5, offset: start)
       output = buffer_from(start)
       body = output[/\r?\n#{Regexp.escape(opening)}\r?\n(.*?)\r?\n#{Regexp.escape(closing)}\r?\n/m, 1].to_s
@@ -237,7 +236,7 @@ module Shellfie
       command = "(cd #{Shellwords.escape(step_directory(step[:cwd]))} && #{command})" if step[:cwd]
       start = buffer_size
       @prompt_wait_offset = start
-      @master.write("#{command}\n")
+      @slave.write("#{command}\n")
       if step[:async]
         wait_for_quiet(0.03)
         text, @recorded_offset = buffer_snapshot_from(start)
@@ -255,7 +254,7 @@ module Shellfie
       delay = typing_delay(step[:speed])
       start = buffer_size
       TextMetrics.graphemes(text).each do |grapheme|
-        @master.write(grapheme)
+        @slave.write(grapheme)
         sleep(delay) if delay.positive?
       end
       wait_for_quiet(0.03)
@@ -271,7 +270,7 @@ module Shellfie
       if delay.zero?
         start = buffer_size
         @prompt_wait_offset = start if name.downcase == "enter"
-        @master.write(sequence * count)
+        @slave.write(sequence * count)
         if name.downcase == "enter" && !step[:async]
           text, status = finish_command(start, timeout: step_timeout(step))
           @recorded_offset = buffer_size
@@ -287,7 +286,7 @@ module Shellfie
       count.times do |index|
         start = buffer_size
         @prompt_wait_offset = start if name.downcase == "enter"
-        @master.write(sequence)
+        @slave.write(sequence)
         if name.downcase == "enter" && !step[:async] && index == count - 1
           text, status = finish_command(start, timeout: step_timeout(step))
           @recorded_offset = buffer_size
@@ -303,7 +302,7 @@ module Shellfie
     def finish_command(start, timeout:, marker_prefix: "")
       marker = "__SF_#{SecureRandom.hex(6)}__"
       marker_command = "#{marker_prefix}printf '\\n#{marker}:%s\\n' \"$?\""
-      @master.write("#{marker_command}\n")
+      @slave.write("#{marker_command}\n")
       match = wait_for(/#{Regexp.escape(marker)}:(\d+)/, timeout: timeout, offset: start)
       text = buffer_from(start)[0...match.begin(0)]
       text = text.gsub(marker_command, "")
@@ -317,7 +316,7 @@ module Shellfie
       if condition[:prompt]
         marker = Regexp.escape("\e]9;#{@prompt_marker}\a")
         pattern = /#{marker}(?:\e\[[0-9;?]*[ -\/]*[@-~])*\z/
-        return wait_for(pattern, timeout: parse_duration(condition[:timeout] || timeout), offset: @prompt_wait_offset)
+        return wait_for(pattern, timeout: parse_duration(condition[:timeout] || timeout), offset: @prompt_wait_offset, prompt: true)
       end
 
       pattern = condition[:screen] || condition[:line]
@@ -398,7 +397,7 @@ module Shellfie
       raise FileSystemError, "Text golden not found: #{condition[:golden]}"
     end
 
-    def wait_for(pattern, timeout:, screen: false, line: false, offset: 0)
+    def wait_for(pattern, timeout:, screen: false, line: false, offset: 0, prompt: false)
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
       loop do
         check_reader_error!
@@ -408,7 +407,7 @@ module Shellfie
                 else
                   regex_match(pattern, text)
                 end
-        return match if match
+        return match if match && (!prompt || foreground_shell?)
 
         remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
         raise ExecutionError, "Timed out after #{timeout}s waiting for #{pattern.inspect}" unless remaining.positive?
@@ -644,6 +643,15 @@ module Shellfie
       false
     rescue Errno::EPERM
       true
+    end
+
+    def foreground_shell?
+      request = RbConfig::CONFIG["host_os"].include?("darwin") ? 0x40047477 : 0x540f
+      process_group = [0].pack("i")
+      @master.ioctl(request, process_group)
+      process_group.unpack1("i") == @pid
+    rescue SystemCallError, IOError, NotImplementedError
+      false
     end
   end
 end

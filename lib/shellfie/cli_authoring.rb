@@ -13,12 +13,12 @@ module Shellfie
     def run_new
       options = { template: "static" }
       OptionParser.new do |opts|
-        opts.on("--template NAME", "static, animation, or run") { |name| options[:template] = name }
+        opts.on("--template NAME", "static, animation, run, tui, ci, or theme-gallery") { |name| options[:template] = name }
         opts.on("--force", "Overwrite an existing file") { options[:force] = true }
       end.parse!(@args)
       path = @args.shift
       raise ConfigError, "Output path is required" unless path
-      raise ValidationError, "template must be static, animation, or run" unless templates.key?(options[:template])
+      raise ValidationError, "unknown template: #{options[:template]}" unless templates.key?(options[:template])
       raise FileSystemError, "File already exists: #{path} (use --force to overwrite)" if File.exist?(path) && !options[:force]
 
       FileUtils.mkdir_p(File.dirname(path)) unless File.dirname(path) == "."
@@ -84,7 +84,14 @@ module Shellfie
                when "bash" then "complete -W '#{commands}' shellfie shf"
                when "zsh" then "compdef '_arguments \"1:command:(#{commands})\"' shellfie shf"
                when "fish" then commands.split.map { |command| "complete -c shellfie -f -a #{command}" }.join("\n")
-               else raise ValidationError, "completion shell must be bash, zsh, or fish"
+               when "powershell", "pwsh"
+                 <<~POWERSHELL.chomp
+                   Register-ArgumentCompleter -Native -CommandName shellfie,shf -ScriptBlock {
+                     param($wordToComplete)
+                     '#{commands}'.Split(' ') | Where-Object { $_ -like "$wordToComplete*" }
+                   }
+                 POWERSHELL
+               else raise ValidationError, "completion shell must be bash, zsh, fish, or powershell"
                end
       puts script
     end
@@ -151,7 +158,7 @@ module Shellfie
             - output: hello
               delay: 1000
         YAML
-        "run" => <<~YAML
+        "run" => <<~YAML,
           version: 2
           mode: run
           title: Recorded shell
@@ -168,6 +175,54 @@ module Shellfie
           outputs:
             - path: session.svg
               format: svg
+        YAML
+        "tui" => <<~YAML,
+          version: 2
+          mode: run
+          title: TUI capture
+          terminal:
+            shell: /bin/sh
+            columns: 100
+            rows: 30
+          steps:
+            - run: your-tui-command
+              async: true
+            - wait:
+                stable: 500ms
+                timeout: 10s
+            - capture: ready
+          outputs:
+            - path: tui.svg
+              format: svg
+              capture: ready
+        YAML
+        "ci" => <<~YAML,
+          version: 2
+          mode: run
+          title: CI verification
+          terminal:
+            shell: /bin/sh
+          requires: [ruby]
+          steps:
+            - run: ruby --version
+              visibility: visible
+            - expect:
+                exit_status: 0
+          outputs:
+            - path: ci.svg
+              format: svg
+        YAML
+        "theme-gallery" => <<~YAML
+          version: 1
+          theme: macos
+          title: Theme gallery
+          lines:
+            - prompt: "$ "
+              command: shellfie themes
+            - output: |-
+                macos
+                ubuntu
+                windows
         YAML
       }
     end

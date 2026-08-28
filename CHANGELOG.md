@@ -13,6 +13,8 @@
 - Align schema and runtime limits for steps, captures, patterns, environment names, and output formats.
 - Add reusable session includes, environment allowlists, total timeouts, delayed repeated keys, prompt/line waits, elapsed assertions, and explicit animation seeds.
 - Fix colon-form SGR parsing, split grapheme clusters, terminal line-feed semantics, and scroll-region line editing.
+- Add inferred output names, collision-checked output templates, PowerShell completion, and TUI/CI/theme-gallery starters.
+- Set live PTY dimensions and harden prompt synchronization against prompt-like process output.
 
 ## 0.1.1 - 2026-01-12
 

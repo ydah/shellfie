@@ -58,6 +58,7 @@ Generate an image:
 
 ```bash
 shellfie generate terminal.yml -o terminal.png
+# Without -o, Shellfie writes terminal.png beside terminal.yml.
 ```
 
 Use `shf` as a short alias for `shellfie`.
@@ -89,11 +90,12 @@ Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, live-
 Authoring commands:
 
 ```bash
-shellfie new terminal.yml --template static       # static, animation, run
+shellfie new terminal.yml --template static       # static, animation, run, tui, ci, theme-gallery
 shellfie format terminal.yml
 shellfie compile terminal.yml --format json
 shellfie schema 1                                 # use 2 for run sessions
 shellfie completion zsh
+shellfie completion powershell
 shellfie watch terminal.yml -o terminal.png
 ```
 
@@ -112,7 +114,7 @@ Common `generate` options:
 
 | Option | Description |
 | --- | --- |
-| `-o, --output PATH` | Output path |
+| `-o, --output PATH` | Output path/template with `{name}`, `{theme}`, `{scale}`, `{format}`; defaults beside input |
 | `-t, --theme NAME` | Override theme |
 | `-a, --animate` | Render animation |
 | `-s, --scale FACTOR` | Output scale: `1`, `2`, or `3` |

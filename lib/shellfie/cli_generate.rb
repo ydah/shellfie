@@ -19,15 +19,17 @@ module Shellfie
       build_generate_parser.parse!(@args)
       input_files = expand_input_paths(@args)
       raise ConfigError, "Input file is required" if input_files.empty?
-      raise ConfigError, "Output file is required (use -o option)" unless @options[:output]
+      raise ConfigError, "Output is required when reading stdin" if !@options[:output] && input_files.include?("-")
+      @options[:default_output] = true unless @options[:output]
       raise ConfigError, "stdout output supports only one input file" if @options[:output] == "-" && input_files.size > 1
       raise ConfigError, "--format is required when writing to stdout" if @options[:output] == "-" && !@options[:format]
       raise ConfigError, "--manifest cannot be used when writing output to stdout" if @options[:output] == "-" && @options[:manifest]
+      configs = input_files.to_h { |input_file| [input_file, apply_overrides(Parser.parse(input_file))] }
       jobs = input_files.map do |input_file|
-        config = apply_overrides(Parser.parse(input_file))
+        config = configs.fetch(input_file)
         animate = animation_output?(config)
-        format = output_format_for(@options[:output], animate)
-        output_path = output_path_for(input_file, format, multiple: input_files.size > 1)
+        format = @options[:default_output] ? (@options[:format] || (animate ? "gif" : "png")) : output_format_for(@options[:output], animate)
+        output_path = output_path_for(input_file, format, multiple: input_files.size > 1, config: config)
         raise ConfigError, "PNG sequence output cannot be written to stdout" if output_path == "-" && format == "png-sequence"
         validate_output_mode!(format, animate)
         [config, animate, format, output_path]
@@ -87,7 +89,7 @@ module Shellfie
     def build_generate_parser
       OptionParser.new do |opts|
         opts.banner = "Usage: shellfie generate INPUT_FILE [options]"
-        opts.on("-o", "--output PATH", "Output file path (required)") { |path| @options[:output] = path }
+        opts.on("-o", "--output PATH", "Output path or {name}-{theme}-{scale}.{format} template") { |path| @options[:output] = path }
         opts.on("-t", "--theme NAME", "Override theme (macos, ubuntu, windows)") { |theme| @options[:theme] = theme }
         opts.on("-a", "--animate", "Generate animated GIF") { @options[:animate] = true }
         opts.on("-s", "--scale FACTOR", "Output scale (1, 2, 3)") { |scale| @options[:scale] = parse_scale(scale) }
@@ -286,11 +288,23 @@ module Shellfie
       extension.empty? ? (animate ? "gif" : "png") : extension
     end
 
-    def output_path_for(input_file, format, multiple:)
+    def output_path_for(input_file, format, multiple:, config:)
+      name = File.basename(input_file, File.extname(input_file))
+      if @options[:default_output]
+        return File.join(File.dirname(input_file), "#{name}.#{format}")
+      end
       return @options[:output] if @options[:output] == "-"
+      if @options[:output].include?("{")
+        path = @options[:output].gsub("{name}", name)
+                                .gsub("{theme}", config.theme)
+                                .gsub("{scale}", (@options[:scale] || 1).to_s)
+                                .gsub("{format}", format)
+        raise ValidationError, "Unknown output template placeholder: #{path[/\{[^}]+\}/]}" if path.match?(/\{[^}]+\}/)
+        return path
+      end
       return @options[:output] unless multiple || batch_directory?(@options[:output], format)
 
-      File.join(@options[:output], "#{File.basename(input_file, File.extname(input_file))}.#{format}")
+      File.join(@options[:output], "#{name}.#{format}")
     end
 
     def batch_directory?(path, format = nil)
