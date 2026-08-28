@@ -159,6 +159,16 @@ RSpec.describe Shellfie::GifGenerator do
       expect(frame_config.window[:scroll_offset]).to eq(0.5)
     end
 
+    it "supports reverse, ping-pong, and loop offsets without duplicating endpoints" do
+      frames = ["a", "b", "c"].map { |text| { lines: [Shellfie::Line.new(output: text)], delay: 10 } }
+
+      reverse = described_class.new(Shellfie::Config.new(frames: [Shellfie::Frame.new(output: "x")], animation: { direction: "reverse", loop_offset: 1 }))
+      expect(reverse.send(:playback_frames, frames).map { |frame| frame[:lines].first.output }).to eq(%w[b a c])
+
+      ping_pong = described_class.new(Shellfie::Config.new(frames: [Shellfie::Frame.new(output: "x")], animation: { direction: "ping_pong" }))
+      expect(ping_pong.send(:playback_frames, frames).map { |frame| frame[:lines].first.output }).to eq(%w[a b c b])
+    end
+
     it "coalesces identical frames by extending their duration" do
       generator = described_class.new(Shellfie::Config.new)
       lines = [Shellfie::Line.new(output: "same")]

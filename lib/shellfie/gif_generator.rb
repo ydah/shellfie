@@ -31,7 +31,7 @@ module Shellfie
       images = []
       chrome_cache = RenderChromeCache.new
       begin
-        frames = coalesce_frames(build_animation_frames)
+        frames = playback_frames(coalesce_frames(build_animation_frames))
         validate_frame_limit!(frames)
         validate_workload!(frames, scale: scale, shadow: shadow)
         warn_frame_count(frames)
@@ -240,6 +240,18 @@ module Shellfie
 
     def frame_key(frame)
       [frame[:lines].map(&:to_h), frame[:window]]
+    end
+
+    def playback_frames(frames)
+      frames = frames.reverse if config.animation[:direction] == "reverse"
+      offset = config.animation[:loop_offset]
+      if offset >= frames.size
+        raise ValidationError, "animation.loop_offset must be less than the #{frames.size} rendered frames"
+      end
+      frames = frames.rotate(offset)
+      return frames unless config.animation[:direction] == "ping_pong" && frames.size > 2
+
+      frames + frames[1...-1].reverse
     end
 
     def validate_workload!(frames, scale:, shadow:)

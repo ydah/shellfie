@@ -143,6 +143,8 @@ module Shellfie
         raise ValidationError, "animation.loop_count must be at most 65535" if @animation[:loop_count] > 65_535
       end
       validate_inclusion!(@animation[:scroll_easing], "animation.scroll_easing", self.class::VALID_SCROLL_EASINGS)
+      validate_inclusion!(@animation[:direction], "animation.direction", self.class::VALID_ANIMATION_DIRECTIONS)
+      validate_non_negative_integer!(@animation[:loop_offset], "animation.loop_offset")
       validate_positive_integer!(@animation[:framerate], "animation.framerate")
       validate_positive_number!(@animation[:playback_speed], "animation.playback_speed")
       raise ValidationError, "animation.framerate must be at most 120" if @animation[:framerate] > 120

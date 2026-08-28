@@ -57,6 +57,8 @@ module Shellfie
         webp_near_lossless: 100,
         apng_prediction: "paeth",
         loop_count: nil,
+        direction: "forward",
+        loop_offset: 0,
         scroll_easing: "linear",
         framerate: 30,
         playback_speed: 1.0

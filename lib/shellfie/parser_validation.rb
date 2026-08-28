@@ -18,6 +18,7 @@ module Shellfie
       typing_speed command_delay cursor_blink loop typing_jitter seed typing_chunk_size output_delay final_delay max_frames
       dither palette gif_colors gif_optimize webp_lossless webp_quality webp_method webp_near_lossless
       apng_prediction loop_count scroll_easing
+      direction loop_offset
       framerate playback_speed
     ].freeze
     CURSOR_KEYS = %i[style color].freeze

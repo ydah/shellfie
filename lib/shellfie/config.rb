@@ -15,6 +15,7 @@ module Shellfie
     VALID_PALETTES = %w[global adaptive theme].freeze
     VALID_SCROLL_EASINGS = %w[linear ease_in ease_out ease_in_out].freeze
     VALID_APNG_PREDICTIONS = %w[none sub up avg paeth mixed].freeze
+    VALID_ANIMATION_DIRECTIONS = %w[forward reverse ping_pong].freeze
 
     class << self
       def deep_dup(value)

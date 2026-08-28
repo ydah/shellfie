@@ -55,6 +55,15 @@ RSpec.describe Shellfie::Config do
         .to raise_error(Shellfie::ValidationError, /osc_policy/)
     end
 
+    it "validates animation playback order" do
+      expect(described_class.new(animation: { direction: "ping_pong", loop_offset: 2 }).animation)
+        .to include(direction: "ping_pong", loop_offset: 2)
+      expect { described_class.new(animation: { direction: "sideways" }) }
+        .to raise_error(Shellfie::ValidationError, /animation.direction/)
+      expect { described_class.new(animation: { loop_offset: -1 }) }
+        .to raise_error(Shellfie::ValidationError, /animation.loop_offset/)
+    end
+
     it "validates opacity and overflow mode" do
       expect { described_class.new(window: { opacity: 1.5 }) }.to raise_error(Shellfie::ValidationError, /window.opacity/)
       expect { described_class.new(window: { scroll_offset: 1.1 }) }.to raise_error(Shellfie::ValidationError, /scroll_offset/)

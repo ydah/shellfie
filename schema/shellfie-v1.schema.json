@@ -95,6 +95,8 @@
         "webp_near_lossless": { "type": "integer", "minimum": 0, "maximum": 100 },
         "apng_prediction": { "enum": ["none", "sub", "up", "avg", "paeth", "mixed"] },
         "loop_count": { "type": ["integer", "null"], "minimum": 0, "maximum": 65535 },
+        "direction": { "enum": ["forward", "reverse", "ping_pong"] },
+        "loop_offset": { "type": "integer", "minimum": 0 },
         "scroll_easing": { "enum": ["linear", "ease_in", "ease_out", "ease_in_out"] },
         "framerate": { "type": "integer", "minimum": 1, "maximum": 120 },
         "playback_speed": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 }

@@ -27,6 +27,7 @@
 - Gate release tags against the gem version and publish attested gem artifacts to GitHub Releases.
 - Add bounded `--jobs` batch rendering after collision, dependency, and destination preflight.
 - Add JSON, SARIF, and JUnit reports to `validate` for CI and editor integrations.
+- Add reverse, ping-pong, and frame-offset animation playback.
 
 ## 0.1.1 - 2026-01-12
 
