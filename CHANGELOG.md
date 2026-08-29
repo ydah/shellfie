@@ -36,6 +36,26 @@
 - Add environment allowlists, total and per-step timeouts, bounded regular-expression evaluation, output and control-sequence limits, and rendering workload and temporary-disk budgets.
 - Add opt-in rejection of unsupported terminal graphics and an explicit policy for preserving only bounded `http`, `https`, and `mailto` OSC 8 links.
 
+## 1.0.0 - 2026-05-20
+
+### Added
+
+- Add static SVG and WebP output plus animated WebP and APNG output, with format selection by extension or `--format` and binary output through stdout.
+- Add batch generation from multiple files and glob patterns, directory outputs, automatic output-directory creation, and `--quiet` and `--verbose` modes.
+- Add `inspect` for resolved configuration and output dimensions, and `doctor` for Ruby, ImageMagick, output-directory, and encoding checks.
+- Add custom themes, Dracula, One Dark, Solarized Dark, and Catppuccin Mocha color schemes, configurable colors and window decorations, background gradients, font fallbacks, and block, bar, or underline cursors.
+- Add reusable YAML includes, line selection and semantic prompt, command, and output colors.
+- Add clip, wrap, and scroll overflow modes, exact-size and trimmed canvases, maximum height and line controls, configurable tab width, and per-line or persistent ANSI state.
+- Add animation typing jitter and chunking, output and final delays, frame limits, global, adaptive, or theme palettes, optional dithering, and configurable scroll easing.
+- Add public Ruby APIs for parsing, validating, rendering, and inspecting configurations.
+
+### Changed
+
+- Correct xterm 256-color values and malformed extended colors, and add dim, reverse, strikethrough, and overline styles plus carriage return, backspace, cursor movement, erase, and tab handling.
+- Improve line measurement, clipping, wrapping, fixed-height scrolling, trailing-line preservation, stable animation dimensions, and Windows, Ubuntu, macOS, and headless window rendering.
+- Refuse to replace an existing output unless `--force` is supplied, write outputs atomically, report errors on stderr, and distinguish filesystem failures with their own exit code.
+- Reject unknown keys, invalid types, unsupported values, excessive lines, frames, characters, pixels, and rendered frames with clearer validation errors before rendering.
+
 ## 0.1.1 - 2026-01-12
 
 - Change GIF disposal method from "background" to "none" for improved image handling.
