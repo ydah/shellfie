@@ -86,12 +86,12 @@
             <p>Switch between macOS, Ubuntu, and Windows terminal styles.</p>
           </article>
           <article class="card">
-            <h3>Animated GIF</h3>
-            <p>Create typing animations that feel like a guided walkthrough.</p>
+            <h3>Multi-format animation</h3>
+            <p>Create typing animations as GIF, WebP, APNG, MP4, or WebM.</p>
           </article>
           <article class="card">
-            <h3>Full ANSI</h3>
-            <p>Support 256-color palettes, TrueColor, and text styles.</p>
+            <h3>Terminal-aware ANSI</h3>
+            <p>Render SGR colors and styles, cursor and erase controls, alternate screens, and safe OSC 8 links.</p>
           </article>
           <article class="card">
             <h3>HiDPI Output</h3>
@@ -147,7 +147,8 @@ lines:
           <div class="code-block">
             <h3>Generate</h3>
             <pre><code>shellfie generate terminal.yml -o output.png
-shellfie generate terminal.yml -o demo.gif --animate</code></pre>
+shellfie generate terminal.yml -o output.svg
+shellfie generate terminal.yml -o demo.webm --animate</code></pre>
           </div>
         </div>
       </section>
@@ -185,13 +186,13 @@ frames:
           <div class="theme-pill">macos</div>
           <div class="theme-pill">ubuntu</div>
           <div class="theme-pill">windows</div>
-          <div class="theme-pill">headless</div>
         </div>
         <div class="code-block code-block--wide">
           <pre><code>shellfie themes
 shellfie generate config.yml -o neon.png -t ubuntu
 shellfie generate config.yml -o ghost.png --no-header</code></pre>
         </div>
+        <p class="section__lead">Headless output is a window mode, not a theme; combine it with any theme using <code>--no-header</code>.</p>
       </section>
     </main>
 
