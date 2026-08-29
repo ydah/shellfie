@@ -1,31 +1,79 @@
-theme: macos
-title: "Terminal — zsh"
+version: 1
+theme: custom
+window_theme: macos
+title: "Shellfie — terminal sessions as code"
+
+colors:
+  background: "#0f172a"
+  foreground: "#f8fafc"
+  title_bar: "#1e293b"
+  title_text: "#e2e8f0"
+  title_bar_border: "#334155"
+  border: "#334155"
+  green: "#22c55e"
+  cyan: "#38bdf8"
+  bright_black: "#94a3b8"
 
 window:
-  width: 550
-  padding: 18
-  visible_lines: 7
+  width: 680
+  padding: 22
+  visible_lines: 9
+  margin: 24
+  background_gradient:
+    - "#0f172a"
+    - "#111827"
+
+font:
+  family: "SF Mono"
+  fallback_family: "DejaVu-Sans-Mono"
+  size: 15
+  line_height: 1.45
+
+window_decoration:
+  title_bar_height: 32
+  corner_radius: 12
+  shadow:
+    blur: 18
+    offset_x: 0
+    offset_y: 8
+    color: "rgba(2,6,23,0.5)"
 
 animation:
-  typing_speed: 35
-  command_delay: 400
+  typing_speed: 50
+  typing_chunk_size: 2
+  command_delay: 320
+  cursor_blink: true
   loop: true
+  final_delay: 1800
+  seed: 1
+  palette: global
+  dither: false
+  gif_colors: 128
+  gif_optimize: true
+
+cursor:
+  style: bar
+  color: "#38bdf8"
+
+lines:
+  - output: "\e[1;38;2;56;189;248mSHELLFIE\e[0m  \e[38;2;148;163;184mterminal sessions as code\e[0m"
+  - output: ""
 
 frames:
   - prompt: "$ "
-    type: "shellfie generate config.yml -o demo.png"
-    delay: 600
+    prompt_color: green
+    command_color: "#f8fafc"
+    type: "shellfie generate showcase.yml -o demo.gif"
+    delay: 320
 
-  - output: "Generated: demo.png"
-    delay: 1200
+  - output: "\e[38;2;34;197;94m✓  \e[0mGenerated: \e[1;38;2;248;250;252mdemo.gif\e[0m"
+    delay: 900
 
   - prompt: "$ "
-    type: "shellfie themes"
-    delay: 500
+    prompt_color: green
+    command_color: "#f8fafc"
+    type: "shellfie validate showcase.yml"
+    delay: 320
 
-  - output: |
-      Available themes:
-        macos   - macOS Terminal style
-        ubuntu  - Ubuntu Terminal style
-        windows - Windows Terminal style
-    delay: 2000
+  - output: "\e[38;2;34;197;94m✓ Configuration is valid\e[0m\n  \e[38;2;148;163;184mTheme: \e[0mcustom\n  \e[38;2;148;163;184mMode: \e[0manimated\n  \e[38;2;148;163;184mSource frames: \e[0m4"
+    delay: 1800
