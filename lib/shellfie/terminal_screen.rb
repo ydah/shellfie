@@ -33,7 +33,8 @@ module Shellfie
     end
 
     def feed(text)
-      input = discard_control_prefix(text.to_s)
+      input = text.to_s.dup.force_encoding(Encoding::UTF_8).scrub
+      input = discard_control_prefix(input)
       return self if input.empty? && @discarding_control
 
       input = @pending_control << input
@@ -314,7 +315,7 @@ module Shellfie
         end
         return [text[0...start], tail]
       end
-      return [text[0...-1], "\e"] if text.end_with?("\e")
+      return [text[0...-1], +"\e"] if text.end_with?("\e")
 
       [text, +""]
     end

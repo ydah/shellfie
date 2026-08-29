@@ -3,6 +3,13 @@
 require "spec_helper"
 
 RSpec.describe Shellfie::TerminalScreen do
+  it "does not crash on arbitrary terminal bytes" do
+    screen = described_class.new(columns: 20, rows: 2)
+    random = Random.new(98_765)
+
+    100.times { screen.feed(random.bytes(random.rand(0..128))) }
+  end
+
   it "treats CRLF as a line break rather than a printable grapheme" do
     screen = described_class.new(columns: 20, rows: 4)
 
