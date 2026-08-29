@@ -103,7 +103,7 @@ module Shellfie
         opts.banner = "Usage: shellfie generate INPUT_FILE [options]"
         opts.on("-o", "--output PATH", "Output path or {name}-{theme}-{scale}.{format} template") { |path| @options[:output] = path }
         opts.on("-t", "--theme NAME", "Override theme (macos, ubuntu, windows)") { |theme| @options[:theme] = theme }
-        opts.on("-a", "--animate", "Generate animated GIF") { @options[:animate] = true }
+        opts.on("-a", "--animate", "Render animated output") { @options[:animate] = true }
         opts.on("-s", "--scale FACTOR", "Output scale (1, 2, 3)") { |scale| @options[:scale] = parse_scale(scale) }
         opts.on("-w", "--width PIXELS", Integer, "Override width") { |width| @options[:width] = width }
         opts.on("--preset NAME", "readme, ogp, widescreen, standard, or vertical") do |name|

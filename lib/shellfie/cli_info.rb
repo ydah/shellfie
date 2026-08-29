@@ -203,7 +203,7 @@ module Shellfie
         Generate Options:
           -o, --output PATH      Output path/template (defaults beside input)
           -t, --theme NAME       Override theme (macos, ubuntu, windows)
-          -a, --animate          Generate animated GIF
+          -a, --animate          Render animated output
           -s, --scale FACTOR     Output scale (1, 2, 3)
           -w, --width PIXELS     Override width
           --no-shadow            Disable shadow effect
