@@ -1,6 +1,6 @@
 # shellfie
 
-Generate terminal screenshot-style images and animations from YAML.
+Compile deterministic terminal sessions from YAML into images, animations, and semantic outputs.
 
 <p align="center">
   <img src="assets/logo-header.svg" alt="shellfie">

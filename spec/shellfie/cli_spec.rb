@@ -7,7 +7,7 @@ RSpec.describe Shellfie::CLI do
   describe "#run" do
     it "shows help with no arguments" do
       cli = described_class.new([])
-      expect { cli.run }.to output(/Shellfie - Terminal screenshot-style image generator/).to_stdout
+      expect { cli.run }.to output(/Shellfie - Deterministic terminal visual compiler/).to_stdout
     end
 
     it "shows version" do

@@ -176,13 +176,13 @@ module Shellfie
 
     def show_help
       puts <<~HELP
-        Shellfie - Terminal screenshot-style image generator
+        Shellfie - Deterministic terminal visual compiler
 
         Usage: shellfie <command> [options]
                shf <command> [options]
 
         Commands:
-          generate    Generate image from configuration file
+          generate    Render outputs from a configuration file
           run         Execute and render a version 2 terminal session
           record      Run a session and save a cassette or editable YAML
           replay      Render an existing cassette without executing commands
