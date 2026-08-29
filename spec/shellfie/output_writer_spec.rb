@@ -21,4 +21,21 @@ RSpec.describe Shellfie::OutputWriter do
       expect(Dir.children(dir)).to eq(["output.txt"])
     end
   end
+
+  it "keeps an existing output intact when interrupted" do
+    Dir.mktmpdir("shellfie-output-writer-spec") do |dir|
+      output = File.join(dir, "output.txt")
+      File.write(output, "original")
+
+      expect do
+        described_class.write(output, extension: "txt") do |temporary_path|
+          File.write(temporary_path, "partial")
+          raise Interrupt
+        end
+      end.to raise_error(Interrupt)
+
+      expect(File.read(output)).to eq("original")
+      expect(Dir.children(dir)).to eq(["output.txt"])
+    end
+  end
 end

@@ -68,6 +68,7 @@ module Shellfie
     def render_frames(frames, scale:, shadow:, transparent:, chrome_cache:)
       temp_dir = Dir.mktmpdir("shellfie")
       images = []
+      complete = false
       visible_lines = fixed_visible_lines(frames)
 
       frames.each_with_index do |frame, idx|
@@ -81,7 +82,10 @@ module Shellfie
         images << { path: output_path, delay: frame[:delay] }
       end
 
+      complete = true
       images
+    ensure
+      FileUtils.rm_rf(temp_dir) if temp_dir && !complete
     end
 
     def create_frame_config(lines, window_overrides: {})

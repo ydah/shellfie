@@ -238,5 +238,21 @@ RSpec.describe Shellfie::GifGenerator do
         expect(File.read(File.join(dir, "valuable.txt"))).to eq("keep")
       end
     end
+
+    it "removes partial frame output when rendering is interrupted" do
+      generator = described_class.new(Shellfie::Config.new)
+      Dir.mktmpdir do |parent|
+        temp_dir = File.join(parent, "frames")
+        Dir.mkdir(temp_dir)
+        allow(Dir).to receive(:mktmpdir).with("shellfie").and_return(temp_dir)
+        allow(Shellfie::Renderer).to receive(:new).and_raise(Interrupt)
+        frame = { lines: [Shellfie::Line.new(output: "partial")], delay: 10 }
+
+        expect do
+          generator.send(:render_frames, [frame], scale: 1, shadow: false, transparent: false, chrome_cache: nil)
+        end.to raise_error(Interrupt)
+        expect(Dir.exist?(temp_dir)).to be(false)
+      end
+    end
   end
 end
