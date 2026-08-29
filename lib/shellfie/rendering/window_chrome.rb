@@ -164,7 +164,7 @@ module Shellfie
         max_x = geometry[:margin] + geometry[:scaled_width] - reserve_right - title_width
         centered_x = geometry[:margin] + (geometry[:scaled_width] - title_width) / 2
         x = title_x(min_x, max_x, centered_x)
-        y = geometry[:margin] + geometry[:scaled_title_bar] / 2 + scaled_font_size / 3
+        y = geometry[:margin] + geometry[:scaled_title_bar] / 2 + (scaled_font_size * 0.6).round
 
         draw_text(convert, title, x, y - scaled_font_size, theme.colors[:title_text], scaled_font_size, geometry[:font_config])
       end
