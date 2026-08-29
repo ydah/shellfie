@@ -33,6 +33,7 @@
 - Clean partial animation frames on errors and interrupts.
 - Add exact-height canvases and common aspect presets.
 - Add typed authoring variables to executable sessions.
+- Add bounded reusable and repeated executable-session steps.
 
 ## 0.1.1 - 2026-01-12
 

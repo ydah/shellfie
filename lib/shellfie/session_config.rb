@@ -21,7 +21,7 @@ module Shellfie
       run: %i[visibility timeout async cwd], type: %i[speed], key: %i[count async timeout delay],
       sleep: [], wait: %i[timeout], expect: [], capture: [], hide: [], show: []
     }.freeze
-    TOP_LEVEL_KEYS = %i[version mode title theme terminal requires steps outputs render redact vars].freeze
+    TOP_LEVEL_KEYS = %i[version mode title theme terminal requires steps outputs render redact vars step_sets].freeze
     TERMINAL_KEYS = %i[shell columns rows cwd cwd_policy env env_allowlist timeout total_timeout prompt].freeze
     OUTPUT_KEYS = %i[path format animate scale shadow transparent capture].freeze
     OUTPUT_FORMATS = %w[png gif svg svg-raster webp apng mp4 webm png-sequence html txt ansi json asciicast cast].freeze
@@ -150,7 +150,8 @@ module Shellfie
       @theme = (raw[:theme] || "macos").to_s
       @terminal = defaults.merge(symbolize_hash(raw[:terminal] || {}))
       @requires = Array(raw[:requires])
-      @steps = Array(raw[:steps]).map { |step| normalize_step(step) }
+      raise ValidationError, "steps must be an array" unless raw[:steps].is_a?(Array)
+      @steps = expand_steps(raw[:steps], validate_step_sets(raw[:step_sets] || {}))
       @outputs = Array(raw[:outputs]).map { |output| symbolize_hash(output) }
       @render = symbolize_hash(raw[:render] || {})
       %i[window font animation].each do |key|
@@ -242,6 +243,42 @@ module Shellfie
       raise ValidationError, "Undefined variable: #{name}" unless variables.key?(name)
 
       variables[name]
+    end
+
+    def validate_step_sets(value)
+      raise ValidationError, "step_sets must be a mapping" unless value.is_a?(Hash)
+      raise ValidationError, "step_sets may contain at most 100 entries" if value.size > 100
+
+      value.to_h do |name, entries|
+        key = name.to_s
+        raise ValidationError, "Step set names must use letters, numbers, and underscores" unless key.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
+        raise ValidationError, "step_sets.#{key} must be an array" unless entries.is_a?(Array)
+
+        [key, entries]
+      end
+    end
+
+    def expand_steps(entries, sets, stack = [])
+      entries.each_with_object([]) do |entry, result|
+        step = normalize_step(entry)
+        repeat = step.is_a?(Hash) ? step.delete(:repeat) || 1 : 1
+        unless repeat.is_a?(Integer) && repeat.between?(1, MAX_COUNT)
+          raise ValidationError, "step repeat must be between 1 and #{MAX_COUNT}"
+        end
+
+        expanded = if step.is_a?(Hash) && step.key?(:use)
+                     raise ValidationError, "A reusable step may contain only use and repeat" unless step.keys == [:use]
+                     name = step[:use].to_s
+                     raise ValidationError, "Unknown step set: #{name}" unless sets.key?(name)
+                     raise ValidationError, "Circular step set: #{(stack + [name]).join(' -> ')}" if stack.include?(name)
+
+                     expand_steps(sets[name], sets, stack + [name])
+                   else
+                     [step]
+                   end
+        repeat.times { result.concat(Config.deep_dup(expanded)) }
+        raise ValidationError, "Session has too many expanded steps (max 10,000)" if result.size > 10_000
+      end
     end
 
     def normalize_step(step)

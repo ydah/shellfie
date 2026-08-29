@@ -19,6 +19,13 @@
       "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
       "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
     },
+    "step_sets": {
+      "type": "object", "maxProperties": 100,
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "additionalProperties": {
+        "type": "array", "items": { "oneOf": [{ "$ref": "#/$defs/step" }, { "$ref": "#/$defs/step_use" }] }
+      }
+    },
     "terminal": {
       "type": "object",
       "additionalProperties": false,
@@ -42,7 +49,8 @@
     },
     "requires": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]+$" } },
     "steps": {
-      "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/step" },
+      "type": "array", "maxItems": 10000,
+      "items": { "oneOf": [{ "$ref": "#/$defs/step" }, { "$ref": "#/$defs/step_use" }] },
       "contains": { "type": "object", "required": ["capture"] }, "minContains": 0, "maxContains": 100
     },
     "outputs": { "type": "array", "items": { "$ref": "#/$defs/output" } },
@@ -160,7 +168,8 @@
             "speed": { "type": "string", "maxLength": 32, "pattern": "^0*(?:[1-9][0-9]{0,2}(?:\\.[0-9]+)?|1000(?:\\.0+)?)cps$" },
             "count": { "type": "integer", "minimum": 1, "maximum": 10000 },
             "async": { "type": "boolean" }, "cwd": { "type": "string" },
-            "delay": { "$ref": "#/$defs/duration" }
+            "delay": { "$ref": "#/$defs/duration" },
+            "repeat": { "type": "integer", "minimum": 1, "maximum": 10000 }
           },
           "oneOf": [
             { "required": ["run"] }, { "required": ["type"] }, { "required": ["key"] },
@@ -175,6 +184,13 @@
           ]
         }
       ]
+    },
+    "step_use": {
+      "type": "object", "required": ["use"], "additionalProperties": false,
+      "properties": {
+        "use": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "repeat": { "type": "integer", "minimum": 1, "maximum": 10000 }
+      }
     },
     "wait": {
       "oneOf": [

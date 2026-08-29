@@ -36,6 +36,23 @@ RSpec.describe Shellfie::SessionConfig do
     end.to raise_error(Shellfie::ValidationError, /Undefined variable/)
   end
 
+  it "expands reusable and repeated steps with cycle protection" do
+    config = described_class.new(
+      {
+        version: 2,
+        step_sets: { setup: [{ run: "echo setup" }], twice: [{ use: "setup", repeat: 2 }] },
+        steps: [{ use: "twice" }, { key: "x", repeat: 2 }]
+      }
+    )
+
+    expect(config.steps).to eq([{ run: "echo setup" }, { run: "echo setup" }, { key: "x" }, { key: "x" }])
+    expect do
+      described_class.new({ version: 2, step_sets: { loop: [{ use: "loop" }] }, steps: [{ use: "loop" }] })
+    end.to raise_error(Shellfie::ValidationError, /Circular step set/)
+    expect { described_class.new({ version: 2, steps: nil }) }
+      .to raise_error(Shellfie::ValidationError, /steps must be an array/)
+  end
+
   it "rejects ambiguous steps and unsafe requirement names" do
     expect do
       described_class.new({ version: 2, requires: ["ruby; rm"], steps: [{ run: "x", type: "y" }] })
