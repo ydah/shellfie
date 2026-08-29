@@ -1,42 +1,40 @@
 # Changelog
 
-## 1.1.0 - 2026-08-28
+## 1.1.0 - 2026-08-29
 
-- Make frame delays consistent and preserve `lines` as the initial animation screen.
-- Render native selectable-text SVG, with `svg-raster` kept as an explicit legacy format.
-- Fix static WebP mode, terminal tab/backspace behavior, grapheme typing, include diagnostics, batch collisions, and stdout memory use.
-- Add explicit typing rate, frame timing, playback speed, workload limits, and stronger dependency checks.
-- Add an optional PTY session runner with live/exit/stable waits, assertions, named capture outputs, redaction, multi-output rendering, editable recording, and offline cassette replay.
-- Add a shared terminal screen model, duplicate-frame coalescing, MP4/WebM, event-duration PNG sequences, accessible HTML, and semantic TXT/JSON transcripts.
-- Add JSON Schemas, source locations with typo suggestions, authoring commands, manifests, a GitHub Action, Docker packaging, and project security/contribution metadata.
-- Add v2 inspection, step working directories, text-golden assertions, include-aware watching, exact nested diagnostics, and terminal-edge autowrap handling.
-- Align schema and runtime limits for steps, captures, patterns, environment names, and output formats.
-- Add reusable session includes, environment allowlists, total timeouts, delayed repeated keys, prompt/line waits, elapsed assertions, and explicit animation seeds.
-- Fix colon-form SGR parsing, split grapheme clusters, terminal line-feed semantics, and scroll-region line editing.
-- Add inferred output names, collision-checked output templates, PowerShell completion, and TUI/CI/theme-gallery starters.
-- Set live PTY dimensions and harden prompt synchronization against prompt-like process output.
-- Add theme-switchable accessible HTML plus ANSI-preserving and asciinema v2 transcript exports.
-- Preserve existing cells on terminal tab movement and guarantee a decodable minimum video duration.
-- Record explicit session sleeps as timeline pauses and allow cassette-only or YAML-only recording.
-- Make v2 includes watchable with exact merged provenance and typo suggestions, and make doctor perform a real PNG/policy check.
-- Preserve extended underline styles/colors, blink, and conceal through terminal capture and SVG/raster rendering.
-- Expose the Unicode/width-table profile and make East Asian Ambiguous width configurable and reproducible.
-- Preserve length-bounded, allowlisted OSC 8 links in SVG/HTML behind an explicit OSC policy.
-- Add validated GIF color/optimization, WebP lossless/quality/method, APNG prediction, and loop-count controls.
-- Add non-mutating `generate --check` support and expose it through the GitHub Action.
-- Gate release tags against the gem version and publish attested gem artifacts to GitHub Releases.
-- Add bounded `--jobs` batch rendering after collision, dependency, and destination preflight.
-- Add JSON, SARIF, and JUnit reports to `validate` for CI and editor integrations.
-- Add reverse, ping-pong, and frame-offset animation playback.
-- Add a symlink-aware session working-directory root policy.
-- Add an opt-in error policy for unsupported terminal graphics.
-- Clean partial animation frames on errors and interrupts.
-- Add exact-height canvases and common aspect presets.
-- Add typed authoring variables to executable sessions.
-- Add bounded reusable and repeated executable-session steps.
-- Normalize arbitrary terminal byte strings at the screen-model boundary.
-- Add deterministic OS, shell, Ruby, and configured-environment step conditions.
-- Cancel superseded CI runs for the same branch or pull request.
+### Added
+
+- Add executable version 2 sessions with `run`, `record`, and `replay`; PTY sessions support command and key input, waits, assertions, hidden steps, redaction, named captures, editable recordings, and offline cassettes.
+- Add native selectable-text SVG, accessible HTML, MP4, WebM, event-duration PNG sequences, plain and ANSI-preserving text, structured JSON, and asciinema v2 output. Legacy raster-backed SVG remains available as `svg-raster`.
+- Add multiple configured outputs and capture-specific outputs from one session.
+- Add JSON Schemas, file/line/column diagnostics, typo suggestions, and `new`, `format`, `compile`, `schema`, `completion`, and include-aware `watch` authoring commands.
+- Add typed session variables, reusable and repeated step sets, and OS, shell, Ruby, and configured-environment step conditions.
+- Add inferred output names, collision-checked output templates, common aspect presets, bounded parallel batch rendering with `--jobs`, and non-mutating output verification with `generate --check`.
+- Add reproducibility manifests and JSON, SARIF, and JUnit validation reports for CI and editor integrations.
+- Add a reusable GitHub Action for generating or checking outputs and Docker packaging for a consistent rendering environment.
+- Add deterministic animation seeds, separate typing rate, frame timing, and playback speed controls, reverse and ping-pong playback, loop offsets, and format-specific GIF, WebP, and APNG controls.
+- Add configurable East Asian Ambiguous width and report the active Unicode and width-table profile through inspection and manifests.
+- Add broader terminal behavior for cursor movement, erase and insertion controls, alternate screens, scroll regions, colon-form colors, extended underline styles and colors, blink, conceal, and safe OSC 8 links.
+
+### Changed
+
+- Treat every frame `delay` as a post-action delay; a `type` frame's delay now overrides the global command delay, and `lines` initialize the screen when `frames` are also present.
+- Treat an explicit WebP format as static unless the input has frames or `--animate` is supplied.
+- Deprecate `--fps` in favor of `--framerate`; use `--typing-rate` to control input speed independently.
+
+### Fixed
+
+- Correct terminal tab stops, backspace behavior, wide-cell overwrites, grapheme-cluster typing, split Unicode input, line feeds, autowrap, and scroll-region editing.
+- Correct animation duration rounding, duplicate-frame timing, APNG tail duration, playback-speed timing, and minimum video duration.
+- Prevent output collisions before rendering, stream stdout without an output-sized memory copy, preserve existing outputs on failure, and remove partial animation files after errors or interruption.
+- Improve live-session prompt and exit synchronization, preserve asynchronous output, honor PTY dimensions and working directories, and terminate leftover child processes.
+- Improve `doctor` and dependency checks with real rendering, format delegates, fonts, security policy, and temporary-storage diagnostics.
+
+### Security and reliability
+
+- Add include cycle and chain diagnostics, per-file and aggregate size limits, and an optional symlink-aware root policy for includes and session working directories.
+- Add environment allowlists, total and per-step timeouts, bounded regular-expression evaluation, output and control-sequence limits, and rendering workload and temporary-disk budgets.
+- Add opt-in rejection of unsupported terminal graphics and an explicit policy for preserving only bounded `http`, `https`, and `mailto` OSC 8 links.
 
 ## 0.1.1 - 2026-01-12
 
