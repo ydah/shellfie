@@ -10,7 +10,7 @@ module Shellfie
       headless limits
     ].freeze
     WINDOW_KEYS = %i[
-      width padding opacity visible_lines max_lines max_height wrap overflow margin exact_size trim tab_width
+      width height padding opacity visible_lines max_lines max_height wrap overflow margin exact_size trim tab_width
       ambiguous_width osc_policy graphics_policy ansi_state background_gradient scroll_offset
     ].freeze
     FONT_KEYS = %i[family size line_height fallback_family italic_family emoji_family].freeze

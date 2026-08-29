@@ -39,8 +39,8 @@ module Shellfie
 
     def vertical_line_limit(title_bar_height, padding, line_height)
       limits = [@config.window[:visible_lines], @config.window[:max_lines]].compact
-      if @config.window[:max_height]
-        available_height = @config.window[:max_height] - title_bar_height - padding * 2
+      [@config.window[:height], @config.window[:max_height]].compact.each do |height|
+        available_height = height - title_bar_height - padding * 2
         limits << [(available_height / line_height).floor, 1].max
       end
 

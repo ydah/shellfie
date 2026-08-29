@@ -64,6 +64,13 @@ RSpec.describe Shellfie::CLI do
       expect(cli.send(:animation_output?, config)).to be false
     end
 
+    it "applies exact aspect presets while allowing an explicit width override" do
+      cli = described_class.new([])
+      cli.instance_variable_set(:@options, { preset: "ogp", width: 1000 })
+
+      expect(cli.send(:build_window_overrides)).to include(width: 1000, height: 630, exact_size: true)
+    end
+
     it "derives safe default and templated output names" do
       config = Shellfie::Config.new(theme: "ubuntu", lines: [Shellfie::Line.new(output: "ok")])
       cli = described_class.new([])

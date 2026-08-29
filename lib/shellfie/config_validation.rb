@@ -57,6 +57,7 @@ module Shellfie
       validate_window_theme!
       validate_color_scheme!
       validate_positive_integer!(@window[:width], "window.width")
+      validate_optional_positive_integer!(@window[:height], "window.height")
       validate_non_negative_integer!(@window[:padding], "window.padding")
       raise ValidationError, "window.padding must be at most 40" if @window[:padding] > 40
       %i[opacity scroll_offset].each { |key| validate_number_range!(@window[key], "window.#{key}", 0.0, 1.0) }

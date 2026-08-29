@@ -41,6 +41,7 @@
       "additionalProperties": false,
       "properties": {
         "width": { "type": "integer", "minimum": 120 },
+        "height": { "type": ["integer", "null"], "minimum": 1 },
         "padding": { "type": "integer", "minimum": 0, "maximum": 40 },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "visible_lines": { "type": ["integer", "null"], "minimum": 1 },

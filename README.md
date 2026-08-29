@@ -126,6 +126,7 @@ Common `generate` options:
 | Option | Description |
 | --- | --- |
 | `-o, --output PATH` | Output path/template with `{name}`, `{theme}`, `{scale}`, `{format}`; defaults beside input |
+| `--preset NAME` | Exact `readme`, `ogp`, `widescreen` (16:9), `standard` (4:3), or `vertical` canvas |
 | `-t, --theme NAME` | Override theme |
 | `-a, --animate` | Render animation |
 | `-s, --scale FACTOR` | Output scale: `1`, `2`, or `3` |

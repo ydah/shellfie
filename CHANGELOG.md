@@ -31,6 +31,7 @@
 - Add a symlink-aware session working-directory root policy.
 - Add an opt-in error policy for unsupported terminal graphics.
 - Clean partial animation frames on errors and interrupts.
+- Add exact-height canvases and common aspect presets.
 
 ## 0.1.1 - 2026-01-12
 

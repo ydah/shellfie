@@ -13,7 +13,7 @@ module Shellfie
       font_config = @theme.font
       line_height = font_config[:size] * font_config[:line_height]
       display_lines, visible_count = display_lines(lines, font_config, line_height)
-      total_height = title_bar_height + [visible_count, 1].max * line_height + padding * 2
+      total_height = @config.window[:height] || title_bar_height + [visible_count, 1].max * line_height + padding * 2
       margin = canvas_margin(scale, shadow && !exact_size?)
       geometry = geometry_hash(
         display_lines,

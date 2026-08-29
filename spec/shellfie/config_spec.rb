@@ -41,6 +41,8 @@ RSpec.describe Shellfie::Config do
       expect { described_class.new(window: { width: 0 }) }.to raise_error(Shellfie::ValidationError, /window.width/)
       expect { described_class.new(window: { padding: -1 }) }.to raise_error(Shellfie::ValidationError, /window.padding/)
       expect { described_class.new(window: { width: 200, padding: 41 }) }.to raise_error(Shellfie::ValidationError, /padding/)
+      expect(described_class.new(window: { height: 630 }).window[:height]).to eq(630)
+      expect { described_class.new(window: { height: 0 }) }.to raise_error(Shellfie::ValidationError, /window.height/)
     end
 
     it "validates East Asian ambiguous width" do

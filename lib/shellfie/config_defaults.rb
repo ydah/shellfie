@@ -11,6 +11,7 @@ module Shellfie
       window_decoration: {},
       window: {
         width: 600,
+        height: nil,
         padding: 20,
         opacity: 1.0,
         visible_lines: nil,

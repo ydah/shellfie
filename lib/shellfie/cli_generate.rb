@@ -13,6 +13,13 @@ module Shellfie
     STATIC_FORMATS = %w[png svg svg-raster webp html].freeze
     SEMANTIC_FORMATS = %w[txt ansi json asciicast cast].freeze
     SUPPORTED_FORMATS = (STATIC_FORMATS + ANIMATED_FORMATS + SEMANTIC_FORMATS).uniq.freeze
+    ASPECT_PRESETS = {
+      "readme" => { width: 800, height: 450 },
+      "ogp" => { width: 1200, height: 630 },
+      "widescreen" => { width: 1280, height: 720 },
+      "standard" => { width: 960, height: 720 },
+      "vertical" => { width: 720, height: 1280 }
+    }.freeze
 
     private
 
@@ -99,6 +106,11 @@ module Shellfie
         opts.on("-a", "--animate", "Generate animated GIF") { @options[:animate] = true }
         opts.on("-s", "--scale FACTOR", "Output scale (1, 2, 3)") { |scale| @options[:scale] = parse_scale(scale) }
         opts.on("-w", "--width PIXELS", Integer, "Override width") { |width| @options[:width] = width }
+        opts.on("--preset NAME", "readme, ogp, widescreen, standard, or vertical") do |name|
+          raise ValidationError, "preset must be one of: #{ASPECT_PRESETS.keys.join(', ')}" unless ASPECT_PRESETS.key?(name)
+
+          @options[:preset] = name
+        end
         opts.on("--typing-rate CPS", Integer, "Typing rate in characters per second") do |rate|
           @options[:typing_rate] = parse_rate(rate)
         end
@@ -233,7 +245,7 @@ module Shellfie
     end
 
     def build_window_overrides
-      {}.tap do |overrides|
+      (@options[:preset] ? ASPECT_PRESETS.fetch(@options[:preset]).merge(exact_size: true) : {}).tap do |overrides|
         overrides[:width] = @options[:width] if @options[:width]
         overrides[:overflow] = @options[:overflow] if @options[:overflow]
         overrides[:wrap] = @options[:wrap] unless @options[:wrap].nil?

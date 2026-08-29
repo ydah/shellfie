@@ -70,6 +70,15 @@ RSpec.describe Shellfie::Renderer do
       expect(geometry[:canvas_width]).to eq(config.window[:width])
     end
 
+    it "honors an exact configured canvas height" do
+      config = Shellfie::Config.new(
+        window: { width: 1200, height: 630, exact_size: true },
+        lines: [Shellfie::Line.new(output: "OGP")]
+      )
+
+      expect(described_class.new(config).estimate).to include(canvas_width: 1200, canvas_height: 630)
+    end
+
     it "returns logical dimensions separately from scaled canvas size" do
       config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "test")])
       renderer = described_class.new(config)
