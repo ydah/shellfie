@@ -169,7 +169,8 @@
             "count": { "type": "integer", "minimum": 1, "maximum": 10000 },
             "async": { "type": "boolean" }, "cwd": { "type": "string" },
             "delay": { "$ref": "#/$defs/duration" },
-            "repeat": { "type": "integer", "minimum": 1, "maximum": 10000 }
+            "repeat": { "type": "integer", "minimum": 1, "maximum": 10000 },
+            "if": { "$ref": "#/$defs/condition" }
           },
           "oneOf": [
             { "required": ["run"] }, { "required": ["type"] }, { "required": ["key"] },
@@ -189,7 +190,22 @@
       "type": "object", "required": ["use"], "additionalProperties": false,
       "properties": {
         "use": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "repeat": { "type": "integer", "minimum": 1, "maximum": 10000 }
+        "repeat": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "if": { "$ref": "#/$defs/condition" }
+      }
+    },
+    "condition": {
+      "type": "object", "minProperties": 1, "additionalProperties": false,
+      "properties": {
+        "os": {
+          "oneOf": [
+            { "enum": ["macos", "linux", "windows"] },
+            { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["macos", "linux", "windows"] } }
+          ]
+        },
+        "shell": { "type": "string" },
+        "ruby": { "type": "string" },
+        "env": { "type": "object", "additionalProperties": { "type": ["string", "null"] } }
       }
     },
     "wait": {

@@ -2,6 +2,8 @@
 
 require "yaml"
 require "did_you_mean"
+require "rbconfig"
+require "rubygems/requirement"
 require_relative "config"
 require_relative "errors"
 require_relative "parser_validation"
@@ -261,6 +263,9 @@ module Shellfie
     def expand_steps(entries, sets, stack = [])
       entries.each_with_object([]) do |entry, result|
         step = normalize_step(entry)
+        condition = step.is_a?(Hash) && step.delete(:if)
+        next unless condition.nil? || condition_matches?(condition)
+
         repeat = step.is_a?(Hash) ? step.delete(:repeat) || 1 : 1
         unless repeat.is_a?(Integer) && repeat.between?(1, MAX_COUNT)
           raise ValidationError, "step repeat must be between 1 and #{MAX_COUNT}"
@@ -279,6 +284,43 @@ module Shellfie
         repeat.times { result.concat(Config.deep_dup(expanded)) }
         raise ValidationError, "Session has too many expanded steps (max 10,000)" if result.size > 10_000
       end
+    end
+
+    def condition_matches?(value)
+      condition = symbolize_hash(value)
+      validate_mapping_keys!(condition, %i[os shell ruby env], "step.if")
+      raise ValidationError, "step.if must contain a condition" if condition.empty?
+
+      matches = []
+      if condition.key?(:os)
+        systems = Array(condition[:os]).map(&:to_s)
+        raise ValidationError, "step.if.os must be macos, linux, or windows" unless (systems - %w[macos linux windows]).empty?
+        matches << systems.include?(host_os)
+      end
+      if condition.key?(:shell)
+        raise ValidationError, "step.if.shell must be a string" unless condition[:shell].is_a?(String)
+        matches << File.basename(terminal[:shell]) == condition[:shell]
+      end
+      if condition.key?(:ruby)
+        raise ValidationError, "step.if.ruby must be a requirement string" unless condition[:ruby].is_a?(String)
+        matches << Gem::Requirement.new(condition[:ruby]).satisfied_by?(Gem::Version.new(RUBY_VERSION))
+      end
+      if condition.key?(:env)
+        raise ValidationError, "step.if.env must be a mapping" unless condition[:env].is_a?(Hash)
+        configured = terminal[:env].transform_keys(&:to_s)
+        matches << condition[:env].all? { |name, expected| configured[name.to_s] == expected }
+      end
+      matches.all?
+    rescue Gem::Requirement::BadRequirementError => e
+      raise ValidationError, "Invalid step.if.ruby requirement: #{e.message}"
+    end
+
+    def host_os
+      value = RbConfig::CONFIG["host_os"]
+      return "windows" if value.match?(/mswin|mingw|cygwin/)
+      return "macos" if value.include?("darwin")
+
+      "linux"
     end
 
     def normalize_step(step)

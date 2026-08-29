@@ -53,6 +53,26 @@ RSpec.describe Shellfie::SessionConfig do
       .to raise_error(Shellfie::ValidationError, /steps must be an array/)
   end
 
+  it "filters steps by OS, shell, Ruby, and explicit terminal environment" do
+    probe = described_class.new({ version: 2, steps: [] })
+    current_os = probe.send(:host_os)
+    config = described_class.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", env: { "CI" => "true" } },
+        steps: [
+          { run: "kept", if: { os: current_os, shell: "sh", ruby: ">= 3.0", env: { "CI" => "true" } } },
+          { run: "dropped", if: { os: (%w[macos linux windows] - [current_os]).first } }
+        ]
+      }
+    )
+
+    expect(config.steps).to eq([{ run: "kept" }])
+    expect do
+      described_class.new({ version: 2, steps: [{ run: "x", if: { ruby: "nope" } }] })
+    end.to raise_error(Shellfie::ValidationError, /ruby requirement/)
+  end
+
   it "rejects ambiguous steps and unsafe requirement names" do
     expect do
       described_class.new({ version: 2, requires: ["ruby; rm"], steps: [{ run: "x", type: "y" }] })

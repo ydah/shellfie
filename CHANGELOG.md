@@ -35,6 +35,7 @@
 - Add typed authoring variables to executable sessions.
 - Add bounded reusable and repeated executable-session steps.
 - Normalize arbitrary terminal byte strings at the screen-model boundary.
+- Add deterministic OS, shell, Ruby, and configured-environment step conditions.
 
 ## 0.1.1 - 2026-01-12
 

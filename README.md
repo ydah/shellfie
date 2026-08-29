@@ -89,6 +89,7 @@ Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, live-
 
 Session `vars` use `{{name}}` placeholders. A placeholder used as the whole value preserves scalar types; embedded placeholders are converted to text. Shell `$VAR` and `${VAR}` syntax is left untouched.
 Reusable `step_sets` expand through `{ use: NAME }`; `repeat` repeats either a normal step or a reusable set. Expansion is bounded to 10,000 steps and circular references are rejected.
+Steps and reusable sets accept `if` conditions for `os`, shell basename, Ruby requirement, and explicitly configured `terminal.env` values. Multiple conditions must all match.
 
 Authoring commands:
 
