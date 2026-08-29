@@ -26,7 +26,8 @@ module Shellfie
       @ansi_parser = AnsiParser.new(
         state_mode: config.window[:ansi_state] || :persistent,
         tab_width: config.window[:tab_width],
-        osc_policy: config.window[:osc_policy]
+        osc_policy: config.window[:osc_policy],
+        graphics_policy: config.window[:graphics_policy]
       )
       @font_resolver = FontResolver.new(-> { imagemagick_command })
     end

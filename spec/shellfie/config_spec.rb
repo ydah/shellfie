@@ -53,6 +53,9 @@ RSpec.describe Shellfie::Config do
       expect(described_class.new(window: { osc_policy: "preserve" }).window[:osc_policy]).to eq("preserve")
       expect { described_class.new(window: { osc_policy: "execute" }) }
         .to raise_error(Shellfie::ValidationError, /osc_policy/)
+      expect(described_class.new(window: { graphics_policy: "error" }).window[:graphics_policy]).to eq("error")
+      expect { described_class.new(window: { graphics_policy: "render" }) }
+        .to raise_error(Shellfie::ValidationError, /graphics_policy/)
     end
 
     it "validates animation playback order" do

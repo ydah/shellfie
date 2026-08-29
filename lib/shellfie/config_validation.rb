@@ -67,6 +67,7 @@ module Shellfie
       validate_positive_integer!(@window[:tab_width], "window.tab_width")
       validate_inclusion!(@window[:ambiguous_width], "window.ambiguous_width", [1, 2])
       validate_inclusion!(@window[:osc_policy], "window.osc_policy", %w[ignore preserve apply])
+      validate_inclusion!(@window[:graphics_policy], "window.graphics_policy", %w[ignore error])
       validate_boolean!(@window[:wrap], "window.wrap")
       validate_boolean!(@window[:exact_size], "window.exact_size")
       validate_boolean!(@window[:trim], "window.trim")

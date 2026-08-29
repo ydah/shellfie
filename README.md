@@ -105,6 +105,7 @@ JSON Schemas live in [`schema/`](schema/). Add `# yaml-language-server: $schema=
 Set `window.ambiguous_width` to `1` (default) or `2` for terminals that render East Asian Ambiguous characters as double-width. `inspect` and reproducibility manifests report the Ruby Unicode version, Shellfie width-table version, and selected policy.
 
 OSC controls are ignored by default. Set `window.osc_policy: preserve` to keep `http`, `https`, and `mailto` OSC 8 links in SVG/HTML; unsafe schemes, control characters, and URLs over 2048 bytes are discarded.
+SIXEL, Kitty, and iTerm2 image controls are discarded by default. Set `window.graphics_policy: error` to fail instead of silently omitting terminal graphics.
 
 Set `animation.direction` to `forward`, `reverse`, or `ping_pong`. `animation.loop_offset` rotates that playback order by a zero-based rendered-frame index, which is useful for choosing the initial thumbnail.
 

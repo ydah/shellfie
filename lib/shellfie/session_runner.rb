@@ -46,7 +46,10 @@ module Shellfie
       check_requirements!
       validate_working_directories!
       @session = Session.new(columns: terminal[:columns], rows: terminal[:rows], title: @config.title)
-      @live_screen = TerminalScreen.new(columns: terminal[:columns], rows: terminal[:rows])
+      @live_screen = TerminalScreen.new(
+        columns: terminal[:columns], rows: terminal[:rows],
+        graphics_policy: @config.render.dig(:window, :graphics_policy) || "ignore"
+      )
       start_pty
       @config.steps.each do |step|
         execute(step)
@@ -109,14 +112,14 @@ module Shellfie
       terminate_job_groups(background_job_pids)
       terminate_descendants
       @slave&.write("exit\n") unless @slave&.closed?
-      Timeout.timeout(1) { Process.wait(@pid) }
-    rescue Timeout::Error
-      signal_process_group("TERM")
-      begin
-        Timeout.timeout(1) { Process.wait(@pid) }
-      rescue Timeout::Error
-        signal_process_group("KILL")
-        Process.wait(@pid)
+      unless reap_child(1)
+        signal_process_group("TERM")
+        signal_process(@pid, "TERM")
+        unless reap_child(1)
+          signal_process_group("KILL")
+          signal_process(@pid, "KILL")
+          reap_child(1)
+        end
       end
     rescue Errno::ESRCH, Errno::ECHILD, Errno::EIO, Errno::EPIPE, IOError
       nil
@@ -129,6 +132,18 @@ module Shellfie
       @slave&.close unless @slave&.closed?
       @reader_thread&.join(0.2)
       FileUtils.rm_rf(@session_home) if @session_home
+    end
+
+    def reap_child(timeout)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+      loop do
+        return true if Process.waitpid(@pid, Process::WNOHANG)
+        return false if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+
+        sleep(0.01)
+      end
+    rescue Errno::ECHILD
+      true
     end
 
     def background_job_pids
@@ -490,7 +505,11 @@ module Shellfie
           @reader_error = ResourceLimitError.new("Terminal output exceeded #{MAX_OUTPUT_BYTES} bytes")
         else
           @buffer << chunk
-          @live_screen.feed(chunk)
+          begin
+            @live_screen.feed(chunk)
+          rescue Shellfie::Error => e
+            @reader_error = e
+          end
         end
         @condition.broadcast
       end
@@ -613,7 +632,10 @@ module Shellfie
     def clear_buffer
       @mutex.synchronize do
         @buffer.clear
-        @live_screen = TerminalScreen.new(columns: terminal[:columns], rows: terminal[:rows])
+        @live_screen = TerminalScreen.new(
+          columns: terminal[:columns], rows: terminal[:rows],
+          graphics_policy: @config.render.dig(:window, :graphics_policy) || "ignore"
+        )
       end
     end
 

@@ -4,6 +4,7 @@ require "strscan"
 require "uri"
 require_relative "ansi_colors"
 require_relative "ansi_normalizer"
+require_relative "errors"
 
 module Shellfie
   Segment = Struct.new(
@@ -33,10 +34,11 @@ module Shellfie
     MAX_OSC_BYTES = MAX_LINK_BYTES + 64
     LINK_SCHEMES = %w[http https mailto].freeze
 
-    def initialize(state_mode: :persistent, tab_width: 8, osc_policy: "ignore")
+    def initialize(state_mode: :persistent, tab_width: 8, osc_policy: "ignore", graphics_policy: "ignore")
       @state_mode = state_mode.to_sym
       @tab_width = tab_width
       @osc_policy = osc_policy.to_s
+      @graphics_policy = graphics_policy.to_s
       @link = nil
       @pending_osc = +""
       reset_state
@@ -48,7 +50,9 @@ module Shellfie
         @link = nil
       end
 
-      input, @pending_osc = split_incomplete_osc(@pending_osc + text.to_s)
+      input = @pending_osc + text.to_s
+      reject_terminal_graphics!(input)
+      input, @pending_osc = split_incomplete_osc(input)
       segments = []
       scanner = StringScanner.new(AnsiNormalizer.normalize(input, tab_width: @tab_width, osc_policy: @osc_policy))
       current_text = +""
@@ -76,6 +80,12 @@ module Shellfie
     end
 
     private
+
+    def reject_terminal_graphics!(text)
+      return unless @graphics_policy == "error" && text.match?(AnsiNormalizer::GRAPHICS_CONTROL_PREFIX)
+
+      raise ValidationError, "Terminal graphics are not supported; use window.graphics_policy: ignore to discard them"
+    end
 
     def reset_state
       @foreground = nil

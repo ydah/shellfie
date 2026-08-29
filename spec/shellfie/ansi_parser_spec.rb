@@ -194,6 +194,14 @@ RSpec.describe Shellfie::AnsiParser do
       expect(segments.map(&:text).join).to eq("beforemiddleafter")
     end
 
+    it "can reject unsupported terminal graphics" do
+      strict = described_class.new(graphics_policy: "error")
+
+      expect { strict.parse("\ePqSIXEL\e\\") }.to raise_error(Shellfie::ValidationError, /Terminal graphics/)
+      expect { strict.parse("\e_Gkitty\e\\") }.to raise_error(Shellfie::ValidationError, /Terminal graphics/)
+      expect { strict.parse("\e]1337;File=name=x:AAAA\a") }.to raise_error(Shellfie::ValidationError, /Terminal graphics/)
+    end
+
     it "preserves only safe OSC 8 hyperlinks when enabled" do
       link_parser = described_class.new(osc_policy: "preserve")
       segments = link_parser.parse("\e]8;;https://example.com?a=1&b=2\aLink\e[0m!\e]8;;\a plain")

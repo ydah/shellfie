@@ -29,6 +29,7 @@
 - Add JSON, SARIF, and JUnit reports to `validate` for CI and editor integrations.
 - Add reverse, ping-pong, and frame-offset animation playback.
 - Add a symlink-aware session working-directory root policy.
+- Add an opt-in error policy for unsupported terminal graphics.
 
 ## 0.1.1 - 2026-01-12
 

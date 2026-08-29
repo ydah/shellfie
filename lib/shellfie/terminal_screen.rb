@@ -13,10 +13,11 @@ module Shellfie
 
     attr_reader :row, :column, :rows, :columns
 
-    def initialize(columns: 80, rows: 24, tab_width: 8)
+    def initialize(columns: 80, rows: 24, tab_width: 8, graphics_policy: "ignore")
       @columns = columns
       @rows = rows
       @tab_width = tab_width
+      @graphics_policy = graphics_policy
       @cells = Array.new(rows) { Array.new(columns) }
       @row = 0
       @column = 0
@@ -36,6 +37,9 @@ module Shellfie
       return self if input.empty? && @discarding_control
 
       input = @pending_control << input
+      if @graphics_policy == "error" && input.match?(AnsiNormalizer::GRAPHICS_CONTROL_PREFIX)
+        raise ValidationError, "Terminal graphics are not supported; use window.graphics_policy: ignore to discard them"
+      end
       input, @pending_control = split_incomplete_control(input)
       input.scan(TOKENS).each { |token| process(token) }
       self

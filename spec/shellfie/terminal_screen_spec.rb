@@ -116,6 +116,13 @@ RSpec.describe Shellfie::TerminalScreen do
     expect(screen.to_s).to eq("beforeafter")
   end
 
+  it "can reject split terminal graphics" do
+    screen = described_class.new(columns: 20, rows: 2, graphics_policy: "error")
+
+    screen.feed("safe\eP0;")
+    expect { screen.feed("1qpayload") }.to raise_error(Shellfie::ValidationError, /Terminal graphics/)
+  end
+
   it "bounds incomplete terminal control buffering" do
     screen = described_class.new(columns: 20, rows: 2)
     oversized = "x" * (described_class::MAX_PENDING_CONTROL_BYTES + 1)

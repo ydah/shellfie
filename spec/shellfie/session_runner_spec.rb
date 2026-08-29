@@ -322,6 +322,19 @@ RSpec.describe Shellfie::SessionRunner do
     expect(described_class.new(config).run.screen.to_s).to include("�")
   end
 
+  it "surfaces rejected terminal graphics from the PTY reader" do
+    config = Shellfie::SessionConfig.new(
+      {
+        version: 2,
+        terminal: { shell: "/bin/sh", timeout: 2 },
+        render: { window: { graphics_policy: "error" } },
+        steps: [{ run: "printf '\\033PqSIXEL\\033\\\\'", visibility: "visible" }]
+      }
+    )
+
+    expect { described_class.new(config).run }.to raise_error(Shellfie::ValidationError, /Terminal graphics/)
+  end
+
   it "carries incomplete UTF-8 characters across terminal chunks" do
     runner = described_class.new(Shellfie::SessionConfig.new({ version: 2, steps: [] }))
     bytes = "界".b

@@ -24,6 +24,7 @@ module Shellfie
         tab_width: 8,
         ambiguous_width: 1,
         osc_policy: "ignore",
+        graphics_policy: "ignore",
         ansi_state: "persistent",
         background_gradient: nil,
         scroll_offset: 0.0

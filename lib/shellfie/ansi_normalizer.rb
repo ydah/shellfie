@@ -9,6 +9,7 @@ module Shellfie
     OSC_REGEX = /\e\].*?(?:\a|\e\\)/
     STRING_CONTROL_REGEX = /\e(?:P|_|\^).*?(?:\a|\e\\)/m
     INCOMPLETE_STRING_CONTROL_REGEX = /\e(?:P|_|\^).*\z/m
+    GRAPHICS_CONTROL_PREFIX = /\e(?:_G|P[0-9;?]*q|\]1337;File=)/
     CSI_CONTROL_REGEX = /\e\[[0-9;:?]*[A-Za-ln-z]/
 
     module_function
