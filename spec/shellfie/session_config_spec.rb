@@ -19,6 +19,23 @@ RSpec.describe Shellfie::SessionConfig do
     expect(config.outputs.first[:format]).to eq("svg")
   end
 
+  it "expands typed and embedded authoring variables" do
+    config = described_class.new(
+      {
+        version: 2,
+        vars: { "command" => "echo ok", "columns" => 90 },
+        terminal: { columns: "{{columns}}" },
+        steps: [{ run: "{{command}} > {{command}}" }]
+      }
+    )
+
+    expect(config.terminal[:columns]).to eq(90)
+    expect(config.steps.first[:run]).to eq("echo ok > echo ok")
+    expect do
+      described_class.new({ version: 2, steps: [{ run: "{{missing}}" }] })
+    end.to raise_error(Shellfie::ValidationError, /Undefined variable/)
+  end
+
   it "rejects ambiguous steps and unsafe requirement names" do
     expect do
       described_class.new({ version: 2, requires: ["ruby; rm"], steps: [{ run: "x", type: "y" }] })

@@ -87,6 +87,8 @@ shellfie replay session.json -o session.gif --animate
 
 Version 2 session files support `requires`, `run`, `type`, `key`, `sleep`, live-screen/line/prompt/exit/stable-screen `wait`, `expect`, `hide`, `show`, named `capture`, redaction patterns, reusable `include` scenarios, and multiple `outputs`. A `run` step may set `cwd`; terminal settings can restrict `env_allowlist`, set `cwd_policy: root` to reject working directories outside the session file's directory (including symlink escapes), and set `total_timeout`; `expect.golden`, `expect.line`, and elapsed bounds provide text assertions. Set `async: true` on `run` or `key: enter` before interacting with a long-running or full-screen process, then use `wait` to synchronize. An output can select an intermediate screen with `capture: NAME`. `run` uses Ruby's PTY support and is optional; normal `generate` remains deterministic and never executes config content. Cassette replay does not execute the recorded commands; `record --yaml` also writes an editable version 1 animation.
 
+Session `vars` use `{{name}}` placeholders. A placeholder used as the whole value preserves scalar types; embedded placeholders are converted to text. Shell `$VAR` and `${VAR}` syntax is left untouched.
+
 Authoring commands:
 
 ```bash

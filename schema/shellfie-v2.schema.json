@@ -14,6 +14,11 @@
     "mode": { "enum": ["run", "replay"] },
     "title": { "type": "string" },
     "theme": { "enum": ["macos", "ubuntu", "windows", "custom"] },
+    "vars": {
+      "type": "object", "maxProperties": 100,
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+    },
     "terminal": {
       "type": "object",
       "additionalProperties": false,

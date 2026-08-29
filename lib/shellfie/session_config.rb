@@ -21,7 +21,7 @@ module Shellfie
       run: %i[visibility timeout async cwd], type: %i[speed], key: %i[count async timeout delay],
       sleep: [], wait: %i[timeout], expect: [], capture: [], hide: [], show: []
     }.freeze
-    TOP_LEVEL_KEYS = %i[version mode title theme terminal requires steps outputs render redact].freeze
+    TOP_LEVEL_KEYS = %i[version mode title theme terminal requires steps outputs render redact vars].freeze
     TERMINAL_KEYS = %i[shell columns rows cwd cwd_policy env env_allowlist timeout total_timeout prompt].freeze
     OUTPUT_KEYS = %i[path format animate scale shadow transparent capture].freeze
     OUTPUT_FORMATS = %w[png gif svg svg-raster webp apng mp4 webm png-sequence html txt ansi json asciicast cast].freeze
@@ -137,6 +137,8 @@ module Shellfie
 
       unknown = raw.keys - TOP_LEVEL_KEYS
       raise_unknown_keys!(unknown, TOP_LEVEL_KEYS, "session")
+      variables = validate_variables(raw[:vars] || {})
+      raw = interpolate_variables(raw.reject { |key, _value| key == :vars }, variables)
       raise ValidationError, "Session config version must be 2" unless raw[:version] == 2
       raise ValidationError, "Session config must contain steps" unless raw.key?(:steps)
       raise ValidationError, "Session title must be a string" if raw.key?(:title) && !raw[:title].is_a?(String)
@@ -202,6 +204,44 @@ module Shellfie
 
         result[key.to_sym] = nested
       end
+    end
+
+    def validate_variables(value)
+      raise ValidationError, "vars must be a mapping" unless value.is_a?(Hash)
+      raise ValidationError, "vars may contain at most 100 entries" if value.size > 100
+
+      value.to_h do |name, nested|
+        key = name.to_s
+        raise ValidationError, "Variable names must use letters, numbers, and underscores" unless key.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
+        unless nested.is_a?(String) || nested.is_a?(Numeric) || [true, false, nil].include?(nested)
+          raise ValidationError, "vars.#{key} must be a scalar"
+        end
+        raise ValidationError, "vars.#{key} is too large" if nested.to_s.bytesize > 4_096
+
+        [key, nested]
+      end
+    end
+
+    def interpolate_variables(value, variables)
+      case value
+      when Hash
+        value.to_h { |key, nested| [key, interpolate_variables(nested, variables)] }
+      when Array
+        value.map { |nested| interpolate_variables(nested, variables) }
+      when String
+        if (match = /\A\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}\z/.match(value))
+          return variable_value(match[1], variables)
+        end
+        value.gsub(/\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}/) { variable_value(Regexp.last_match(1), variables).to_s }
+      else
+        value
+      end
+    end
+
+    def variable_value(name, variables)
+      raise ValidationError, "Undefined variable: #{name}" unless variables.key?(name)
+
+      variables[name]
     end
 
     def normalize_step(step)
