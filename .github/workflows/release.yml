@@ -26,7 +26,7 @@ jobs:
       - name: Build gem
         run: gem build shellfie.gemspec
       - name: Attest gem provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: shellfie-*.gem
       - name: Upload gem artifact
