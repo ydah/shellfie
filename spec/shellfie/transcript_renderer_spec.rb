@@ -2,6 +2,7 @@
 
 require "json"
 require "spec_helper"
+require "shellfie/transcript_renderer"
 require "tmpdir"
 
 RSpec.describe Shellfie::TranscriptRenderer do

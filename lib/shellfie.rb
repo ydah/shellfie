@@ -7,22 +7,9 @@ require_relative "shellfie/parser"
 require_relative "shellfie/ansi_parser"
 
 module Shellfie
-  autoload :AnimationFrameBuilder, File.expand_path("shellfie/animation_frame_builder", __dir__)
-  autoload :AnimationScrollEasing, File.expand_path("shellfie/animation_scroll_easing", __dir__)
-  autoload :AnimationTimeline, File.expand_path("shellfie/animation_timeline", __dir__)
   autoload :CLI, File.expand_path("shellfie/cli", __dir__)
   autoload :GifGenerator, File.expand_path("shellfie/gif_generator", __dir__)
-  autoload :GifPalette, File.expand_path("shellfie/gif_palette", __dir__)
-  autoload :ImageMagickCommandBuilder, File.expand_path("shellfie/image_magick_command_builder", __dir__)
-  autoload :RenderChromeCache, File.expand_path("shellfie/render_chrome_cache", __dir__)
   autoload :Renderer, File.expand_path("shellfie/renderer", __dir__)
-  autoload :TerminalScreen, File.expand_path("shellfie/terminal_screen", __dir__)
-  autoload :TranscriptRenderer, File.expand_path("shellfie/transcript_renderer", __dir__)
-  autoload :Cassette, File.expand_path("shellfie/cassette", __dir__)
-  autoload :Session, File.expand_path("shellfie/session", __dir__)
-  autoload :SessionConfig, File.expand_path("shellfie/session_config", __dir__)
-  autoload :SessionRunner, File.expand_path("shellfie/session_runner", __dir__)
-  autoload :ReproducibilityManifest, File.expand_path("shellfie/reproducibility_manifest", __dir__)
 
   class << self
     def parse(source)

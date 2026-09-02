@@ -3,6 +3,7 @@
 require "spec_helper"
 require "tmpdir"
 require "shellfie/cli"
+require "shellfie/gif_generator"
 
 RSpec.describe "animation output support" do
   it "accepts event-duration PNG sequences as an animated CLI format" do

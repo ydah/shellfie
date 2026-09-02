@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "shellfie/animation_timeline"
 
 RSpec.describe Shellfie::AnimationTimeline do
   describe "#each" do

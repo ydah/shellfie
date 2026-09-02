@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "shellfie/reproducibility_manifest"
 require "tmpdir"
 
 RSpec.describe Shellfie::ReproducibilityManifest do
