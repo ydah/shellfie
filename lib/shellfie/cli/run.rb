@@ -3,12 +3,12 @@
 require "fileutils"
 require "optparse"
 require "yaml"
-require_relative "cassette"
-require_relative "output_writer"
-require_relative "session_config"
+require_relative "../cassette"
+require_relative "../output_writer"
+require_relative "../session_config"
 
 module Shellfie
-  module CLIRun
+  module CLI::Run
     private
 
     def run_session(record: false)
@@ -27,7 +27,7 @@ module Shellfie
       preflight_render_dependencies!(resolved_outputs.map { |_path, format, _output| format })
       raise DependencyError, "Live sessions are not supported on native Windows" if Gem.win_platform?
 
-      require_relative "session_runner"
+      require_relative "../session_runner"
       session = SessionRunner.new(config).run
       write_cassette(cassette_path, session) if cassette_path
       write_recording(yaml_path, session) if yaml_path
@@ -73,7 +73,7 @@ module Shellfie
       resolved ||= resolve_session_outputs(configured_outputs, base_dir: base_dir)
       resolved.each do |path, format, output|
         ensure_output_writable!(path)
-        animate = output.fetch(:animate, @options[:animate] || CLIGenerate::ANIMATED_FORMATS.include?(format))
+        animate = output.fetch(:animate, @options[:animate] || CLI::Generate::ANIMATED_FORMATS.include?(format))
         capture = output[:capture]
         captured_lines = capture && (session.captures[capture] || session.captures[capture.to_sym])
         raise ConfigError, "Unknown capture: #{capture}" if capture && !captured_lines
@@ -98,10 +98,10 @@ module Shellfie
       resolved = outputs.map do |output|
         path = output[:path] == "-" ? "-" : File.expand_path(output[:path], base_dir)
         format = (output[:format] || @options[:format] || File.extname(path).delete_prefix(".")).to_s.downcase
-        unless CLIGenerate::SUPPORTED_FORMATS.include?(format)
-          raise ValidationError, "format must be one of: #{CLIGenerate::SUPPORTED_FORMATS.join(", ")}"
+        unless CLI::Generate::SUPPORTED_FORMATS.include?(format)
+          raise ValidationError, "format must be one of: #{CLI::Generate::SUPPORTED_FORMATS.join(", ")}"
         end
-        animate = output[:animate].nil? ? (@options[:animate] || CLIGenerate::ANIMATED_FORMATS.include?(format)) : output[:animate]
+        animate = output[:animate].nil? ? (@options[:animate] || CLI::Generate::ANIMATED_FORMATS.include?(format)) : output[:animate]
         validate_output_mode!(format, animate)
         raise ConfigError, "Captured screens cannot be rendered as animations" if output[:capture] && animate
 

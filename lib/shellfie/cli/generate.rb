@@ -4,11 +4,11 @@ require "fileutils"
 require "optparse"
 require "json"
 require "tmpdir"
-require_relative "output_writer"
-require_relative "reproducibility_manifest"
+require_relative "../output_writer"
+require_relative "../reproducibility_manifest"
 
 module Shellfie
-  module CLIGenerate
+  module CLI::Generate
     ANIMATED_FORMATS = %w[gif webp apng mp4 webm png-sequence].freeze
     STATIC_FORMATS = %w[png svg svg-raster webp html].freeze
     SEMANTIC_FORMATS = %w[txt ansi json asciicast cast].freeze

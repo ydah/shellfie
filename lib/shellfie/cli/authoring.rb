@@ -7,7 +7,7 @@ require "tempfile"
 require "yaml"
 
 module Shellfie
-  module CLIAuthoring
+  module CLI::Authoring
     private
 
     def run_new
@@ -74,7 +74,7 @@ module Shellfie
       version = Integer(@args.shift || 1, exception: false)
       raise ValidationError, "schema version must be 1 or 2" unless [1, 2].include?(version)
 
-      puts File.read(File.expand_path("../../schema/shellfie-v#{version}.schema.json", __dir__))
+      puts File.read(File.expand_path("../../../schema/shellfie-v#{version}.schema.json", __dir__))
     end
 
     def run_completion

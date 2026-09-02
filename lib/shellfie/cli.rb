@@ -2,19 +2,25 @@
 
 require "optparse"
 require_relative "../shellfie"
-require_relative "cli_generate"
-require_relative "cli_info"
-require_relative "cli_run"
-require_relative "cli_authoring"
+
+module Shellfie
+  class CLI
+  end
+end
+
+require_relative "cli/generate"
+require_relative "cli/info"
+require_relative "cli/run"
+require_relative "cli/authoring"
 require_relative "dependency_checker"
 require_relative "transcript_renderer"
 
 module Shellfie
   class CLI
-    include CLIGenerate
-    include CLIInfo
-    include CLIRun
-    include CLIAuthoring
+    include Generate
+    include Info
+    include Run
+    include Authoring
 
     COMMANDS = %w[generate run record replay new format compile schema completion watch init themes validate inspect doctor version help].freeze
 

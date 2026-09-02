@@ -7,7 +7,7 @@ require "shellfie/gif_generator"
 
 RSpec.describe "animation output support" do
   it "accepts event-duration PNG sequences as an animated CLI format" do
-    expect(Shellfie::CLIGenerate::ANIMATED_FORMATS).to include("png-sequence")
+    expect(Shellfie::CLI::Generate::ANIMATED_FORMATS).to include("png-sequence")
   end
 
   it "accepts APNG as an animated CLI format" do

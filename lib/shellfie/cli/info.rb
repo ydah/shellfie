@@ -6,7 +6,7 @@ require "yaml"
 require "cgi/escape"
 
 module Shellfie
-  module CLIInfo
+  module CLI::Info
     private
 
     def run_init
