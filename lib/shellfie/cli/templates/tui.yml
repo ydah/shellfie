@@ -1,0 +1,18 @@
+version: 2
+mode: run
+title: TUI capture
+terminal:
+  shell: /bin/sh
+  columns: 100
+  rows: 30
+steps:
+  - run: your-tui-command
+    async: true
+  - wait:
+      stable: 500ms
+      timeout: 10s
+  - capture: ready
+outputs:
+  - path: tui.svg
+    format: svg
+    capture: ready

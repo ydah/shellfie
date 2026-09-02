@@ -1,0 +1,16 @@
+version: 2
+mode: run
+title: Recorded shell
+terminal:
+  shell: /bin/sh
+  columns: 80
+  rows: 24
+steps:
+  - type: echo hello
+  - key: enter
+  - expect:
+      screen_contains: hello
+      exit_status: 0
+outputs:
+  - path: session.svg
+    format: svg

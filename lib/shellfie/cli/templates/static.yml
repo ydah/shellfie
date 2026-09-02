@@ -1,0 +1,7 @@
+version: 1
+theme: macos
+title: Terminal
+lines:
+  - prompt: "$ "
+    command: echo hello
+  - output: hello

@@ -8,6 +8,8 @@ require "yaml"
 
 module Shellfie
   module CLI::Authoring
+    TEMPLATE_NAMES = %w[static animation run tui ci theme-gallery].freeze
+
     private
 
     def run_new
@@ -17,13 +19,14 @@ module Shellfie
         opts.on("--force", "Overwrite an existing file") { options[:force] = true }
       end.parse!(@args)
       path = @args.shift
+      template = options[:template]
       raise ConfigError, "Output path is required" unless path
-      raise ValidationError, "unknown template: #{options[:template]}" unless templates.key?(options[:template])
+      raise ValidationError, "unknown template: #{template}" unless TEMPLATE_NAMES.include?(template)
       raise FileSystemError, "File already exists: #{path} (use --force to overwrite)" if File.exist?(path) && !options[:force]
 
       FileUtils.mkdir_p(File.dirname(path)) unless File.dirname(path) == "."
       OutputWriter.write(path, extension: "yml") do |temporary_path|
-        File.write(temporary_path, templates.fetch(options[:template]))
+        File.write(temporary_path, File.read(File.join(__dir__, "templates", "#{template}.yml")))
       end
       puts "Created: #{path}"
     end
@@ -139,95 +142,5 @@ module Shellfie
       end
     end
 
-    def templates
-      @templates ||= {
-        "static" => <<~YAML,
-          version: 1
-          theme: macos
-          title: Terminal
-          lines:
-            - prompt: "$ "
-              command: echo hello
-            - output: hello
-        YAML
-        "animation" => <<~YAML,
-          version: 1
-          theme: macos
-          title: Demo
-          frames:
-            - prompt: "$ "
-              type: echo hello
-              delay: 500
-            - output: hello
-              delay: 1000
-        YAML
-        "run" => <<~YAML,
-          version: 2
-          mode: run
-          title: Recorded shell
-          terminal:
-            shell: /bin/sh
-            columns: 80
-            rows: 24
-          steps:
-            - type: echo hello
-            - key: enter
-            - expect:
-                screen_contains: hello
-                exit_status: 0
-          outputs:
-            - path: session.svg
-              format: svg
-        YAML
-        "tui" => <<~YAML,
-          version: 2
-          mode: run
-          title: TUI capture
-          terminal:
-            shell: /bin/sh
-            columns: 100
-            rows: 30
-          steps:
-            - run: your-tui-command
-              async: true
-            - wait:
-                stable: 500ms
-                timeout: 10s
-            - capture: ready
-          outputs:
-            - path: tui.svg
-              format: svg
-              capture: ready
-        YAML
-        "ci" => <<~YAML,
-          version: 2
-          mode: run
-          title: CI verification
-          terminal:
-            shell: /bin/sh
-          requires: [ruby]
-          steps:
-            - run: ruby --version
-              visibility: visible
-            - expect:
-                exit_status: 0
-          outputs:
-            - path: ci.svg
-              format: svg
-        YAML
-        "theme-gallery" => <<~YAML
-          version: 1
-          theme: macos
-          title: Theme gallery
-          lines:
-            - prompt: "$ "
-              command: shellfie themes
-            - output: |-
-                macos
-                ubuntu
-                windows
-        YAML
-      }
-    end
   end
 end

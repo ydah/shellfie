@@ -1,0 +1,10 @@
+version: 1
+theme: macos
+title: Theme gallery
+lines:
+  - prompt: "$ "
+    command: shellfie themes
+  - output: |-
+      macos
+      ubuntu
+      windows

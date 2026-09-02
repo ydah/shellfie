@@ -1,0 +1,9 @@
+version: 1
+theme: macos
+title: Demo
+frames:
+  - prompt: "$ "
+    type: echo hello
+    delay: 500
+  - output: hello
+    delay: 1000

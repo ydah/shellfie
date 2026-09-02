@@ -1,0 +1,14 @@
+version: 2
+mode: run
+title: CI verification
+terminal:
+  shell: /bin/sh
+requires: [ruby]
+steps:
+  - run: ruby --version
+    visibility: visible
+  - expect:
+      exit_status: 0
+outputs:
+  - path: ci.svg
+    format: svg
