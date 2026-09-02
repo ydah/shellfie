@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "cgi/escape"
-require_relative "../terminal/text_metrics"
+require 'cgi/escape'
+require_relative '../terminal/text_metrics'
 
 module Shellfie
   class SvgRenderer
@@ -65,10 +65,10 @@ module Shellfie
       SVG
     end
 
-    def canvas(geometry, transparent)
-      return "" if transparent
+    def canvas(_geometry, transparent)
+      return '' if transparent
 
-      fill = config.window[:background_gradient] ? "url(#background)" : theme.colors[:background]
+      fill = config.window[:background_gradient] ? 'url(#background)' : theme.colors[:background]
       %(<rect width="100%" height="100%" fill="#{escape(fill)}"/>)
     end
 
@@ -80,7 +80,7 @@ module Shellfie
       ]
       attrs << %(stroke="#{escape(theme.colors[:border])}") if theme.colors[:border]
       attrs << %(filter="url(#shadow)") if geometry[:shadow]
-      "<rect #{attrs.join(" ")}/>"
+      "<rect #{attrs.join(' ')}/>"
     end
 
     def title_bar(geometry)
@@ -105,47 +105,48 @@ module Shellfie
       scale = geometry[:scale]
       size = theme.window_decoration[:button_size] * scale
       spacing = (theme.window_decoration[:button_spacing] + theme.window_decoration[:button_size]) * scale
-      y = geometry[:margin] + geometry[:scaled_title_bar] / 2
-      start_x = theme.buttons_position == :left ? geometry[:margin] + 16 * scale : geometry[:margin] + geometry[:scaled_width] - 16 * scale - size * 2 - spacing * 2
+      y = geometry[:margin] + (geometry[:scaled_title_bar] / 2)
+      start_x = theme.buttons_position == :left ? geometry[:margin] + (16 * scale) : geometry[:margin] + geometry[:scaled_width] - (16 * scale) - (size * 2) - (spacing * 2)
       theme.button_colors.each_with_index.map do |color, index|
-        %(<circle cx="#{start_x + index * spacing}" cy="#{y}" r="#{size / 2.0}" fill="#{escape(color)}" stroke="rgba(0,0,0,0.18)"/>)
+        %(<circle cx="#{start_x + (index * spacing)}" cy="#{y}" r="#{size / 2.0}" fill="#{escape(color)}" stroke="rgba(0,0,0,0.18)"/>)
       end.join("\n")
     end
 
     def windows_buttons(geometry)
       scale = geometry[:scale]
       button_width = (theme.window_decoration[:button_width] || 46) * scale
-      start_x = geometry[:margin] + geometry[:scaled_width] - button_width * 3
-      y = geometry[:margin] + geometry[:scaled_title_bar] / 2
+      start_x = geometry[:margin] + geometry[:scaled_width] - (button_width * 3)
+      y = geometry[:margin] + (geometry[:scaled_title_bar] / 2)
       size = 5 * scale
       color = escape(theme.colors[:title_text])
       [
-        %(<line x1="#{start_x + button_width / 2 - size}" y1="#{y}" x2="#{start_x + button_width / 2 + size}" y2="#{y}" stroke="#{color}"/>),
-        %(<rect x="#{start_x + button_width * 1.5 - size}" y="#{y - size}" width="#{size * 2}" height="#{size * 2}" fill="none" stroke="#{color}"/>),
-        %(<path d="M #{start_x + button_width * 2.5 - size} #{y - size} L #{start_x + button_width * 2.5 + size} #{y + size} M #{start_x + button_width * 2.5 + size} #{y - size} L #{start_x + button_width * 2.5 - size} #{y + size}" stroke="#{color}"/>)
+        %(<line x1="#{start_x + (button_width / 2) - size}" y1="#{y}" x2="#{start_x + (button_width / 2) + size}" y2="#{y}" stroke="#{color}"/>),
+        %(<rect x="#{start_x + (button_width * 1.5) - size}" y="#{y - size}" width="#{size * 2}" height="#{size * 2}" fill="none" stroke="#{color}"/>),
+        %(<path d="M #{start_x + (button_width * 2.5) - size} #{y - size} L #{start_x + (button_width * 2.5) + size} #{y + size} M #{start_x + (button_width * 2.5) + size} #{y - size} L #{start_x + (button_width * 2.5) - size} #{y + size}" stroke="#{color}"/>)
       ].join("\n")
     end
 
     def title(geometry)
       font_size = geometry[:scaled_font_size]
       text = escape(config.title)
-      x = geometry[:margin] + geometry[:scaled_width] / 2
-      y = geometry[:margin] + geometry[:scaled_title_bar] / 2 + font_size * 0.35
-      anchor = "middle"
+      x = geometry[:margin] + (geometry[:scaled_width] / 2)
+      y = geometry[:margin] + (geometry[:scaled_title_bar] / 2) + (font_size * 0.35)
+      anchor = 'middle'
       if theme.title_alignment == :left
-        x = geometry[:margin] + 16 * geometry[:scale]
-        anchor = "start"
+        x = geometry[:margin] + (16 * geometry[:scale])
+        anchor = 'start'
       elsif theme.title_alignment == :right
-        x = geometry[:margin] + geometry[:scaled_width] - 16 * geometry[:scale]
-        anchor = "end"
+        x = geometry[:margin] + geometry[:scaled_width] - (16 * geometry[:scale])
+        anchor = 'end'
       end
-      %(<text x="#{x}" y="#{y}" text-anchor="#{anchor}" #{font_attributes(geometry[:font_config], font_size)} fill="#{escape(theme.colors[:title_text])}">#{text}</text>)
+      %(<text x="#{x}" y="#{y}" text-anchor="#{anchor}" #{font_attributes(geometry[:font_config],
+                                                                          font_size)} fill="#{escape(theme.colors[:title_text])}">#{text}</text>)
     end
 
     def content(geometry)
       y = content_y(geometry) - (geometry[:scroll_offset] * geometry[:scaled_line_height]).round
       lines = geometry[:lines].each_with_index.map do |line, index|
-        line_svg(line, geometry, y + index * geometry[:scaled_line_height])
+        line_svg(line, geometry, y + (index * geometry[:scaled_line_height]))
       end
       %(<g clip-path="url(#content-clip)">#{lines.join("\n")}</g>)
     end
@@ -175,28 +176,34 @@ module Shellfie
                 elsif segment.dim
                   %( fill-opacity="0.6")
                 else
-                  ""
+                  ''
                 end
       decoration = []
-      decoration << "underline" if segment.underline
-      decoration << "line-through" if segment.strikethrough
-      decoration << "overline" if segment.overline
-      background_svg = %(<rect x="#{x}" y="#{top}" width="#{width}" height="#{geometry[:scaled_line_height]}" fill="#{escape(background)}"/>) if background
+      decoration << 'underline' if segment.underline
+      decoration << 'line-through' if segment.strikethrough
+      decoration << 'overline' if segment.overline
+      if background
+        background_svg = %(<rect x="#{x}" y="#{top}" width="#{width}" height="#{geometry[:scaled_line_height]}" fill="#{escape(background)}"/>)
+      end
       underline_style = segment.underline_style == :curly ? :wavy : segment.underline_style
       decoration_style = %( text-decoration-style="#{underline_style}") if underline_style && underline_style != :single
-      decoration_color = %( text-decoration-color="#{escape(theme.color_for(segment.underline_color))}") if segment.underline_color
-      blink = segment.blink ? %( class="blink") : ""
-      text = %(<text x="#{x}" y="#{top + geometry[:scaled_font_size]}" xml:space="preserve" #{font_attributes(geometry[:font_config], geometry[:scaled_font_size], segment)} fill="#{escape(foreground)}"#{opacity}#{blink}#{%( text-decoration="#{decoration.join(" ")}") unless decoration.empty?}#{decoration_style}#{decoration_color}>#{escape(segment.text)}</text>)
+      if segment.underline_color
+        decoration_color = %( text-decoration-color="#{escape(theme.color_for(segment.underline_color))}")
+      end
+      blink = segment.blink ? %( class="blink") : ''
+      text = %(<text x="#{x}" y="#{top + geometry[:scaled_font_size]}" xml:space="preserve" #{font_attributes(
+        geometry[:font_config], geometry[:scaled_font_size], segment
+      )} fill="#{escape(foreground)}"#{opacity}#{blink}#{%( text-decoration="#{decoration.join(' ')}") unless decoration.empty?}#{decoration_style}#{decoration_color}>#{escape(segment.text)}</text>)
       text = %(<a href="#{escape(segment.link)}">#{text}</a>) if segment.link
       [background_svg, text].compact.join("\n")
     end
 
     def font_attributes(font, size, segment = nil)
-      family = [font[:family], font[:fallback_family], font[:emoji_family]].compact.join(", ")
+      family = [font[:family], font[:fallback_family], font[:emoji_family]].compact.join(', ')
       attrs = [%(font-family="#{escape(family)}"), %(font-size="#{size}")]
       attrs << %(font-weight="700") if segment&.bold
       attrs << %(font-style="italic") if segment&.italic
-      attrs.join(" ")
+      attrs.join(' ')
     end
 
     def content_x(geometry)
@@ -208,11 +215,11 @@ module Shellfie
     end
 
     def content_width(geometry)
-      [geometry[:scaled_width] - geometry[:scaled_padding] * 2, 1].max
+      [geometry[:scaled_width] - (geometry[:scaled_padding] * 2), 1].max
     end
 
     def content_height(geometry)
-      [geometry[:scaled_height] - geometry[:scaled_title_bar] - geometry[:scaled_padding] * 2, 1].max
+      [geometry[:scaled_height] - geometry[:scaled_title_bar] - (geometry[:scaled_padding] * 2), 1].max
     end
 
     def escape(value)

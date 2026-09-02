@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "../terminal/ansi_parser"
-require_relative "segment"
-require_relative "../terminal/text_metrics"
+require_relative '../terminal/ansi_parser'
+require_relative 'segment'
+require_relative '../terminal/text_metrics'
 
 module Shellfie
   class LineLayout
@@ -14,7 +14,7 @@ module Shellfie
 
     def prepare(lines, content_width:, font_size:, title_bar_height:, padding:, line_height:)
       max_cells = [(content_width / (font_size * 0.6)).floor, 1].max
-      mode = @config.window[:wrap] ? "wrap" : @config.window[:overflow]
+      mode = @config.window[:wrap] ? 'wrap' : @config.window[:overflow]
       display_lines = lines.flat_map { |line| apply_overflow(line, max_cells, mode) }
       line_limit = vertical_line_limit(title_bar_height, padding, line_height)
       @visible_count = line_limit || display_lines.size
@@ -28,9 +28,9 @@ module Shellfie
       return [line] if line[:segments].empty?
 
       case mode
-      when "wrap"
+      when 'wrap'
         wrap_line(line, max_cells)
-      when "scroll"
+      when 'scroll'
         [line.merge(segments: scroll_segments(line[:segments], max_cells))]
       else
         [line.merge(segments: clip_segments(line[:segments], max_cells))]
@@ -40,7 +40,7 @@ module Shellfie
     def vertical_line_limit(title_bar_height, padding, line_height)
       limits = [@config.window[:visible_lines], @config.window[:max_lines]].compact
       [@config.window[:height], @config.window[:max_height]].compact.each do |height|
-        available_height = height - title_bar_height - padding * 2
+        available_height = height - title_bar_height - (padding * 2)
         limits << [(available_height / line_height).floor, 1].max
       end
 
@@ -100,7 +100,12 @@ module Shellfie
           next
         end
 
-        text = cells_to_drop.positive? ? TextMetrics.drop_cells(segment.text, cells_to_drop, ambiguous_width: ambiguous_width) : segment.text
+        text = if cells_to_drop.positive?
+                 TextMetrics.drop_cells(segment.text, cells_to_drop,
+                                        ambiguous_width: ambiguous_width)
+               else
+                 segment.text
+               end
         cells_to_drop = 0
         scrolled << copy_segment(segment, text) unless text.empty?
       end

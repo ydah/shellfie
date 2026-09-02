@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative "base"
+require_relative 'base'
 
 module Shellfie
   module Themes
     class Ubuntu < Base
       def name
-        "ubuntu"
+        'ubuntu'
       end
 
       def window_decoration
@@ -15,21 +15,21 @@ module Shellfie
           button_size: 14,
           button_spacing: 6,
           corner_radius: 12,
-          shadow: { blur: 30, offset_x: 0, offset_y: 15, color: "rgba(0,0,0,0.35)" }
+          shadow: { blur: 30, offset_x: 0, offset_y: 15, color: 'rgba(0,0,0,0.35)' }
         }
       end
 
       def colors
         super.merge(
-          background: "#300a24",
-          foreground: "#ffffff",
-          title_bar: "#2c2c2c",
-          title_text: "#ffffff",
-          green: "#4e9a06",
-          yellow: "#c4a000",
-          blue: "#3465a4",
-          magenta: "#75507b",
-          cyan: "#06989a"
+          background: '#300a24',
+          foreground: '#ffffff',
+          title_bar: '#2c2c2c',
+          title_text: '#ffffff',
+          green: '#4e9a06',
+          yellow: '#c4a000',
+          blue: '#3465a4',
+          magenta: '#75507b',
+          cyan: '#06989a'
         )
       end
 
@@ -47,10 +47,10 @@ module Shellfie
 
       def font
         {
-          family: "Ubuntu Mono",
+          family: 'Ubuntu Mono',
           size: 14,
           line_height: 1.4,
-          fallback_family: "DejaVu Sans Mono"
+          fallback_family: 'DejaVu Sans Mono'
         }
       end
     end

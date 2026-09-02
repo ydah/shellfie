@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "tempfile"
-require_relative "../rendering/image_magick_command_builder"
+require 'tempfile'
+require_relative '../rendering/image_magick_command_builder'
 
 module Shellfie
   class GifPalette
@@ -16,9 +16,9 @@ module Shellfie
       convert.dither(dither_mode)
 
       case @config.animation[:palette]
-      when "global"
+      when 'global'
         apply_global_palette(convert, images)
-      when "theme"
+      when 'theme'
         apply_theme_palette(convert)
       else
         convert.colors color_count
@@ -53,7 +53,7 @@ module Shellfie
         convert.append
         convert.colors 256
         convert.unique_colors
-        @command_builder.output(convert, path, format: "png")
+        @command_builder.output(convert, path, format: 'png')
       end
       path
     end
@@ -64,25 +64,25 @@ module Shellfie
 
       path = palette_path
       @command_builder.convert do |convert|
-        @command_builder.canvas(convert, width: colors.size, height: 1, background: "xc:transparent")
+        @command_builder.canvas(convert, width: colors.size, height: 1, background: 'xc:transparent')
         colors.each_with_index do |color, index|
           convert.fill color
           @command_builder.point(convert, index, 0)
         end
-        @command_builder.output(convert, path, format: "png")
+        @command_builder.output(convert, path, format: 'png')
       end
       path
     end
 
     def palette_path
-      file = Tempfile.new(["shellfie-palette", ".png"])
+      file = Tempfile.new(['shellfie-palette', '.png'])
       @temporary_files << file
       file.close
       file.path
     end
 
     def dither_mode
-      @config.animation[:dither] ? "FloydSteinberg" : "None"
+      @config.animation[:dither] ? 'FloydSteinberg' : 'None'
     end
 
     def theme_color_count

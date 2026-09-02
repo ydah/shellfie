@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
-require "mini_magick"
-require_relative "terminal/ansi_parser"
-require_relative "dependency_checker"
-require_relative "rendering/font_resolver"
-require_relative "rendering/format_resolver"
-require_relative "rendering/html_renderer"
-require_relative "output_writer"
-require_relative "rendering/raster_painter"
-require_relative "rendering/chrome_cache"
-require_relative "rendering/geometry"
-require_relative "rendering/segment"
-require_relative "rendering/svg_raster_wrapper"
-require_relative "rendering/svg_renderer"
-require_relative "themes/registry"
+require 'mini_magick'
+require_relative 'terminal/ansi_parser'
+require_relative 'dependency_checker'
+require_relative 'rendering/font_resolver'
+require_relative 'rendering/format_resolver'
+require_relative 'rendering/html_renderer'
+require_relative 'output_writer'
+require_relative 'rendering/raster_painter'
+require_relative 'rendering/chrome_cache'
+require_relative 'rendering/geometry'
+require_relative 'rendering/segment'
+require_relative 'rendering/svg_raster_wrapper'
+require_relative 'rendering/svg_renderer'
+require_relative 'themes/registry'
 
 module Shellfie
   class Renderer
@@ -33,11 +33,13 @@ module Shellfie
     end
 
     def render(output_path, scale: 1, shadow: true, transparent: false, format: nil, io: nil)
-      extension = FormatResolver.resolve(output_path, explicit: format, default: "png")
+      extension = FormatResolver.resolve(output_path, explicit: format, default: 'png')
       check_dependencies! unless %w[svg html].include?(extension)
       lines = build_lines
       OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
-        render_method = { "svg" => :create_svg_image, "svg-raster" => :create_svg_raster_image, "html" => :create_html }.fetch(extension, :create_image)
+        render_method = { 'svg' => :create_svg_image, 'svg-raster' => :create_svg_raster_image, 'html' => :create_html }.fetch(
+          extension, :create_image
+        )
         send(render_method, lines, temporary_path, scale: scale, shadow: shadow, transparent: transparent)
       end
     rescue MiniMagick::Error => e
@@ -46,7 +48,8 @@ module Shellfie
 
     def estimate(scale: 1, shadow: true)
       geometry = build_geometry(build_lines, scale: scale, shadow: shadow)
-      geometry.slice(:canvas_width, :canvas_height, :scaled_width, :scaled_height, :logical_width, :logical_height, :scale)
+      geometry.slice(:canvas_width, :canvas_height, :scaled_width, :scaled_height, :logical_width, :logical_height,
+                     :scale)
     end
 
     def font_info
@@ -80,7 +83,8 @@ module Shellfie
         next rendered_lines unless line.output
 
         line.output.to_s.split("\n", -1).each do |output_line|
-          rendered_lines << { segments: coalesce_segments(parse_with_default(output_line, line.output_color)), selected: line.selected }
+          rendered_lines << { segments: coalesce_segments(parse_with_default(output_line, line.output_color)),
+                              selected: line.selected }
         end
         rendered_lines
       end
@@ -108,7 +112,9 @@ module Shellfie
     end
 
     def create_svg_raster_image(lines, output_path, scale:, shadow:, transparent:)
-      SvgRasterWrapper.write(output_path) { |png_path| create_image(lines, png_path, scale: scale, shadow: shadow, transparent: transparent) }
+      SvgRasterWrapper.write(output_path) do |png_path|
+        create_image(lines, png_path, scale: scale, shadow: shadow, transparent: transparent)
+      end
     end
 
     def create_html(lines, output_path, scale:, shadow:, transparent:)

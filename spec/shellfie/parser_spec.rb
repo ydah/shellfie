@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require "spec_helper"
-require "tmpdir"
+require 'spec_helper'
+require 'tmpdir'
 
 RSpec.describe Shellfie::Parser do
-  describe ".parse_string" do
-    it "parses simple config" do
+  describe '.parse_string' do
+    it 'parses simple config' do
       yaml = <<~YAML
         theme: macos
         title: "Test Terminal"
@@ -16,14 +16,14 @@ RSpec.describe Shellfie::Parser do
 
       config = described_class.parse_string(yaml)
 
-      expect(config.theme).to eq("macos")
-      expect(config.title).to eq("Test Terminal")
+      expect(config.theme).to eq('macos')
+      expect(config.title).to eq('Test Terminal')
       expect(config.lines.size).to eq(1)
-      expect(config.lines.first.prompt).to eq("$ ")
-      expect(config.lines.first.command).to eq("echo hello")
+      expect(config.lines.first.prompt).to eq('$ ')
+      expect(config.lines.first.command).to eq('echo hello')
     end
 
-    it "applies default values" do
+    it 'applies default values' do
       yaml = <<~YAML
         title: "Test"
         lines:
@@ -33,12 +33,12 @@ RSpec.describe Shellfie::Parser do
 
       config = described_class.parse_string(yaml)
 
-      expect(config.theme).to eq("macos")
+      expect(config.theme).to eq('macos')
       expect(config.window[:width]).to eq(600)
       expect(config.window[:padding]).to eq(20)
     end
 
-    it "parses output lines" do
+    it 'parses output lines' do
       yaml = <<~YAML
         title: "Test"
         lines:
@@ -49,11 +49,11 @@ RSpec.describe Shellfie::Parser do
 
       config = described_class.parse_string(yaml)
 
-      expect(config.lines.first.output).to include("Line 1")
-      expect(config.lines.first.output).to include("Line 2")
+      expect(config.lines.first.output).to include('Line 1')
+      expect(config.lines.first.output).to include('Line 2')
     end
 
-    it "parses animation frames" do
+    it 'parses animation frames' do
       yaml = <<~YAML
         title: "Test"
         animation:
@@ -69,11 +69,11 @@ RSpec.describe Shellfie::Parser do
 
       expect(config.animated?).to be true
       expect(config.frames.size).to eq(1)
-      expect(config.frames.first.type).to eq("echo test")
+      expect(config.frames.first.type).to eq('echo test')
       expect(config.frames.first.delay).to eq(500)
     end
 
-    it "parses semantic line colors and selection" do
+    it 'parses semantic line colors and selection' do
       yaml = <<~YAML
         lines:
           - prompt: "$ "
@@ -85,12 +85,12 @@ RSpec.describe Shellfie::Parser do
 
       config = described_class.parse_string(yaml)
 
-      expect(config.lines.first.prompt_color).to eq("green")
-      expect(config.lines.first.command_color).to eq("#ff00ff")
+      expect(config.lines.first.prompt_color).to eq('green')
+      expect(config.lines.first.command_color).to eq('#ff00ff')
       expect(config.lines.first.selected).to be true
     end
 
-    it "allows YAML aliases" do
+    it 'allows YAML aliases' do
       yaml = <<~YAML
         lines:
           - &base
@@ -99,10 +99,10 @@ RSpec.describe Shellfie::Parser do
           - *base
       YAML
 
-      expect(described_class.parse_string(yaml).lines.last.command).to eq("echo aliased")
+      expect(described_class.parse_string(yaml).lines.last.command).to eq('echo aliased')
     end
 
-    it "parses config version and color overrides" do
+    it 'parses config version and color overrides' do
       yaml = <<~YAML
         version: 1
         theme: custom
@@ -120,55 +120,55 @@ RSpec.describe Shellfie::Parser do
 
       config = described_class.parse_string(yaml)
 
-      expect(config.theme).to eq("custom")
-      expect(config.window_theme).to eq("windows")
-      expect(config.color_scheme).to eq("dracula")
-      expect(config.colors[:background]).to eq("#111111")
+      expect(config.theme).to eq('custom')
+      expect(config.window_theme).to eq('windows')
+      expect(config.color_scheme).to eq('dracula')
+      expect(config.colors[:background]).to eq('#111111')
       expect(config.window_decoration[:corner_radius]).to eq(4)
     end
   end
 
-  describe ".parse" do
-    it "raises ParseError for non-existent file" do
-      expect { described_class.parse("/nonexistent/path.yml") }.to raise_error(Shellfie::ParseError, /not found/)
+  describe '.parse' do
+    it 'raises ParseError for non-existent file' do
+      expect { described_class.parse('/nonexistent/path.yml') }.to raise_error(Shellfie::ParseError, /not found/)
     end
 
-    it "loads included YAML relative to the config file" do
+    it 'loads included YAML relative to the config file' do
       Dir.mktmpdir do |dir|
-        File.write(File.join(dir, "base.yml"), "title: Included\n")
-        config_path = File.join(dir, "terminal.yml")
+        File.write(File.join(dir, 'base.yml'), "title: Included\n")
+        config_path = File.join(dir, 'terminal.yml')
         File.write(config_path, <<~YAML)
           include: base.yml
           lines:
             - output: "test"
         YAML
 
-        expect(described_class.parse(config_path).title).to eq("Included")
+        expect(described_class.parse(config_path).title).to eq('Included')
       end
     end
 
-    it "reports circular includes with the include chain" do
+    it 'reports circular includes with the include chain' do
       Dir.mktmpdir do |dir|
-        File.write(File.join(dir, "a.yml"), "include: b.yml\nlines:\n  - output: a\n")
-        File.write(File.join(dir, "b.yml"), "include: a.yml\n")
+        File.write(File.join(dir, 'a.yml'), "include: b.yml\nlines:\n  - output: a\n")
+        File.write(File.join(dir, 'b.yml'), "include: a.yml\n")
 
-        expect { described_class.parse(File.join(dir, "a.yml")) }
+        expect { described_class.parse(File.join(dir, 'a.yml')) }
           .to raise_error(Shellfie::ParseError, /a\.yml -> b\.yml -> a\.yml/)
       end
     end
 
-    it "rejects non-string include paths" do
+    it 'rejects non-string include paths' do
       Dir.mktmpdir do |dir|
-        path = File.join(dir, "a.yml")
+        path = File.join(dir, 'a.yml')
         File.write(path, "include: 123\nlines:\n  - output: a\n")
 
         expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /path must be a string/)
       end
     end
 
-    it "reports source locations and typo suggestions" do
+    it 'reports source locations and typo suggestions' do
       Dir.mktmpdir do |dir|
-        path = File.join(dir, "bad.yml")
+        path = File.join(dir, 'bad.yml')
         File.write(path, "theem: macos\nlines:\n  - output: ok\n")
 
         expect { described_class.parse(path) }
@@ -176,11 +176,11 @@ RSpec.describe Shellfie::Parser do
       end
     end
 
-    it "reports nested source lines and included source files" do
+    it 'reports nested source lines and included source files' do
       Dir.mktmpdir do |dir|
-        included = File.join(dir, "included.yml")
+        included = File.join(dir, 'included.yml')
         File.write(included, "window:\n  width: 1\n")
-        path = File.join(dir, "root.yml")
+        path = File.join(dir, 'root.yml')
         File.write(path, "include: included.yml\nlines:\n  - output: ok\n")
 
         expect { described_class.parse(path) }
@@ -188,23 +188,23 @@ RSpec.describe Shellfie::Parser do
       end
     end
 
-    it "can restrict includes to the root configuration directory" do
+    it 'can restrict includes to the root configuration directory' do
       Dir.mktmpdir do |dir|
-        root = File.join(dir, "root")
+        root = File.join(dir, 'root')
         Dir.mkdir(root)
-        File.write(File.join(dir, "outside.yml"), "title: Outside\n")
-        path = File.join(root, "config.yml")
+        File.write(File.join(dir, 'outside.yml'), "title: Outside\n")
+        path = File.join(root, 'config.yml')
         File.write(path, "include: ../outside.yml\ninclude_policy: root\nlines:\n  - output: ok\n")
 
         expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /escapes the configuration root/)
       end
     end
 
-    it "bounds the total number of include references" do
+    it 'bounds the total number of include references' do
       Dir.mktmpdir do |dir|
-        File.write(File.join(dir, "shared.yml"), "lines:\n  - output: shared\n")
-        path = File.join(dir, "root.yml")
-        File.write(path, "include:\n#{("  - shared.yml\n" * (described_class::MAX_INCLUDE_FILES + 1))}")
+        File.write(File.join(dir, 'shared.yml'), "lines:\n  - output: shared\n")
+        path = File.join(dir, 'root.yml')
+        File.write(path, "include:\n#{"  - shared.yml\n" * (described_class::MAX_INCLUDE_FILES + 1)}")
 
         expect { described_class.parse(path) }.to raise_error(Shellfie::ParseError, /Too many YAML includes/)
       end

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "tempfile"
-require_relative "image_magick_command_builder"
-require_relative "text_painter"
-require_relative "window_chrome"
+require 'tempfile'
+require_relative 'image_magick_command_builder'
+require_relative 'text_painter'
+require_relative 'window_chrome'
 
 module Shellfie
   class RasterPainter
@@ -82,7 +82,7 @@ module Shellfie
           background: canvas_background(transparent)
         )
         draw_chrome(convert, geometry, transparent: transparent)
-        ImageMagickCommandBuilder.output(convert, output_path, format: "png")
+        ImageMagickCommandBuilder.output(convert, output_path, format: 'png')
       end
     end
 
@@ -92,12 +92,12 @@ module Shellfie
           convert,
           width: geometry[:canvas_width],
           height: geometry[:canvas_height],
-          background: "xc:transparent"
+          background: 'xc:transparent'
         )
         ImageMagickCommandBuilder.region(convert, **content_region(geometry))
         draw_content(convert, geometry)
         ImageMagickCommandBuilder.clear_region(convert)
-        ImageMagickCommandBuilder.output(convert, output_path, format: "png")
+        ImageMagickCommandBuilder.output(convert, output_path, format: 'png')
       end
     end
 
@@ -119,14 +119,14 @@ module Shellfie
     def finish_image(convert, output_path)
       if config.window[:trim]
         convert.trim
-        convert << "+repage"
+        convert << '+repage'
       end
       ImageMagickCommandBuilder.output(convert, output_path)
     end
 
     def canvas_background(transparent)
       gradient = config.window[:background_gradient]
-      return "xc:transparent" if transparent
+      return 'xc:transparent' if transparent
       return "gradient:#{gradient[0]}-#{gradient[1]}" if gradient.is_a?(Array) && gradient.size == 2
 
       "xc:#{theme.colors[:background]}"
@@ -140,13 +140,13 @@ module Shellfie
       {
         x: geometry[:margin] + geometry[:scaled_padding],
         y: geometry[:margin] + geometry[:scaled_title_bar] + geometry[:scaled_padding],
-        width: [geometry[:scaled_width] - geometry[:scaled_padding] * 2, 1].max,
-        height: [geometry[:scaled_height] - geometry[:scaled_title_bar] - geometry[:scaled_padding] * 2, 1].max
+        width: [geometry[:scaled_width] - (geometry[:scaled_padding] * 2), 1].max,
+        height: [geometry[:scaled_height] - geometry[:scaled_title_bar] - (geometry[:scaled_padding] * 2), 1].max
       }
     end
 
     def with_temp_png
-      file = Tempfile.new(["shellfie-layer", ".png"])
+      file = Tempfile.new(['shellfie-layer', '.png'])
       path = file.path
       file.close
       yield path

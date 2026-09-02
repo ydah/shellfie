@@ -57,7 +57,7 @@ module Shellfie
         rgb = codes.values_at(index + 2, index + 3, index + 4)
         return [index, nil] unless rgb.all? { |value| value.is_a?(Integer) && value.between?(0, 255) }
 
-        [index + 4, format("#%02x%02x%02x", *rgb)]
+        [index + 4, format('#%02x%02x%02x', *rgb)]
       else
         [index, nil]
       end
@@ -71,8 +71,8 @@ module Shellfie
       elsif index < 232
         color_cube(index - 16)
       else
-        gray = (index - 232) * 10 + 8
-        format("#%02x%02x%02x", gray, gray, gray)
+        gray = ((index - 232) * 10) + 8
+        format('#%02x%02x%02x', gray, gray, gray)
       end
     end
 
@@ -88,7 +88,7 @@ module Shellfie
       r = XTERM_COLOR_STEPS[index / 36]
       g = XTERM_COLOR_STEPS[(index % 36) / 6]
       b = XTERM_COLOR_STEPS[index % 6]
-      format("#%02x%02x%02x", r, g, b)
+      format('#%02x%02x%02x', r, g, b)
     end
   end
 end

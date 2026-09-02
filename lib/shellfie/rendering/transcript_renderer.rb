@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "json"
-require_relative "../animation/frame_builder"
-require_relative "../terminal/ansi_parser"
-require_relative "../output_writer"
+require 'json'
+require_relative '../animation/frame_builder'
+require_relative '../terminal/ansi_parser'
+require_relative '../output_writer'
 
 module Shellfie
   class TranscriptRenderer
@@ -14,9 +14,9 @@ module Shellfie
     def render(output_path, format:, io: nil)
       OutputWriter.write(output_path, extension: format, io: io) do |temporary_path|
         value = case format
-                when "json" then JSON.pretty_generate(document)
-                when "ansi" then ansi_text
-                when "asciicast", "cast" then asciicast
+                when 'json' then JSON.pretty_generate(document)
+                when 'ansi' then ansi_text
+                when 'asciicast', 'cast' then asciicast
                 else text
                 end
         File.write(temporary_path, value)
@@ -49,13 +49,17 @@ module Shellfie
 
     def asciicast
       width = [config.window[:width].to_i / 8, 1].max
-      header = { version: 2, width: width, height: [final_lines.size, 1].max, env: { "TERM" => "xterm-256color" } }
+      header = { version: 2, width: width, height: [final_lines.size, 1].max, env: { 'TERM' => 'xterm-256color' } }
       elapsed = 0.0
-      source = config.frames.empty? ? [{ text: ansi_text, delay: 0 }] : config.frames.map do |frame|
-        { text: frame_to_ansi(frame), delay: frame.delay }
-      end
+      source = if config.frames.empty?
+                 [{ text: ansi_text, delay: 0 }]
+               else
+                 config.frames.map do |frame|
+                   { text: frame_to_ansi(frame), delay: frame.delay }
+                 end
+               end
       events = source.map do |event|
-        value = [elapsed.round(6), "o", event[:text]]
+        value = [elapsed.round(6), 'o', event[:text]]
         elapsed += event[:delay].to_f / 1_000
         value
       end
@@ -64,7 +68,7 @@ module Shellfie
 
     def frame_to_ansi(frame)
       command = "#{frame.prompt}#{frame.command}" if frame.prompt || frame.command
-      [command, frame.output].compact.join("\r\n") + "\r\n"
+      "#{[command, frame.output].compact.join("\r\n")}\r\n"
     end
 
     def document

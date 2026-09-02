@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "strscan"
-require_relative "ansi_line_buffer"
+require 'strscan'
+require_relative 'ansi_line_buffer'
 
 module Shellfie
   module AnsiNormalizer
@@ -14,12 +14,14 @@ module Shellfie
 
     module_function
 
-    def normalize(text, tab_width: 8, osc_policy: "ignore")
-      text = text.gsub(STRING_CONTROL_REGEX, "").gsub(INCOMPLETE_STRING_CONTROL_REGEX, "")
+    def normalize(text, tab_width: 8, osc_policy: 'ignore')
+      text = text.gsub(STRING_CONTROL_REGEX, '').gsub(INCOMPLETE_STRING_CONTROL_REGEX, '')
       text = TextMetrics.graphemes(text).join
-      text = text.gsub(OSC_REGEX) { |sequence| osc_policy == "ignore" || !sequence.start_with?("\e]8;") ? "" : sequence }
+      text = text.gsub(OSC_REGEX) do |sequence|
+        osc_policy == 'ignore' || !sequence.start_with?("\e]8;") ? '' : sequence
+      end
       text = apply_line_controls(text, tab_width: tab_width)
-      text.gsub(CSI_CONTROL_REGEX, "")
+      text.gsub(CSI_CONTROL_REGEX, '')
     end
 
     def apply_line_controls(text, tab_width: 8)

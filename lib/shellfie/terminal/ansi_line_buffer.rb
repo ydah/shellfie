@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "text_metrics"
+require_relative 'text_metrics'
 
 module Shellfie
   class AnsiLineBuffer
@@ -9,7 +9,7 @@ module Shellfie
     def initialize(tab_width: 8)
       @cells = []
       @column = 0
-      @pending_escape = +""
+      @pending_escape = +''
       @tab_width = tab_width
     end
 
@@ -34,7 +34,7 @@ module Shellfie
         clear_wide_cell(@column)
         @cells[@column] = "#{@pending_escape}#{char}"
         @cells[@column + 1] = CONTINUATION if width == 2
-        @pending_escape = +""
+        @pending_escape = +''
         @column += width
       end
     end
@@ -42,38 +42,38 @@ module Shellfie
     def move(command, params)
       amount = first_param(params, default: 1)
       case command
-      when "C"
+      when 'C'
         @column += amount
-      when "D"
+      when 'D'
         @column = [@column - amount, 0].max
-      when "G"
+      when 'G'
         @column = [amount - 1, 0].max
       end
     end
 
     def position(params)
-      values = params.to_s.split(";")
+      values = params.to_s.split(';')
       column = values.length >= 2 ? Integer(values[1], exception: false) : 1
       @column = [[column || 1, 1].max - 1, 0].max
     end
 
     def clear(command, params)
       mode = first_param(params, default: 0)
-      command == "K" ? clear_line(mode) : clear_screen(mode)
+      command == 'K' ? clear_line(mode) : clear_screen(mode)
     end
 
     def to_s
       last = @cells.rindex { |cell| !cell.nil? }
       return @pending_escape unless last
 
-      @cells[0..last].map { |cell| cell.equal?(CONTINUATION) ? "" : (cell || " ") }.join + @pending_escape
+      @cells[0..last].map { |cell| cell.equal?(CONTINUATION) ? '' : (cell || ' ') }.join + @pending_escape
     end
 
     private
 
     def first_param(params, default:)
-      value = Integer(params.to_s.split(";").first, exception: false)
-      value && value.positive? ? value : default
+      value = Integer(params.to_s.split(';').first, exception: false)
+      value&.positive? ? value : default
     end
 
     def clear_line(mode)

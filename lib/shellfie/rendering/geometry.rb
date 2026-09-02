@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "line_layout"
+require_relative 'line_layout'
 
 module Shellfie
   class RenderGeometry
@@ -13,7 +13,8 @@ module Shellfie
       font_config = @theme.font
       line_height = font_config[:size] * font_config[:line_height]
       display_lines, visible_count = display_lines(lines, font_config, line_height)
-      total_height = @config.window[:height] || title_bar_height + [visible_count, 1].max * line_height + padding * 2
+      total_height = @config.window[:height] || (title_bar_height + ([visible_count,
+                                                                      1].max * line_height) + (padding * 2))
       margin = canvas_margin(scale, shadow && !exact_size?)
       geometry = geometry_hash(
         display_lines,
@@ -68,8 +69,8 @@ module Shellfie
         scroll_offset: @config.window[:scroll_offset].to_f,
         ambiguous_width: @config.window[:ambiguous_width],
         margin: margin,
-        canvas_width: (width * scale).to_i + margin * 2,
-        canvas_height: (total_height * scale).ceil + margin * 2,
+        canvas_width: (width * scale).to_i + (margin * 2),
+        canvas_height: (total_height * scale).ceil + (margin * 2),
         shadow: shadow
       }
     end
@@ -102,7 +103,8 @@ module Shellfie
       return (10 * scale).to_i unless shadow
 
       shadow_config = @theme.window_decoration[:shadow]
-      (([shadow_config[:blur].to_i, shadow_config[:offset_x].to_i.abs, shadow_config[:offset_y].to_i.abs].max + 10) * scale).to_i
+      (([shadow_config[:blur].to_i, shadow_config[:offset_x].to_i.abs,
+         shadow_config[:offset_y].to_i.abs].max + 10) * scale).to_i
     end
 
     def validate_pixel_limit!(geometry)

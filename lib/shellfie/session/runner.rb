@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
-require "pty"
-require "io/console"
-require "rbconfig"
-require "open3"
-require "securerandom"
-require "timeout"
-require "fileutils"
-require "tmpdir"
-require "shellwords"
-require_relative "../errors"
-require_relative "../session"
-require_relative "../terminal/text_metrics"
+require 'pty'
+require 'io/console'
+require 'rbconfig'
+require 'open3'
+require 'securerandom'
+require 'timeout'
+require 'fileutils'
+require 'tmpdir'
+require 'shellwords'
+require_relative '../errors'
+require_relative '../session'
+require_relative '../terminal/text_metrics'
 
 module Shellfie
   class SessionRunner
@@ -19,22 +19,26 @@ module Shellfie
     REGEXP_TIMEOUT = 0.1
     MAX_GOLDEN_BYTES = 1_048_576
     KEYS = {
-      "enter" => "\r", "tab" => "\t", "esc" => "\e", "escape" => "\e",
-      "up" => "\e[A", "down" => "\e[B", "right" => "\e[C", "left" => "\e[D",
-      "home" => "\e[H", "end" => "\e[F", "pageup" => "\e[5~", "pagedown" => "\e[6~",
-      "delete" => "\e[3~", "insert" => "\e[2~", "backspace" => "\x7f", "shift-tab" => "\e[Z"
+      'enter' => "\r", 'tab' => "\t", 'esc' => "\e", 'escape' => "\e",
+      'up' => "\e[A", 'down' => "\e[B", 'right' => "\e[C", 'left' => "\e[D",
+      'home' => "\e[H", 'end' => "\e[F", 'pageup' => "\e[5~", 'pagedown' => "\e[6~",
+      'delete' => "\e[3~", 'insert' => "\e[2~", 'backspace' => "\x7f", 'shift-tab' => "\e[Z"
     }.freeze
 
     def initialize(config)
       @config = config
       @visible = true
       @redactions = config.redactions.map { |pattern| Regexp.new(pattern.to_s) }
-      @utf8_pending = +"".b
+      @utf8_pending = +''.b
     end
 
     def run
       total_timeout = terminal[:total_timeout] && parse_duration(terminal[:total_timeout])
-      return Timeout.timeout(total_timeout, ExecutionError, "Session exceeded total timeout of #{total_timeout}s") { execute_session } if total_timeout
+      if total_timeout
+        return Timeout.timeout(total_timeout, ExecutionError, "Session exceeded total timeout of #{total_timeout}s") do
+          execute_session
+        end
+      end
 
       execute_session
     ensure
@@ -48,7 +52,7 @@ module Shellfie
       @session = Session.new(columns: terminal[:columns], rows: terminal[:rows], title: @config.title)
       @live_screen = TerminalScreen.new(
         columns: terminal[:columns], rows: terminal[:rows],
-        graphics_policy: @config.render.dig(:window, :graphics_policy) || "ignore"
+        graphics_policy: @config.render.dig(:window, :graphics_policy) || 'ignore'
       )
       start_pty
       @config.steps.each do |step|
@@ -67,23 +71,24 @@ module Shellfie
     def start_pty
       @prompt_marker = SecureRandom.hex(4)
       env = {
-        "TERM" => "xterm-256color", "LANG" => "C.UTF-8", "TZ" => "UTC", "HISTFILE" => "/dev/null",
-        "PATH" => ENV.fetch("PATH", ""), "HOME" => (@session_home = Dir.mktmpdir("shellfie-home")), "TMPDIR" => Dir.tmpdir
+        'TERM' => 'xterm-256color', 'LANG' => 'C.UTF-8', 'TZ' => 'UTC', 'HISTFILE' => '/dev/null',
+        'PATH' => ENV.fetch('PATH', ''), 'HOME' => (@session_home = Dir.mktmpdir('shellfie-home')), 'TMPDIR' => Dir.tmpdir
       }.merge(terminal[:env].transform_keys(&:to_s))
-      env["PS1"] = "#{terminal[:prompt]}\e]9;#{@prompt_marker}\a"
+      env['PS1'] = "#{terminal[:prompt]}\e]9;#{@prompt_marker}\a"
       shell = resolve_command(terminal[:shell])
       raise DependencyError, "Shell not found: #{terminal[:shell]}" unless shell
+
       args = case File.basename(shell)
-             when "bash" then %w[--noprofile --norc -i]
-             when "zsh" then %w[-f -i]
-             when "fish" then %w[--no-config -i]
-             when "pwsh", "powershell" then %w[-NoLogo -NoProfile -NoExit]
-             when "cmd", "cmd.exe" then %w[/Q /K]
-             when "nu" then %w[--no-config-file]
+             when 'bash' then %w[--noprofile --norc -i]
+             when 'zsh' then %w[-f -i]
+             when 'fish' then %w[--no-config -i]
+             when 'pwsh', 'powershell' then %w[-NoLogo -NoProfile -NoExit]
+             when 'cmd', 'cmd.exe' then %w[/Q /K]
+             when 'nu' then %w[--no-config-file]
              else %w[-i]
              end
       cwd = File.expand_path(terminal[:cwd], @config.base_dir)
-      @buffer = +""
+      @buffer = +''
       @mutex = Mutex.new
       @condition = ConditionVariable.new
       @master, @slave, @pid = PTY.spawn(env, shell, *args, chdir: cwd, unsetenv_others: true)
@@ -96,7 +101,7 @@ module Shellfie
       rescue EOFError, Errno::EIO, IOError
         nil
       ensure
-        append_terminal_chunk(decode_terminal_bytes("", final: true))
+        append_terminal_chunk(decode_terminal_bytes('', final: true))
       end
       wait_for_quiet(0.1)
       clear_buffer
@@ -113,21 +118,21 @@ module Shellfie
       terminate_descendants
       @slave&.write("exit\n") unless @slave&.closed?
       unless reap_child(1)
-        signal_process_group("TERM")
-        signal_process(@pid, "TERM")
+        signal_process_group('TERM')
+        signal_process(@pid, 'TERM')
         unless reap_child(1)
-          signal_process_group("KILL")
-          signal_process(@pid, "KILL")
+          signal_process_group('KILL')
+          signal_process(@pid, 'KILL')
           reap_child(1)
         end
       end
     rescue Errno::ESRCH, Errno::ECHILD, Errno::EIO, Errno::EPIPE, IOError
       nil
     ensure
-      signal_process_group("TERM")
+      signal_process_group('TERM')
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 0.2
       sleep(0.01) while process_group_alive? && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
-      signal_process_group("KILL") if process_group_alive?
+      signal_process_group('KILL') if process_group_alive?
       @master&.close unless @master&.closed?
       @slave&.close unless @slave&.closed?
       @reader_thread&.join(0.2)
@@ -160,24 +165,30 @@ module Shellfie
     end
 
     def terminate_job_groups(pids)
-      pids.each { |pid| signal_group(pid, "TERM") }
+      pids.each { |pid| signal_group(pid, 'TERM') }
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 0.2
-      sleep(0.01) while pids.any? { |pid| process_group_exists?(pid) } && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
-      pids.each { |pid| signal_group(pid, "KILL") if process_group_exists?(pid) }
+      sleep(0.01) while pids.any? do |pid|
+        process_group_exists?(pid)
+      end && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
+      pids.each { |pid| signal_group(pid, 'KILL') if process_group_exists?(pid) }
     end
 
     def terminate_descendants
       pids = descendant_pids
-      pids.reverse_each { |pid| signal_process(pid, "TERM") }
+      pids.reverse_each { |pid| signal_process(pid, 'TERM') }
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 0.2
-      sleep(0.01) while pids.any? { |pid| process_exists?(pid) } && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
-      pids.reverse_each { |pid| signal_process(pid, "KILL") if process_exists?(pid) }
+      sleep(0.01) while pids.any? do |pid|
+        process_exists?(pid)
+      end && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
+      pids.reverse_each { |pid| signal_process(pid, 'KILL') if process_exists?(pid) }
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 2
-      sleep(0.01) while pids.any? { |pid| process_exists?(pid) } && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
+      sleep(0.01) while pids.any? do |pid|
+        process_exists?(pid)
+      end && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
     end
 
     def descendant_pids
-      output, status = Open3.capture2("ps", "-eo", "pid=,ppid=")
+      output, status = Open3.capture2('ps', '-eo', 'pid=,ppid=')
       return [] unless status.success?
 
       children = Hash.new { |hash, key| hash[key] = [] }
@@ -232,12 +243,13 @@ module Shellfie
       case action
       when :hide then set_visibility(false)
       when :show then set_visibility(true)
-      when :run then execute_command(step[:run], step, visible: step.fetch(:visibility, step[:async] ? "visible" : "hidden") != "hidden")
+      when :run then execute_command(step[:run], step,
+                                     visible: step.fetch(:visibility, step[:async] ? 'visible' : 'hidden') != 'hidden')
       when :type then type(step[:type], step)
       when :key then key(step[:key], step)
       when :sleep
         delay = parse_duration(step[:sleep])
-        @session.record("", delay: delay, visible: @visible)
+        @session.record('', delay: delay, visible: @visible)
         sleep(delay)
       when :wait
         wait_condition(step[:wait], timeout: step_timeout(step))
@@ -287,9 +299,9 @@ module Shellfie
       flush_pending
       if delay.zero?
         start = buffer_size
-        @prompt_wait_offset = start if name.downcase == "enter"
+        @prompt_wait_offset = start if name.downcase == 'enter'
         @slave.write(sequence * count)
-        if name.downcase == "enter" && !step[:async]
+        if name.downcase == 'enter' && !step[:async]
           text, status = finish_command(start, timeout: step_timeout(step))
           @recorded_offset = buffer_size
           @session.record(redact(text), delay: 0.1, visible: @visible, status: status)
@@ -303,9 +315,9 @@ module Shellfie
 
       count.times do |index|
         start = buffer_size
-        @prompt_wait_offset = start if name.downcase == "enter"
+        @prompt_wait_offset = start if name.downcase == 'enter'
         @slave.write(sequence)
-        if name.downcase == "enter" && !step[:async] && index == count - 1
+        if name.downcase == 'enter' && !step[:async] && index == count - 1
           text, status = finish_command(start, timeout: step_timeout(step))
           @recorded_offset = buffer_size
           @session.record(redact(text), delay: 0.1, visible: @visible, status: status)
@@ -317,32 +329,37 @@ module Shellfie
       end
     end
 
-    def finish_command(start, timeout:, marker_prefix: "")
+    def finish_command(start, timeout:, marker_prefix: '')
       marker = "__SF_#{SecureRandom.hex(6)}__"
       marker_command = "#{marker_prefix}printf '\\n#{marker}:%s\\n' \"$?\""
       @slave.write("#{marker_command}\n")
       match = wait_for(/#{Regexp.escape(marker)}:(\d+)/, timeout: timeout, offset: start)
       text = buffer_from(start)[0...match.begin(0)]
-      text = text.gsub(marker_command, "")
+      text = text.gsub(marker_command, '')
       [text, match[1].to_i]
     end
 
     def wait_condition(value, timeout:)
       condition = value.is_a?(Hash) ? value.transform_keys(&:to_sym) : { screen: value }
       return wait_for_exit(timeout: parse_duration(condition[:timeout] || timeout)) if condition[:exit]
-      return wait_for_stable(parse_duration(condition[:stable]), timeout: parse_duration(condition[:timeout] || timeout)) if condition[:stable]
+      if condition[:stable]
+        return wait_for_stable(parse_duration(condition[:stable]),
+                               timeout: parse_duration(condition[:timeout] || timeout))
+      end
+
       if condition[:prompt]
         marker = Regexp.escape("\e]9;#{@prompt_marker}\a")
-        pattern = /#{marker}(?:\e\[[0-9;?]*[ -\/]*[@-~])*\z/
-        return wait_for(pattern, timeout: parse_duration(condition[:timeout] || timeout), offset: @prompt_wait_offset, prompt: true)
+        pattern = %r{#{marker}(?:\e\[[0-9;?]*[ -/]*[@-~])*\z}
+        return wait_for(pattern, timeout: parse_duration(condition[:timeout] || timeout), offset: @prompt_wait_offset,
+                                 prompt: true)
       end
 
       pattern = condition[:screen] || condition[:line]
-      raise ValidationError, "wait requires screen or line" unless pattern
+      raise ValidationError, 'wait requires screen or line' unless pattern
 
       wait_for(
         Regexp.new(pattern.to_s), timeout: parse_duration(condition[:timeout] || timeout),
-        screen: condition.key?(:screen), line: condition.key?(:line)
+                                  screen: condition.key?(:screen), line: condition.key?(:line)
       )
     rescue RegexpError => e
       raise ValidationError, "Invalid wait pattern: #{e.message}"
@@ -389,16 +406,23 @@ module Shellfie
       if condition.key?(:exit_status) && @session.exit_status != condition[:exit_status]
         raise ExecutionError, "Expected exit status #{condition[:exit_status]}, got #{@session.exit_status.inspect}"
       end
+
       if condition[:golden]
         path = File.expand_path(condition[:golden], @config.base_dir)
-        expected = File.open(path, "rb") { |file| file.read(MAX_GOLDEN_BYTES + 1) }
-        raise ResourceLimitError, "Text golden is too large (max #{MAX_GOLDEN_BYTES} bytes)" if expected.bytesize > MAX_GOLDEN_BYTES
+        expected = File.open(path, 'rb') { |file| file.read(MAX_GOLDEN_BYTES + 1) }
+        if expected.bytesize > MAX_GOLDEN_BYTES
+          raise ResourceLimitError,
+                "Text golden is too large (max #{MAX_GOLDEN_BYTES} bytes)"
+        end
         raise ExecutionError, "Text golden mismatch: #{condition[:golden]}" unless expected == "#{current}\n"
       end
       %i[row column].each do |coordinate|
         expected = condition[:"cursor_#{coordinate}"]
         actual = @session.screen.public_send(coordinate)
-        raise ExecutionError, "Expected cursor #{coordinate} #{expected}, got #{actual}" if expected && actual != expected
+        if expected && actual != expected
+          raise ExecutionError,
+                "Expected cursor #{coordinate} #{expected}, got #{actual}"
+        end
       end
       if condition[:elapsed_under] || condition[:elapsed_over]
         elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - @started_at
@@ -419,7 +443,7 @@ module Shellfie
       deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
       loop do
         check_reader_error!
-        text = (screen || line) ? live_screen_text : buffer_from(offset)
+        text = screen || line ? live_screen_text : buffer_from(offset)
         match = if line
                   line_match(pattern, text, deadline: deadline)
                 else
@@ -441,7 +465,10 @@ module Shellfie
         check_reader_error!
         current = buffer_size
         return if current == previous
-        raise ExecutionError, "Terminal did not become idle" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+          raise ExecutionError,
+                'Terminal did not become idle'
+        end
 
         previous = current
         sleep(seconds)
@@ -450,7 +477,7 @@ module Shellfie
 
     def check_requirements!
       missing = @config.requires.reject { |command| resolve_command(command) }
-      raise DependencyError, "Required command(s) not found: #{missing.join(", ")}" unless missing.empty?
+      raise DependencyError, "Required command(s) not found: #{missing.join(', ')}" unless missing.empty?
     end
 
     def validate_working_directories!
@@ -458,7 +485,7 @@ module Shellfie
       paths.concat(@config.steps.filter_map { |step| step_directory(step[:cwd]) if step[:cwd] })
       missing = paths.find { |path| !File.directory?(path) }
       raise FileSystemError, "Working directory not found: #{missing}" if missing
-      return unless terminal[:cwd_policy] == "root"
+      return unless terminal[:cwd_policy] == 'root'
 
       root = File.realpath(@config.base_dir)
       escaped = paths.map { |path| File.realpath(path) }
@@ -472,7 +499,7 @@ module Shellfie
 
     def decode_terminal_bytes(chunk, final: false)
       bytes = @utf8_pending << chunk.b
-      @utf8_pending = final ? +"".b : incomplete_utf8_suffix(bytes)
+      @utf8_pending = final ? +''.b : incomplete_utf8_suffix(bytes)
       complete_size = bytes.bytesize - @utf8_pending.bytesize
       bytes.byteslice(0, complete_size).to_s.force_encoding(Encoding::UTF_8).scrub
     end
@@ -490,11 +517,13 @@ module Shellfie
                      4
                    end
         suffix = bytes.byteslice(index..)
-        return suffix if expected && suffix.bytesize < expected && suffix.bytes.drop(1).all? { |part| part.between?(0x80, 0xbf) }
+        return suffix if expected && suffix.bytesize < expected && suffix.bytes.drop(1).all? do |part|
+          part.between?(0x80, 0xbf)
+        end
 
         break
       end
-      +"".b
+      +''.b
     end
 
     def append_terminal_chunk(chunk)
@@ -522,44 +551,44 @@ module Shellfie
       end
 
       env = terminal[:env]
-      path = if env.key?("PATH")
-               env["PATH"]
+      path = if env.key?('PATH')
+               env['PATH']
              elsif env.key?(:PATH)
                env[:PATH]
              else
-               ENV.fetch("PATH", "")
+               ENV.fetch('PATH', '')
              end
       path.to_s.split(File::PATH_SEPARATOR)
-         .map { |path| File.join(path, command) }
-         .find { |candidate| File.file?(candidate) && File.executable?(candidate) }
+          .map { |path| File.join(path, command) }
+          .find { |candidate| File.file?(candidate) && File.executable?(candidate) }
     end
 
     def key_sequence(name)
       normalized = name.downcase
       return KEYS.fetch(normalized) if KEYS.key?(normalized)
 
-      parts = normalized.split("-")
+      parts = normalized.split('-')
       base = parts.pop
       modifiers = parts
       raise ValidationError, "Unsupported key: #{name}" unless (modifiers - %w[shift alt ctrl meta]).empty?
 
       if base.length == 1
-        key = modifiers.include?("shift") ? base.upcase : base
-        key = (key.ord & 0x1f).chr if modifiers.include?("ctrl")
+        key = modifiers.include?('shift') ? base.upcase : base
+        key = (key.ord & 0x1f).chr if modifiers.include?('ctrl')
         key = "\e#{key}" if (modifiers & %w[alt meta]).any?
         return key
       end
 
       bits = 0
-      bits |= 1 if modifiers.include?("shift")
-      bits |= 2 if modifiers.include?("alt")
-      bits |= 4 if modifiers.include?("ctrl")
-      bits |= 8 if modifiers.include?("meta")
+      bits |= 1 if modifiers.include?('shift')
+      bits |= 2 if modifiers.include?('alt')
+      bits |= 4 if modifiers.include?('ctrl')
+      bits |= 8 if modifiers.include?('meta')
       parameter = bits + 1
-      suffix = { "up" => "A", "down" => "B", "right" => "C", "left" => "D", "home" => "H", "end" => "F" }[base]
+      suffix = { 'up' => 'A', 'down' => 'B', 'right' => 'C', 'left' => 'D', 'home' => 'H', 'end' => 'F' }[base]
       return "\e[1;#{parameter}#{suffix}" if suffix && bits.positive?
 
-      tilde = { "insert" => 2, "delete" => 3, "pageup" => 5, "pagedown" => 6 }[base]
+      tilde = { 'insert' => 2, 'delete' => 3, 'pageup' => 5, 'pagedown' => 6 }[base]
       return "\e[#{tilde};#{parameter}~" if tilde && bits.positive?
 
       raise ValidationError, "Unsupported key: #{name}"
@@ -578,16 +607,16 @@ module Shellfie
     def parse_duration(value)
       match = /\A(\d+(?:\.\d+)?)(ms|s)?\z/.match(value.to_s)
       raise ValidationError, "Invalid duration: #{value}" unless match
-      raise ValidationError, "Duration is too large" if match[1].bytesize > 32
+      raise ValidationError, 'Duration is too large' if match[1].bytesize > 32
 
-      match[2] == "ms" ? match[1].to_f / 1_000 : match[1].to_f
+      match[2] == 'ms' ? match[1].to_f / 1_000 : match[1].to_f
     end
 
     def redact(text)
-      clean = @prompt_marker ? text.to_s.gsub("\e]9;#{@prompt_marker}\a", "") : text.to_s
-      clean = clean.gsub(@session_home, "~") if @session_home
+      clean = @prompt_marker ? text.to_s.gsub("\e]9;#{@prompt_marker}\a", '') : text.to_s
+      clean = clean.gsub(@session_home, '~') if @session_home
       @redactions.reduce(clean) do |result, pattern|
-        with_regexp_timeout { result.gsub(pattern, "[REDACTED]") }
+        with_regexp_timeout { result.gsub(pattern, '[REDACTED]') }
       end
     end
 
@@ -597,7 +626,7 @@ module Shellfie
 
     def line_match(pattern, text, deadline: nil)
       text.each_line do |line|
-        remaining = deadline && deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        remaining = deadline && (deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC))
         return nil if remaining && !remaining.positive?
 
         match = regex_match(pattern, line.chomp, timeout: remaining ? [remaining, REGEXP_TIMEOUT].min : REGEXP_TIMEOUT)
@@ -634,7 +663,7 @@ module Shellfie
         @buffer.clear
         @live_screen = TerminalScreen.new(
           columns: terminal[:columns], rows: terminal[:rows],
-          graphics_policy: @config.render.dig(:window, :graphics_policy) || "ignore"
+          graphics_policy: @config.render.dig(:window, :graphics_policy) || 'ignore'
         )
       end
     end
@@ -648,11 +677,11 @@ module Shellfie
     end
 
     def buffer_from(index)
-      @mutex.synchronize { @buffer.byteslice(index..) || "" }
+      @mutex.synchronize { @buffer.byteslice(index..) || '' }
     end
 
     def buffer_snapshot_from(index)
-      @mutex.synchronize { [@buffer.byteslice(index..) || "", @buffer.bytesize] }
+      @mutex.synchronize { [@buffer.byteslice(index..) || '', @buffer.bytesize] }
     end
 
     def check_reader_error!
@@ -678,10 +707,10 @@ module Shellfie
     end
 
     def foreground_shell?
-      request = RbConfig::CONFIG["host_os"].include?("darwin") ? 0x40047477 : 0x540f
-      process_group = [0].pack("i")
+      request = RbConfig::CONFIG['host_os'].include?('darwin') ? 0x40047477 : 0x540f
+      process_group = [0].pack('i')
       @master.ioctl(request, process_group)
-      process_group.unpack1("i") == @pid
+      process_group.unpack1('i') == @pid
     rescue SystemCallError, IOError, NotImplementedError
       false
     end

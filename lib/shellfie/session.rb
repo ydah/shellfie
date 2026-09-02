@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require_relative "config"
-require_relative "parser"
-require_relative "terminal/screen"
+require_relative 'config'
+require_relative 'parser'
+require_relative 'terminal/screen'
 
 module Shellfie
   class Session
     attr_reader :events, :captures, :exit_status, :screen
 
-    def initialize(columns:, rows:, title: "Terminal Session", events: [], captures: {}, exit_status: nil)
+    def initialize(columns:, rows:, title: 'Terminal Session', events: [], captures: {}, exit_status: nil)
       unless columns.is_a?(Integer) && columns.between?(1, 500) && rows.is_a?(Integer) && rows.between?(1, 200)
-        raise ParseError, "Invalid session dimensions"
+        raise ParseError, 'Invalid session dimensions'
       end
 
       @title = title
@@ -23,7 +23,7 @@ module Shellfie
 
     def record(text, delay: 0, visible: true, status: nil)
       screen.feed(text) if visible
-      event = { text: visible ? text : "", delay: delay, visible: visible, status: status }
+      event = { text: visible ? text : '', delay: delay, visible: visible, status: status }
       events << event
       @exit_status = status unless status.nil?
       event
@@ -43,7 +43,7 @@ module Shellfie
         headless: options.fetch(:headless, false)
       }
       if animated
-        raise ValidationError, "Captured screens cannot be rendered as animations" if lines
+        raise ValidationError, 'Captured screens cannot be rendered as animations' if lines
 
         frames = []
         each_snapshot do |event, snapshot|
@@ -60,15 +60,15 @@ module Shellfie
       frames = []
       each_snapshot do |event, snapshot|
         frames << {
-          "screen" => snapshot,
-          "delay" => [(event[:delay].to_f * 1_000).round, 1].max
+          'screen' => snapshot,
+          'delay' => [(event[:delay].to_f * 1_000).round, 1].max
         }
       end
       {
-        "version" => 1,
-        "title" => @title,
-        "window" => { "width" => screen.columns * 8, "visible_lines" => screen.rows },
-        "frames" => frames
+        'version' => 1,
+        'title' => @title,
+        'window' => { 'width' => screen.columns * 8, 'visible_lines' => screen.rows },
+        'frames' => frames
       }
     end
 
@@ -96,14 +96,18 @@ module Shellfie
         next if text.empty? && !event[:delay].to_f.positive?
 
         count += 1
-        raise ResourceLimitError, "Too many session frames (max #{Config::DEFAULTS[:limits][:max_frames]})" if count > Config::DEFAULTS[:limits][:max_frames]
+        if count > Config::DEFAULTS[:limits][:max_frames]
+          raise ResourceLimitError, "Too many session frames (max #{Config::DEFAULTS[:limits][:max_frames]})"
+        end
 
         replay.feed(text) unless text.empty?
         snapshot = event[:screen] || replay.render_lines
         characters += snapshot.sum(&:length)
         if characters > Config::DEFAULTS[:limits][:max_characters]
-          raise ResourceLimitError, "Session snapshots are too large (max #{Config::DEFAULTS[:limits][:max_characters]} characters)"
+          raise ResourceLimitError,
+                "Session snapshots are too large (max #{Config::DEFAULTS[:limits][:max_characters]} characters)"
         end
+
         yield event, snapshot
       end
     end

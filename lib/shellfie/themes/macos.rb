@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative "base"
+require_relative 'base'
 
 module Shellfie
   module Themes
     class MacOS < Base
       def name
-        "macos"
+        'macos'
       end
 
       def window_decoration
@@ -15,15 +15,15 @@ module Shellfie
           button_size: 12,
           button_spacing: 8,
           corner_radius: 10,
-          shadow: { blur: 50, offset_x: 0, offset_y: 25, color: "rgba(0,0,0,0.4)" }
+          shadow: { blur: 50, offset_x: 0, offset_y: 25, color: 'rgba(0,0,0,0.4)' }
         }
       end
 
       def colors
         super.merge(
-          background: "#1e1e1e",
-          title_bar: "#3c3c3c",
-          title_text: "#ffffff"
+          background: '#1e1e1e',
+          title_bar: '#3c3c3c',
+          title_text: '#ffffff'
         )
       end
 
@@ -41,11 +41,11 @@ module Shellfie
 
       def font
         {
-          family: "SF Mono",
+          family: 'SF Mono',
           size: 14,
           line_height: 1.4,
-          fallback_family: "Menlo",
-          emoji_family: "Apple Color Emoji"
+          fallback_family: 'Menlo',
+          emoji_family: 'Apple Color Emoji'
         }
       end
     end

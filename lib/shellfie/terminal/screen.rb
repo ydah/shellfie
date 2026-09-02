@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
-require_relative "text_metrics"
-require_relative "ansi_parser"
+require_relative 'text_metrics'
+require_relative 'ansi_parser'
 
 module Shellfie
   class TerminalScreen
-    CSI = /\A\e\[([0-9;:?]*)([ -\/]*)?([@-~])\z/
+    CSI = %r{\A\e\[([0-9;:?]*)([ -/]*)?([@-~])\z}
     STRING_CONTROL = /\e(?:\]|P|_|\^).*?(?:\a|\e\\)/m
-    TOKENS = /#{STRING_CONTROL}|\e\[[0-9;:?]*[ -\/]*[@-~]|\e[78DEM]|[\r\n\b\t\a]|\X/m
+    TOKENS = %r{#{STRING_CONTROL}|\e\[[0-9;:?]*[ -/]*[@-~]|\e[78DEM]|[\r\n\b\t\a]|\X}m
     MAX_PENDING_CONTROL_BYTES = 1_048_576
     CONTINUATION = Object.new.freeze
 
     attr_reader :row, :column, :rows, :columns
 
-    def initialize(columns: 80, rows: 24, tab_width: 8, graphics_policy: "ignore")
+    def initialize(columns: 80, rows: 24, tab_width: 8, graphics_policy: 'ignore')
       @columns = columns
       @rows = rows
       @tab_width = tab_width
@@ -25,9 +25,9 @@ module Shellfie
       @scroll_top = 0
       @scroll_bottom = rows - 1
       @primary_state = nil
-      @pending_control = +""
+      @pending_control = +''
       @discarding_control = nil
-      @discard_control_tail = +""
+      @discard_control_tail = +''
       @wrap_pending = false
       @ansi_parser = AnsiParser.new
     end
@@ -38,27 +38,32 @@ module Shellfie
       return self if input.empty? && @discarding_control
 
       input = @pending_control << input
-      if @graphics_policy == "error" && input.match?(AnsiNormalizer::GRAPHICS_CONTROL_PREFIX)
-        raise ValidationError, "Terminal graphics are not supported; use window.graphics_policy: ignore to discard them"
+      if @graphics_policy == 'error' && input.match?(AnsiNormalizer::GRAPHICS_CONTROL_PREFIX)
+        raise ValidationError, 'Terminal graphics are not supported; use window.graphics_policy: ignore to discard them'
       end
+
       input, @pending_control = split_incomplete_control(input)
       input.scan(TOKENS).each { |token| process(token) }
       self
     end
 
     def lines
-      visible_rows.map { |cells| cells.reject { |cell| cell.equal?(CONTINUATION) }.map { |cell| cell&.text || " " }.join.rstrip }
+      visible_rows.map do |cells|
+        cells.reject do |cell|
+          cell.equal?(CONTINUATION)
+        end.map { |cell| cell&.text || ' ' }.join.rstrip
+      end
     end
 
     def render_lines
       visible_rows.map do |cells|
         visible = cells.reject { |cell| cell.equal?(CONTINUATION) }
-        last = visible.rindex { |cell| cell && cell.text != " " }
-        next "" unless last
+        last = visible.rindex { |cell| cell && cell.text != ' ' }
+        next '' unless last
 
         visible[0..last].chunk { |cell| style_key(cell) }.map do |_style, group|
           cells_in_style = group.to_a
-          text = cells_in_style.map { |cell| cell&.text || " " }.join
+          text = cells_in_style.map { |cell| cell&.text || ' ' }.join
           styled_cell(cells_in_style.first, text)
         end.join
       end
@@ -72,17 +77,20 @@ module Shellfie
 
     def process(token)
       return if token.match?(/\A\e(?:\]|P|_|\^)/)
+
       match = CSI.match(token)
-      @ansi_parser.parse(token) if match && match[3] == "m"
+      @ansi_parser.parse(token) if match && match[3] == 'm'
       if match
-        @wrap_pending = false unless match[3] == "m"
+        @wrap_pending = false unless match[3] == 'm'
         return process_csi(match[1], match[3])
       end
 
       case token
-      when "\r" then @column = 0; @wrap_pending = false
+      when "\r" then @column = 0
+                     @wrap_pending = false
       when "\n" then newline(reset_column: false)
-      when "\b" then @column = [@column - 1, 0].max; @wrap_pending = false
+      when "\b" then @column = [@column - 1, 0].max
+                     @wrap_pending = false
       when "\t"
         @column = [@column + @tab_width - (@column % @tab_width), @columns - 1].min
         @wrap_pending = false
@@ -97,29 +105,31 @@ module Shellfie
     end
 
     def process_csi(params, command)
-      private_mode = params.start_with?("?")
-      values = params.delete_prefix("?").split(";").map { |value| Integer(value, exception: false) || 0 }
+      private_mode = params.start_with?('?')
+      values = params.delete_prefix('?').split(';').map { |value| Integer(value, exception: false) || 0 }
       amount = values.first.to_i.positive? ? values.first : 1
       case command
-      when "A" then @row = [@row - amount, 0].max
-      when "B" then @row = [@row + amount, @rows - 1].min
-      when "C" then @column = [@column + amount, @columns - 1].min
-      when "D" then @column = [@column - amount, 0].max
-      when "E" then @row = [@row + amount, @rows - 1].min; @column = 0
-      when "F" then @row = [@row - amount, 0].max; @column = 0
-      when "G" then @column = [[amount - 1, 0].max, @columns - 1].min
-      when "H", "f" then position(values)
-      when "J" then erase_display(values.first || 0)
-      when "K" then erase_line(values.first || 0)
-      when "@" then insert_characters(amount)
-      when "P" then delete_characters(amount)
-      when "L" then insert_lines(amount)
-      when "M" then delete_lines(amount)
-      when "s" then @saved_cursor = [@row, @column]
-      when "u" then @row, @column = @saved_cursor
-      when "r" then set_scroll_region(values)
-      when "h" then enter_alternate_screen if private_mode && (values & [47, 1047, 1049]).any?
-      when "l" then leave_alternate_screen if private_mode && (values & [47, 1047, 1049]).any?
+      when 'A' then @row = [@row - amount, 0].max
+      when 'B' then @row = [@row + amount, @rows - 1].min
+      when 'C' then @column = [@column + amount, @columns - 1].min
+      when 'D' then @column = [@column - amount, 0].max
+      when 'E' then @row = [@row + amount, @rows - 1].min
+                    @column = 0
+      when 'F' then @row = [@row - amount, 0].max
+                    @column = 0
+      when 'G' then @column = [[amount - 1, 0].max, @columns - 1].min
+      when 'H', 'f' then position(values)
+      when 'J' then erase_display(values.first || 0)
+      when 'K' then erase_line(values.first || 0)
+      when '@' then insert_characters(amount)
+      when 'P' then delete_characters(amount)
+      when 'L' then insert_lines(amount)
+      when 'M' then delete_lines(amount)
+      when 's' then @saved_cursor = [@row, @column]
+      when 'u' then @row, @column = @saved_cursor
+      when 'r' then set_scroll_region(values)
+      when 'h' then enter_alternate_screen if private_mode && (values & [47, 1047, 1049]).any?
+      when 'l' then leave_alternate_screen if private_mode && (values & [47, 1047, 1049]).any?
       end
     end
 
@@ -128,6 +138,7 @@ module Shellfie
 
       width = TextMetrics.grapheme_width(grapheme)
       return if width.zero?
+
       newline if @wrap_pending
       newline if @column + width > @columns
 
@@ -135,10 +146,10 @@ module Shellfie
       @cells[@row][@column] = @ansi_parser.parse(grapheme).first
       @cells[@row][@column + 1] = CONTINUATION if width == 2 && @column + 1 < @columns
       @column += width
-      if @column >= @columns
-        @column = @columns - 1
-        @wrap_pending = true
-      end
+      return unless @column >= @columns
+
+      @column = @columns - 1
+      @wrap_pending = true
     end
 
     def extend_previous_grapheme(grapheme)
@@ -233,7 +244,7 @@ module Shellfie
         @cells = Array.new(@rows) { Array.new(@columns) }
       else
         erase_line(0)
-        (@row + 1...@rows).each { |index| @cells[index] = Array.new(@columns) }
+        ((@row + 1)...@rows).each { |index| @cells[index] = Array.new(@columns) }
       end
     end
 
@@ -299,43 +310,43 @@ module Shellfie
 
     def split_incomplete_control(text)
       starts = ["\e]", "\eP", "\e_", "\e^"].filter_map { |prefix| text.rindex(prefix) }
-      if (start = starts.max) && !text[start..].match?(/\A#{STRING_CONTROL}/)
+      if (start = starts.max) && !text[start..].match?(/\A#{STRING_CONTROL}/o)
         tail = text[start..]
         if tail.bytesize > MAX_PENDING_CONTROL_BYTES
           @discarding_control = :string
-          return [text[0...start], +""]
+          return [text[0...start], +'']
         end
         return [text[0...start], tail]
       end
-      if (start = text.rindex("\e[")) && text[start..].match?(/\A\e\[[0-9;:?]*[ -\/]*\z/)
+      if (start = text.rindex("\e[")) && text[start..].match?(%r{\A\e\[[0-9;:?]*[ -/]*\z})
         tail = text[start..]
         if tail.bytesize > MAX_PENDING_CONTROL_BYTES
           @discarding_control = :csi
-          return [text[0...start], +""]
+          return [text[0...start], +'']
         end
         return [text[0...start], tail]
       end
       return [text[0...-1], +"\e"] if text.end_with?("\e")
 
-      [text, +""]
+      [text, +'']
     end
 
     def discard_control_prefix(text)
       return text unless @discarding_control
 
       text = @discard_control_tail << text
-      @discard_control_tail = +""
+      @discard_control_tail = +''
       finish = if @discarding_control == :csi
                  final = text.index(/[@-~]/)
-                 final && final + 1
+                 final && (final + 1)
                else
                  bell = text.index("\a")
                  st = text.index("\e\\")
-                 [bell && bell + 1, st && st + 2].compact.min
+                 [bell && (bell + 1), st && (st + 2)].compact.min
                end
       unless finish
         @discard_control_tail = +"\e" if @discarding_control == :string && text.end_with?("\e")
-        return ""
+        return ''
       end
 
       @discarding_control = nil
@@ -347,7 +358,7 @@ module Shellfie
       @cells[0..last]
     end
 
-    def styled_cell(cell, text = cell&.text || " ")
+    def styled_cell(cell, text = cell&.text || ' ')
       return text unless cell
 
       codes = []
@@ -355,7 +366,7 @@ module Shellfie
       codes << 2 if cell.dim
       codes << 3 if cell.italic
       if cell.underline
-        underline_code = { double: 21, curly: "4:3", dotted: "4:4", dashed: "4:5" }.fetch(cell.underline_style, 4)
+        underline_code = { double: 21, curly: '4:3', dotted: '4:4', dashed: '4:5' }.fetch(cell.underline_style, 4)
         codes << underline_code
       end
       codes.concat(color_codes(cell.underline_color, 58)) if cell.underline_color
@@ -368,7 +379,7 @@ module Shellfie
       codes.concat(color_codes(cell.background, 48)) if cell.background
       return text if codes.empty?
 
-      "\e[#{codes.join(";")}m#{text}\e[0m"
+      "\e[#{codes.join(';')}m#{text}\e[0m"
     end
 
     def style_key(cell)

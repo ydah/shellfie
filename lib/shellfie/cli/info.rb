@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "json"
-require "optparse"
-require "yaml"
-require "cgi/escape"
+require 'json'
+require 'optparse'
+require 'yaml'
+require 'cgi/escape'
 
 module Shellfie
   module CLI::Info
@@ -37,47 +37,57 @@ module Shellfie
     end
 
     def run_themes
-      puts "Available themes:"
+      puts 'Available themes:'
       puts
       ThemeRegistry.available_themes.each { |theme| puts "  #{theme}" }
       puts
-      puts "Available color schemes:"
+      puts 'Available color schemes:'
       ThemeRegistry.available_color_schemes.each { |scheme| puts "  #{scheme}" }
       puts
-      puts "Use: shellfie generate config.yml -o output.png -t THEME_NAME"
+      puts 'Use: shellfie generate config.yml -o output.png -t THEME_NAME'
     end
 
     def run_validate
-      format = "text"
-      OptionParser.new { |opts| opts.on("--format FORMAT", "text, json, sarif, or junit") { |value| format = value } }.parse!(@args)
-      raise ValidationError, "validation format must be text, json, sarif, or junit" unless %w[text json sarif junit].include?(format)
+      format = 'text'
+      OptionParser.new do |opts|
+        opts.on('--format FORMAT', 'text, json, sarif, or junit') do |value|
+          format = value
+        end
+      end.parse!(@args)
+      raise ValidationError, 'validation format must be text, json, sarif, or junit' unless %w[text json sarif
+                                                                                               junit].include?(format)
+
       @options[:validation_format] = format
       input_file = @args.shift
-      raise ConfigError, "Input file is required" unless input_file
+      raise ConfigError, 'Input file is required' unless input_file
+
       @options[:validation_path] = input_file
 
       if configuration_version(input_file) == 2
         session = SessionConfig.parse(input_file)
-        return emit_validation_report(valid: true, path: input_file, details: { version: 2, steps: session.steps.size, outputs: session.outputs.size }) if format != "text"
+        if format != 'text'
+          return emit_validation_report(valid: true, path: input_file,
+                                        details: { version: 2, steps: session.steps.size, outputs: session.outputs.size })
+        end
 
-        puts "✓ Session configuration is valid"
+        puts '✓ Session configuration is valid'
         puts "  Steps: #{session.steps.size}"
         puts "  Outputs: #{session.outputs.size}"
         return
       end
 
       config = Parser.parse(input_file)
-      if format != "text"
+      if format != 'text'
         return emit_validation_report(
           valid: true, path: input_file,
-          details: { version: 1, theme: config.theme, mode: config.animated? ? "animated" : "static" }
+          details: { version: 1, theme: config.theme, mode: config.animated? ? 'animated' : 'static' }
         )
       end
 
-      puts "✓ Configuration is valid"
+      puts '✓ Configuration is valid'
       puts "  Theme: #{config.theme}"
       puts "  Title: #{config.title}"
-      puts "  Mode: #{config.animated? ? "animated" : "static"}"
+      puts "  Mode: #{config.animated? ? 'animated' : 'static'}"
       puts "  Lines: #{config.lines.size}" if config.static?
       puts "  Source frames: #{config.frames.size}" if config.animated?
       puts "  Estimated render frames: #{AnimationFrameBuilder.new(config).build.size}" if config.animated?
@@ -88,9 +98,9 @@ module Shellfie
 
     def run_inspect
       json = false
-      OptionParser.new { |opts| opts.on("--json", "Print machine-readable JSON") { json = true } }.parse!(@args)
+      OptionParser.new { |opts| opts.on('--json', 'Print machine-readable JSON') { json = true } }.parse!(@args)
       input_file = @args.shift
-      raise ConfigError, "Input file is required" unless input_file
+      raise ConfigError, 'Input file is required' unless input_file
 
       if configuration_version(input_file) == 2
         session = SessionConfig.parse(input_file)
@@ -103,8 +113,8 @@ module Shellfie
         }
         return puts(JSON.pretty_generate(info)) if json
 
-        puts "Session:"
-        puts "  Version: 2"
+        puts 'Session:'
+        puts '  Version: 2'
         puts "  Mode: #{session.mode}"
         puts "  Terminal: #{session.terminal[:columns]}x#{session.terminal[:rows]} (#{session.terminal[:shell]})"
         puts "  Steps: #{session.steps.size}"
@@ -119,26 +129,27 @@ module Shellfie
         ambiguous_width: info.dig(:config, :window, :ambiguous_width) || 1
       }
       return puts(JSON.pretty_generate(info)) if json
-      puts "Config:"
+
+      puts 'Config:'
       puts "  Version: #{info[:config][:version]}"
       puts "  Theme: #{info[:theme]}"
       puts "  Title: #{info[:config][:title]}"
-      puts "  Mode: #{info[:config][:frames].empty? ? "static" : "animated"}"
+      puts "  Mode: #{info[:config][:frames].empty? ? 'static' : 'animated'}"
       puts "  Lines: #{info[:config][:lines].size}"
       puts "  Frames: #{info[:config][:frames].size}"
       puts "  Estimated size: #{info[:geometry][:canvas_width]}x#{info[:geometry][:canvas_height]}"
       puts "  Logical size: #{info[:geometry][:logical_width]}x#{info[:geometry][:logical_height]} @#{info[:geometry][:scale]}x"
       puts "  Unicode: #{info[:unicode][:version]} (width table #{info[:unicode][:width_table]}, ambiguous=#{info[:unicode][:ambiguous_width]})"
       info.fetch(:fonts, {}).each do |style, font|
-        fingerprint = font[:sha256] ? " (sha256: #{font[:sha256]})" : ""
-        puts "  Font #{style}: #{font[:name] || "not found"}#{fingerprint}"
+        fingerprint = font[:sha256] ? " (sha256: #{font[:sha256]})" : ''
+        puts "  Font #{style}: #{font[:name] || 'not found'}#{fingerprint}"
       end
     end
 
     def run_doctor
       failed = false
       DependencyChecker.doctor.each do |check|
-        status = check[:ok] ? "ok" : "fail"
+        status = check[:ok] ? 'ok' : 'fail'
         failed ||= !check[:ok]
         puts "#{status.ljust(4)} #{check[:name]}: #{check[:detail]}"
       end
@@ -154,23 +165,25 @@ module Shellfie
       path ||= @options[:validation_path]
       message = error&.message
       case format
-      when "json"
-        puts JSON.pretty_generate(version: 1, valid: valid, path: path, details: details, errors: message ? [{ message: message }] : [])
-      when "sarif"
+      when 'json'
+        puts JSON.pretty_generate(version: 1, valid: valid, path: path, details: details,
+                                  errors: message ? [{ message: message }] : [])
+      when 'sarif'
         result = if message
-                   [{ level: "error", message: { text: message }, locations: path ? [{ physicalLocation: { artifactLocation: { uri: path } } }] : [] }]
+                   [{ level: 'error', message: { text: message },
+                      locations: path ? [{ physicalLocation: { artifactLocation: { uri: path } } }] : [] }]
                  else
                    []
                  end
         puts JSON.pretty_generate(
-          version: "2.1.0", "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-          runs: [{ tool: { driver: { name: "shellfie", version: VERSION } }, results: result }]
+          version: '2.1.0', '$schema': 'https://json.schemastore.org/sarif-2.1.0.json',
+          runs: [{ tool: { driver: { name: 'shellfie', version: VERSION } }, results: result }]
         )
-      when "junit"
+      when 'junit'
         failure = %(<failure message="#{CGI.escapeHTML(message)}">#{CGI.escapeHTML(message)}</failure>) if message
-        puts %(<testsuite name="shellfie validate" tests="1" failures="#{valid ? 0 : 1}"><testcase name="#{CGI.escapeHTML(path || "configuration")}">#{failure}</testcase></testsuite>)
+        puts %(<testsuite name="shellfie validate" tests="1" failures="#{valid ? 0 : 1}"><testcase name="#{CGI.escapeHTML(path || 'configuration')}">#{failure}</testcase></testsuite>)
       else
-        raise ValidationError, "validation format must be text, json, sarif, or junit"
+        raise ValidationError, 'validation format must be text, json, sarif, or junit'
       end
     end
 

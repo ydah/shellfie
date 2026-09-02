@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require_relative "data"
+require_relative 'data'
 
 module Shellfie
   class HeadlessThemeRegistry
     VARIANTS = {
-      "plain" => {
+      'plain' => {
         window_decoration: {
           title_bar_height: 0,
           corner_radius: 0,
@@ -20,7 +20,7 @@ module Shellfie
     }.freeze
 
     class << self
-      def build(theme, variant: "plain")
+      def build(theme, variant: 'plain')
         settings = VARIANTS.fetch(variant)
         ThemeData.new(
           name: theme.name,

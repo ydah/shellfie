@@ -39,7 +39,7 @@ module Shellfie
     end
 
     def color_for(name)
-      return name if name.is_a?(String) && name.start_with?("#")
+      return name if name.is_a?(String) && name.start_with?('#')
 
       colors[name.to_sym] || colors[:foreground]
     end

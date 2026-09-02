@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require "rbconfig"
+require 'rbconfig'
 
 module Shellfie
   module TextMetrics
-    UNICODE_VERSION = RbConfig::CONFIG["UNICODE_VERSION"] || "unknown"
-    WIDTH_TABLE_VERSION = "1"
+    UNICODE_VERSION = RbConfig::CONFIG['UNICODE_VERSION'] || 'unknown'
+    WIDTH_TABLE_VERSION = '1'
     AMBIGUOUS_RANGES = [
       0x00a1..0x00a1, 0x00a4..0x00a4, 0x00a7..0x00a8, 0x00aa..0x00aa, 0x00ad..0x00ae,
       0x00b0..0x00b4, 0x00b6..0x00ba, 0x00bc..0x00bf, 0x00c6..0x00c6, 0x00d0..0x00d0,
@@ -54,7 +54,7 @@ module Shellfie
     end
 
     def take_cells(text, max_cells, ambiguous_width: 1)
-      result = +""
+      result = +''
       used_cells = 0
 
       graphemes(text).each do |char|
@@ -70,7 +70,7 @@ module Shellfie
 
     def drop_cells(text, cells_to_drop, ambiguous_width: 1)
       used_cells = 0
-      graphemes(text).each_with_object(+"") do |char, result|
+      graphemes(text).each_with_object(+'') do |char, result|
         width = grapheme_width(char, ambiguous_width: ambiguous_width)
         if used_cells < cells_to_drop
           used_cells += width
@@ -85,14 +85,14 @@ module Shellfie
       return [text.to_s] if max_cells <= 0
 
       chunks = []
-      current = +""
+      current = +''
       used_cells = 0
 
       graphemes(text).each do |char|
         width = grapheme_width(char, ambiguous_width: ambiguous_width)
         if used_cells.positive? && used_cells + width > max_cells
           chunks << current
-          current = +""
+          current = +''
           used_cells = 0
         end
 
@@ -120,7 +120,9 @@ module Shellfie
       return 2 if grapheme.include?("\u200d") || grapheme.include?("\ufe0f") || grapheme.include?("\u20e3") ||
                   grapheme.match?(/[\u{1f1e6}-\u{1f1ff}]{2}/)
 
-      codepoints.map { |codepoint| char_width(codepoint.chr(Encoding::UTF_8), ambiguous_width: ambiguous_width) }.max || 0
+      codepoints.map do |codepoint|
+        char_width(codepoint.chr(Encoding::UTF_8), ambiguous_width: ambiguous_width)
+      end.max || 0
     end
 
     def combining?(codepoint)

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "config_validation"
-require_relative "config_defaults"
-require_relative "errors"
-require_relative "themes/registry"
+require_relative 'config_validation'
+require_relative 'config_defaults'
+require_relative 'errors'
+require_relative 'themes/registry'
 
 module Shellfie
   class Config
@@ -68,7 +68,7 @@ module Shellfie
       @color_scheme = merged[:color_scheme]
       @colors = merged[:colors]
       @window_decoration = merged[:window_decoration]
-      @title = merged[:title] || "Terminal"
+      @title = merged[:title] || 'Terminal'
       @window = merged[:window]
       @font = merged[:font]
       @lines = merged[:lines] || []
@@ -144,8 +144,8 @@ module Shellfie
       @title.freeze
       @source_paths = self.class.deep_freeze(@source_paths)
       @theme.freeze
-      @window_theme.freeze if @window_theme
-      @color_scheme.freeze if @color_scheme
+      @window_theme&.freeze
+      @color_scheme&.freeze
       freeze
     end
   end

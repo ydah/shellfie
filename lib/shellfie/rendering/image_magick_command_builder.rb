@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "mini_magick"
+require 'mini_magick'
 
 module Shellfie
   class ImageMagickCommandBuilder
@@ -15,11 +15,11 @@ module Shellfie
       end
 
       def output(convert, path, format: nil)
-        convert << output_path(path, format: format || File.extname(path).delete_prefix("."))
+        convert << output_path(path, format: format || File.extname(path).delete_prefix('.'))
       end
 
       def output_path(path, format:)
-        format == "apng" ? "apng:#{path}" : path
+        format == 'apng' ? "apng:#{path}" : path
       end
 
       def draw(convert, command)
@@ -33,7 +33,9 @@ module Shellfie
       def rectangles(convert, rectangles)
         return if rectangles.empty?
 
-        draw(convert, rectangles.map { |rect| "rectangle #{rect[:x1]},#{rect[:y1]} #{rect[:x2]},#{rect[:y2]}" }.join(" "))
+        draw(convert, rectangles.map do |rect|
+          "rectangle #{rect[:x1]},#{rect[:y1]} #{rect[:x2]},#{rect[:y2]}"
+        end.join(' '))
       end
 
       def round_rectangle(convert, x1, y1, x2, y2, radius)
@@ -47,7 +49,7 @@ module Shellfie
       def lines(convert, lines)
         return if lines.empty?
 
-        draw(convert, lines.map { |line| "line #{line[:x1]},#{line[:y1]} #{line[:x2]},#{line[:y2]}" }.join(" "))
+        draw(convert, lines.map { |line| "line #{line[:x1]},#{line[:y1]} #{line[:x2]},#{line[:y2]}" }.join(' '))
       end
 
       def circle(convert, center_x, center_y, radius)
@@ -63,11 +65,11 @@ module Shellfie
       end
 
       def clear_region(convert)
-        convert << "+region"
+        convert << '+region'
       end
 
       def composite_over(convert)
-        convert.compose "over"
+        convert.compose 'over'
         convert.composite
       end
     end

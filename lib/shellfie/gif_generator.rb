@@ -1,18 +1,18 @@
 # frozen_string_literal: true
 
-require "mini_magick"
-require "fileutils"
-require "json"
-require "tmpdir"
-require_relative "animation/frame_builder"
-require_relative "dependency_checker"
-require_relative "rendering/format_resolver"
-require_relative "ffmpeg_encoder"
-require_relative "animation/gif_palette"
-require_relative "rendering/image_magick_command_builder"
-require_relative "output_writer"
-require_relative "rendering/chrome_cache"
-require_relative "renderer"
+require 'mini_magick'
+require 'fileutils'
+require 'json'
+require 'tmpdir'
+require_relative 'animation/frame_builder'
+require_relative 'dependency_checker'
+require_relative 'rendering/format_resolver'
+require_relative 'ffmpeg_encoder'
+require_relative 'animation/gif_palette'
+require_relative 'rendering/image_magick_command_builder'
+require_relative 'output_writer'
+require_relative 'rendering/chrome_cache'
+require_relative 'renderer'
 
 module Shellfie
   class GifGenerator
@@ -35,9 +35,10 @@ module Shellfie
         validate_frame_limit!(frames)
         validate_workload!(frames, scale: scale, shadow: shadow)
         warn_frame_count(frames)
-        images = render_frames(frames, scale: scale, shadow: shadow, transparent: transparent, chrome_cache: chrome_cache)
-        extension = FormatResolver.resolve(output_path, explicit: format, default: "gif")
-        return write_png_sequence(images, output_path) if extension == "png-sequence"
+        images = render_frames(frames, scale: scale, shadow: shadow, transparent: transparent,
+                                       chrome_cache: chrome_cache)
+        extension = FormatResolver.resolve(output_path, explicit: format, default: 'gif')
+        return write_png_sequence(images, output_path) if extension == 'png-sequence'
 
         OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
           combine_to_animation(images, temporary_path, format: extension)
@@ -66,7 +67,7 @@ module Shellfie
     end
 
     def render_frames(frames, scale:, shadow:, transparent:, chrome_cache:)
-      temp_dir = Dir.mktmpdir("shellfie")
+      temp_dir = Dir.mktmpdir('shellfie')
       images = []
       complete = false
       visible_lines = fixed_visible_lines(frames)
@@ -77,7 +78,7 @@ module Shellfie
           window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {})
         )
         renderer = Renderer.new(frame_config, chrome_cache: chrome_cache)
-        output_path = File.join(temp_dir, "frame_#{format("%04d", idx)}.png")
+        output_path = File.join(temp_dir, "frame_#{format('%04d', idx)}.png")
         renderer.render(output_path, scale: scale, shadow: shadow, transparent: transparent)
         images << { path: output_path, delay: frame[:delay] }
       end
@@ -122,9 +123,9 @@ module Shellfie
         )
       end
 
-      palette = GifPalette.new(config: config, theme: theme) if format == "gif"
+      palette = GifPalette.new(config: config, theme: theme) if format == 'gif'
       ImageMagickCommandBuilder.convert do |convert|
-        convert.dispose "none" if format == "gif"
+        convert.dispose 'none' if format == 'gif'
         convert.loop animation_loop_count
 
         animation_entries(images).each do |delay, img|
@@ -141,10 +142,10 @@ module Shellfie
 
     def configure_animation_format(convert, format, images:, palette:)
       case format
-      when "gif"
+      when 'gif'
         palette.apply(convert, images: images)
-        convert.layers "optimize" if config.animation[:gif_optimize]
-      when "webp"
+        convert.layers 'optimize' if config.animation[:gif_optimize]
+      when 'webp'
         convert.define "webp:lossless=#{config.animation[:webp_lossless]}"
         convert.define "webp:method=#{config.animation[:webp_method]}"
         convert.define "webp:near-lossless=#{config.animation[:webp_near_lossless]}"
@@ -168,13 +169,13 @@ module Shellfie
 
       parent = File.dirname(File.expand_path(output_path))
       FileUtils.mkdir_p(parent)
-      temporary = Dir.mktmpdir(".shellfie-sequence-", parent)
+      temporary = Dir.mktmpdir('.shellfie-sequence-', parent)
       frames = images.each_with_index.map do |image, index|
-        filename = "frame_#{format("%04d", index)}.png"
+        filename = "frame_#{format('%04d', index)}.png"
         FileUtils.cp(image[:path], File.join(temporary, filename))
         { file: filename, delay_ms: image[:delay] / config.animation[:playback_speed] }
       end
-      File.write(File.join(temporary, "timeline.json"), JSON.pretty_generate(version: 1, frames: frames))
+      File.write(File.join(temporary, 'timeline.json'), JSON.pretty_generate(version: 1, frames: frames))
       backup = "#{temporary}-previous"
       File.rename(output_path, backup) if File.exist?(output_path)
       File.rename(temporary, output_path)
@@ -191,9 +192,9 @@ module Shellfie
     def replaceable_sequence_directory?(path)
       entries = Dir.children(path)
       return true if entries.empty?
-      return false unless entries.include?("timeline.json")
+      return false unless entries.include?('timeline.json')
 
-      entries.all? { |entry| entry == "timeline.json" || entry.match?(/\Aframe_\d{4}\.png\z/) }
+      entries.all? { |entry| entry == 'timeline.json' || entry.match?(/\Aframe_\d{4}\.png\z/) }
     end
 
     def animation_delays(images)
@@ -213,7 +214,7 @@ module Shellfie
       elapsed = 0.0
       ends = images.map { |image| elapsed += image[:delay] / config.animation[:playback_speed] }
       indexes = (1..target_ticks).map do |tick|
-        ends.index { |finish| finish >= tick * 10 } || images.size - 1
+        ends.index { |finish| finish >= tick * 10 } || (images.size - 1)
       end
       indexes[-1] = images.size - 1
       indexes.chunk(&:itself).map { |index, ticks| [ticks.size, images[index]] }
@@ -223,13 +224,14 @@ module Shellfie
       max_frames = config.animation[:max_frames]
       return unless max_frames && frames.size > max_frames
 
-      $stderr.puts "Warning: animation will generate #{frames.size} frames (max_frames is #{max_frames})"
+      warn "Warning: animation will generate #{frames.size} frames (max_frames is #{max_frames})"
     end
 
     def validate_frame_limit!(frames)
       return if frames.size <= config.limits[:max_render_frames]
 
-      raise ResourceLimitError, "Animation would generate #{frames.size} frames (max #{config.limits[:max_render_frames]})"
+      raise ResourceLimitError,
+            "Animation would generate #{frames.size} frames (max #{config.limits[:max_render_frames]})"
     end
 
     def coalesce_frames(frames)
@@ -247,13 +249,14 @@ module Shellfie
     end
 
     def playback_frames(frames)
-      frames = frames.reverse if config.animation[:direction] == "reverse"
+      frames = frames.reverse if config.animation[:direction] == 'reverse'
       offset = config.animation[:loop_offset]
       if offset >= frames.size
         raise ValidationError, "animation.loop_offset must be less than the #{frames.size} rendered frames"
       end
+
       frames = frames.rotate(offset)
-      return frames unless config.animation[:direction] == "ping_pong" && frames.size > 2
+      return frames unless config.animation[:direction] == 'ping_pong' && frames.size > 2
 
       frames + frames[1...-1].reverse
     end
@@ -268,7 +271,8 @@ module Shellfie
 
       visible_lines = fixed_visible_lines(frames)
       max_pixels = frames.map do |frame|
-        frame_config = create_frame_config(frame[:lines], window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {}))
+        frame_config = create_frame_config(frame[:lines],
+                                           window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {}))
         geometry = Renderer.new(frame_config).estimate(scale: scale, shadow: shadow)
         geometry[:canvas_width] * geometry[:canvas_height]
       end.max || 0
@@ -288,6 +292,5 @@ module Shellfie
     def fixed_visible_lines(frames)
       config.window[:visible_lines] || [frames.map { |frame| frame[:lines].size }.max.to_i, 1].max
     end
-
   end
 end

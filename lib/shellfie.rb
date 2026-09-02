@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-require_relative "shellfie/version"
-require_relative "shellfie/errors"
-require_relative "shellfie/config"
-require_relative "shellfie/parser"
-require_relative "shellfie/terminal/ansi_parser"
+require_relative 'shellfie/version'
+require_relative 'shellfie/errors'
+require_relative 'shellfie/config'
+require_relative 'shellfie/parser'
+require_relative 'shellfie/terminal/ansi_parser'
 
 module Shellfie
-  autoload :CLI, File.expand_path("shellfie/cli", __dir__)
-  autoload :GifGenerator, File.expand_path("shellfie/gif_generator", __dir__)
-  autoload :Renderer, File.expand_path("shellfie/renderer", __dir__)
+  autoload :CLI, File.expand_path('shellfie/cli', __dir__)
+  autoload :GifGenerator, File.expand_path('shellfie/gif_generator', __dir__)
+  autoload :Renderer, File.expand_path('shellfie/renderer', __dir__)
 
   class << self
     def parse(source)
@@ -26,7 +26,8 @@ module Shellfie
       animated = animate.nil? ? config.animated? : animate
 
       if animated
-        GifGenerator.new(config).generate(output, scale: scale, shadow: shadow, transparent: transparent, format: format)
+        GifGenerator.new(config).generate(output, scale: scale, shadow: shadow, transparent: transparent,
+                                                  format: format)
       else
         Renderer.new(config).render(output, scale: scale, shadow: shadow, transparent: transparent, format: format)
       end

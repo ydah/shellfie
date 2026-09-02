@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "did_you_mean"
+require 'did_you_mean'
 
 module Shellfie
   module ParserValidation
@@ -22,7 +22,8 @@ module Shellfie
       framerate playback_speed
     ].freeze
     CURSOR_KEYS = %i[style color].freeze
-    LIMIT_KEYS = %i[max_lines max_frames max_render_frames max_characters max_pixels max_total_pixels max_temp_bytes].freeze
+    LIMIT_KEYS = %i[max_lines max_frames max_render_frames max_characters max_pixels max_total_pixels
+                    max_temp_bytes].freeze
     LINE_KEYS = %i[prompt command output prompt_color command_color output_color selected].freeze
     FRAME_KEYS = %i[prompt type output screen delay prompt_color command_color output_color].freeze
     COLOR_KEYS = %i[
@@ -37,10 +38,10 @@ module Shellfie
     private
 
     def validate_config(raw)
-      raise ValidationError, "Empty configuration" if raw.nil? || (raw.respond_to?(:empty?) && raw.empty?)
-      raise ValidationError, "Configuration must be a YAML mapping" unless raw.is_a?(Hash)
+      raise ValidationError, 'Empty configuration' if raw.nil? || (raw.respond_to?(:empty?) && raw.empty?)
+      raise ValidationError, 'Configuration must be a YAML mapping' unless raw.is_a?(Hash)
 
-      validate_keys!(raw, TOP_LEVEL_KEYS, "configuration")
+      validate_keys!(raw, TOP_LEVEL_KEYS, 'configuration')
       validate_nested_hash!(raw, :window, WINDOW_KEYS)
       validate_nested_hash!(raw, :font, FONT_KEYS)
       validate_nested_hash!(raw, :animation, ANIMATION_KEYS)
@@ -49,16 +50,19 @@ module Shellfie
       validate_nested_hash!(raw, :colors, COLOR_KEYS)
       validate_nested_hash!(raw, :window_decoration, WINDOW_DECORATION_KEYS)
       if raw.dig(:window_decoration, :shadow)
-        validate_nested_hash!(raw[:window_decoration], :shadow, SHADOW_KEYS, "window_decoration.shadow")
+        validate_nested_hash!(raw[:window_decoration], :shadow, SHADOW_KEYS, 'window_decoration.shadow')
       end
       validate_theme!(raw[:theme]) if raw[:theme]
       validate_window_theme!(raw[:window_theme]) if raw[:window_theme]
       validate_color_scheme!(raw[:color_scheme]) if raw.key?(:color_scheme)
       if raw[:include_policy] && !%w[allow root].include?(raw[:include_policy])
-        raise ValidationError, "include_policy must be allow or root"
+        raise ValidationError, 'include_policy must be allow or root'
       end
 
-      raise ValidationError, "Configuration must have either 'lines' or 'frames'" if raw[:lines].nil? && raw[:frames].nil?
+      if raw[:lines].nil? && raw[:frames].nil?
+        raise ValidationError,
+              "Configuration must have either 'lines' or 'frames'"
+      end
 
       validate_lines!(raw[:lines]) if raw.key?(:lines)
       validate_frames!(raw[:frames]) if raw.key?(:frames)
@@ -67,7 +71,8 @@ module Shellfie
     def validate_theme!(theme)
       return if ThemeRegistry.valid_theme?(theme)
 
-      raise ValidationError, "Invalid theme '#{theme}'\n  → Available themes: #{ThemeRegistry.available_themes.join(", ")}"
+      raise ValidationError,
+            "Invalid theme '#{theme}'\n  → Available themes: #{ThemeRegistry.available_themes.join(', ')}"
     end
 
     def validate_window_theme!(theme)
@@ -97,12 +102,12 @@ module Shellfie
         match = DidYouMean::SpellChecker.new(dictionary: allowed_keys.map(&:to_s)).correct(key.to_s).first
         "#{key} -> #{match}" if match
       end
-      hint = suggestions.empty? ? "" : " (did you mean #{suggestions.join(", ")}?)"
-      raise ValidationError, "Unknown #{context} key(s): #{unknown_keys.join(", ")}#{hint}"
+      hint = suggestions.empty? ? '' : " (did you mean #{suggestions.join(', ')}?)"
+      raise ValidationError, "Unknown #{context} key(s): #{unknown_keys.join(', ')}#{hint}"
     end
 
     def validate_lines!(lines)
-      raise ValidationError, "lines must be an array" unless lines.is_a?(Array)
+      raise ValidationError, 'lines must be an array' unless lines.is_a?(Array)
 
       lines.each_with_index do |line, index|
         raise ValidationError, "lines[#{index}] must be a mapping" unless line.is_a?(Hash)
@@ -111,12 +116,13 @@ module Shellfie
         if line.values_at(:prompt, :command, :output).all?(&:nil?)
           raise ValidationError, "lines[#{index}] must include at least one of prompt, command, or output"
         end
+
         validate_line_values!(line, index)
       end
     end
 
     def validate_frames!(frames)
-      raise ValidationError, "frames must be an array" unless frames.is_a?(Array)
+      raise ValidationError, 'frames must be an array' unless frames.is_a?(Array)
 
       frames.each_with_index do |frame, index|
         raise ValidationError, "frames[#{index}] must be a mapping" unless frame.is_a?(Hash)
@@ -146,15 +152,16 @@ module Shellfie
       if frame.key?(:screen) && (!frame[:screen].is_a?(Array) || !frame[:screen].all?(String))
         raise ValidationError, "frames[#{index}].screen must be an array of strings"
       end
+
       validate_string_value!(frame[:prompt_color], "frames[#{index}].prompt_color") if frame.key?(:prompt_color)
       validate_string_value!(frame[:command_color], "frames[#{index}].command_color") if frame.key?(:command_color)
       validate_string_value!(frame[:output_color], "frames[#{index}].output_color") if frame.key?(:output_color)
-      if frame.key?(:delay)
-        validate_non_negative_integer!(frame[:delay], "frames[#{index}].delay")
-        if frame[:delay] > MAX_FRAME_DELAY_MS
-          raise ValidationError, "frames[#{index}].delay must be at most #{MAX_FRAME_DELAY_MS}"
-        end
-      end
+      return unless frame.key?(:delay)
+
+      validate_non_negative_integer!(frame[:delay], "frames[#{index}].delay")
+      return unless frame[:delay] > MAX_FRAME_DELAY_MS
+
+      raise ValidationError, "frames[#{index}].delay must be at most #{MAX_FRAME_DELAY_MS}"
     end
 
     def validate_string_value!(value, name)
@@ -164,7 +171,7 @@ module Shellfie
     end
 
     def validate_boolean_value!(value, name)
-      return if value == true || value == false
+      return if [true, false].include?(value)
 
       raise ValidationError, "#{name} must be true or false"
     end

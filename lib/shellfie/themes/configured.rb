@@ -11,9 +11,7 @@ module Shellfie
         @font = font || {}
       end
 
-      def name
-        @name
-      end
+      attr_reader :name
 
       def window_decoration
         deep_merge(@base_theme.window_decoration, @window_decoration)
@@ -44,7 +42,7 @@ module Shellfie
       end
 
       def color_for(name)
-        return name if name.is_a?(String) && name.start_with?("#")
+        return name if name.is_a?(String) && name.start_with?('#')
 
         colors[name.to_sym] || colors[:foreground]
       end

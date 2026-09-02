@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "errors"
-require "yaml"
+require_relative 'errors'
+require 'yaml'
 
 module Shellfie
   module YamlSafety
@@ -30,16 +30,16 @@ module Shellfie
       error.class.new(path ? "#{path}: #{error.message}" : error.message)
     end
 
-    def read_file(path, max_bytes:, label: "Configuration")
+    def read_file(path, max_bytes:, label: 'Configuration')
       raise ParseError, "#{label} file not found: #{path}" unless File.file?(path)
 
-      content = File.open(path, "rb") { |file| file.read(max_bytes + 1) }
+      content = File.open(path, 'rb') { |file| file.read(max_bytes + 1) }
       raise ParseError, "#{label} file is too large: #{path} (max #{max_bytes} bytes)" if content.bytesize > max_bytes
 
       content
     end
 
-    def load_file(path, max_bytes:, label: "Configuration", symbolize_names: true)
+    def load_file(path, max_bytes:, label: 'Configuration', symbolize_names: true)
       value = YAML.safe_load(
         read_file(path, max_bytes: max_bytes, label: label), symbolize_names: symbolize_names, aliases: true
       )
@@ -56,13 +56,15 @@ module Shellfie
       until stack.empty?
         node, depth, leaving = stack.pop
         next unless node.is_a?(Hash) || node.is_a?(Array)
+
         if leaving
           active.delete(node.object_id)
           next
         end
 
-        raise ParseError, "YAML aliases must not contain cycles" if active[node.object_id]
+        raise ParseError, 'YAML aliases must not contain cycles' if active[node.object_id]
         raise ParseError, "YAML nesting is too deep (max #{MAX_DEPTH})" if depth > MAX_DEPTH
+
         nodes += 1
         raise ParseError, "YAML structure is too large (max #{MAX_NODES} collections)" if nodes > MAX_NODES
 
@@ -114,7 +116,7 @@ module Shellfie
 
     def validation_path(message)
       if (match = /Unknown (.+?) key\(s\):\s*([^,\s]+)/.match(message))
-        prefix = match[1] == "configuration" ? [] : parse_path(match[1])
+        prefix = match[1] == 'configuration' ? [] : parse_path(match[1])
         return prefix + [match[2].to_sym]
       end
 
@@ -122,9 +124,9 @@ module Shellfie
       return parse_path(explicit) if explicit
 
       {
-        "Session config version" => [:version], "mode must" => [:mode], "Invalid theme" => [:theme],
-        "redaction" => [:redact], "requires" => [:requires], "terminal.env" => %i[terminal env],
-        "title must" => [:title], "headless must" => [:headless]
+        'Session config version' => [:version], 'mode must' => [:mode], 'Invalid theme' => [:theme],
+        'redaction' => [:redact], 'requires' => [:requires], 'terminal.env' => %i[terminal env],
+        'title must' => [:title], 'headless must' => [:headless]
       }.each { |fragment, path| return path if message.include?(fragment) }
       nil
     end
@@ -134,11 +136,11 @@ module Shellfie
     end
 
     def format_path(path)
-      path.each_with_object(+"") do |part, result|
+      path.each_with_object(+'') do |part, result|
         if part.is_a?(Integer)
           result << "[#{part}]"
         else
-          result << "." unless result.empty?
+          result << '.' unless result.empty?
           result << part.to_s
         end
       end

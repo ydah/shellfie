@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require "yaml"
-require_relative "config"
-require_relative "errors"
-require_relative "parser_validation"
-require_relative "yaml_safety"
+require 'yaml'
+require_relative 'config'
+require_relative 'errors'
+require_relative 'parser_validation'
+require_relative 'yaml_safety'
 
 module Shellfie
   class Parser
@@ -17,7 +17,8 @@ module Shellfie
       include ParserValidation
 
       def parse(path)
-        return parse_string($stdin.read(MAX_INCLUDE_BYTES + 1), base_dir: Dir.pwd) if path == "-"
+        return parse_string($stdin.read(MAX_INCLUDE_BYTES + 1), base_dir: Dir.pwd) if path == '-'
+
         source_path = File.realpath(path)
         content = read_config(source_path)
         state = { files: 1, bytes: content.bytesize, cache: {}, sources: {} }
@@ -28,7 +29,10 @@ module Shellfie
       end
 
       def parse_string(content, base_dir: nil, include_stack: [], source_name: nil, include_state: nil)
-        raise ParseError, "Configuration is too large (max #{MAX_INCLUDE_BYTES} bytes)" if content.bytesize > MAX_INCLUDE_BYTES
+        if content.bytesize > MAX_INCLUDE_BYTES
+          raise ParseError,
+                "Configuration is too large (max #{MAX_INCLUDE_BYTES} bytes)"
+        end
 
         raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
         YamlSafety.validate_tree!(raw)
@@ -73,30 +77,33 @@ module Shellfie
         Config.new(options)
       end
 
-      def apply_includes(raw, base_dir, stack: [], root: base_dir, policy: nil, state:, depth: 0)
+      def apply_includes(raw, base_dir, state:, stack: [], root: base_dir, policy: nil, depth: 0)
         return raw unless raw.is_a?(Hash) && raw[:include]
         raise ParseError, "YAML include depth exceeds #{MAX_INCLUDE_DEPTH}" if depth >= MAX_INCLUDE_DEPTH
 
-        policy ||= raw[:include_policy] || "allow"
-        raise ParseError, "include_policy must be allow or root" unless %w[allow root].include?(policy)
+        policy ||= raw[:include_policy] || 'allow'
+        raise ParseError, 'include_policy must be allow or root' unless %w[allow root].include?(policy)
+
         includes = Array(raw[:include])
         included_config = includes.reduce({}) do |merged, include_path|
-          raise ParseError, "Included configuration path must be a string" unless include_path.is_a?(String)
+          raise ParseError, 'Included configuration path must be a string' unless include_path.is_a?(String)
 
           include_file = File.expand_path(include_path, base_dir)
           raise ParseError, "Included configuration file not found: #{include_path}" unless File.exist?(include_file)
 
           include_file = File.realpath(include_file)
-          if policy == "root" && include_file != root && !include_file.start_with?("#{root}#{File::SEPARATOR}")
+          if policy == 'root' && include_file != root && !include_file.start_with?("#{root}#{File::SEPARATOR}")
             raise ParseError, "Included configuration escapes the configuration root: #{include_path}"
           end
+
           if stack.include?(include_file)
-            chain = (stack + [include_file]).map { |path| File.basename(path) }.join(" -> ")
+            chain = (stack + [include_file]).map { |path| File.basename(path) }.join(' -> ')
             raise ParseError, "Circular YAML include: #{chain}"
           end
 
           state[:files] += 1
           raise ParseError, "Too many YAML includes (max #{MAX_INCLUDE_FILES})" if state[:files] > MAX_INCLUDE_FILES
+
           included_raw = state[:cache][include_file]
           unless included_raw
             included_content = read_config(include_file)
@@ -105,6 +112,7 @@ module Shellfie
             if state[:bytes] > MAX_TOTAL_INCLUDE_BYTES
               raise ParseError, "Included YAML is too large in total (max #{MAX_TOTAL_INCLUDE_BYTES} bytes)"
             end
+
             included_raw = YAML.safe_load(included_content, symbolize_names: true, aliases: true)
             YamlSafety.validate_tree!(included_raw)
             state[:cache][include_file] = included_raw
@@ -121,7 +129,7 @@ module Shellfie
           deep_merge(merged, included_raw || {})
         end
 
-        deep_merge(included_config, raw.reject { |key, _value| key == :include })
+        deep_merge(included_config, raw.except(:include))
       end
 
       def read_config(path)

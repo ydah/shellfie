@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "scroll_easing"
-require_relative "timeline"
-require_relative "../terminal/text_metrics"
+require_relative 'scroll_easing'
+require_relative 'timeline'
+require_relative '../terminal/text_metrics'
 
 module Shellfie
   class AnimationFrameBuilder
@@ -39,12 +39,12 @@ module Shellfie
 
     def cursor_text
       glyph = case @config.cursor[:style]
-              when "bar"
-                "|"
-              when "underline"
-                "_"
+              when 'bar'
+                '|'
+              when 'underline'
+                '_'
               else
-                "█"
+                '█'
               end
       color = @config.cursor[:color]
       return glyph unless color
@@ -55,16 +55,17 @@ module Shellfie
     private
 
     def command_frames(current_lines, frame)
-      prompt = frame.prompt || ""
+      prompt = frame.prompt || ''
       frames = build_typing_frames(current_lines.dup, frame)
-      current_lines << command_line(prompt, frame.type, prompt_color: frame.prompt_color, command_color: frame.command_color)
+      current_lines << command_line(prompt, frame.type, prompt_color: frame.prompt_color,
+                                                        command_color: frame.command_color)
       frames.concat(command_pause_frames(current_lines, frame))
       frames
     end
 
     def build_typing_frames(base_lines, frame)
       frames = []
-      prompt = frame.prompt || ""
+      prompt = frame.prompt || ''
       command = frame.type
       chars = TextMetrics.graphemes(command)
       chunk_size = @config.animation[:typing_chunk_size]
@@ -84,7 +85,7 @@ module Shellfie
     def typing_frame(base_lines, frame, typed)
       lines = base_lines.dup
       lines << command_line(
-        frame.prompt || "",
+        frame.prompt || '',
         typed,
         cursor: true,
         prompt_color: frame.prompt_color,
@@ -117,7 +118,7 @@ module Shellfie
       output_delay = @config.animation[:output_delay]
 
       if output_delay.positive?
-        frames = output_lines.each_with_index.each_with_object([]) do |(line, index), result|
+        frames = output_lines.each_with_index.with_object([]) do |(line, index), result|
           previous_count = current_lines.size
           current_lines << { output: line, output_color: frame.output_color }
           delay = @scroll_easing.output_delay(output_delay, index, output_lines.size)
@@ -151,13 +152,17 @@ module Shellfie
           command_color: line.command_color
         )
       end
-      data.concat(line.output.to_s.split("\n", -1).map { |output| { output: output, output_color: line.output_color } }) if line.output
+      if line.output
+        data.concat(line.output.to_s.split("\n", -1).map do |output|
+          { output: output, output_color: line.output_color }
+        end)
+      end
       data
     end
 
     def cursor_command_line(frame)
       command_line(
-        frame.prompt || "",
+        frame.prompt || '',
         frame.type,
         cursor: true,
         prompt_color: frame.prompt_color,
@@ -184,7 +189,7 @@ module Shellfie
     end
 
     def ansi_color(color)
-      return "" unless color.to_s.match?(/\A#[0-9a-fA-F]{6}\z/)
+      return '' unless color.to_s.match?(/\A#[0-9a-fA-F]{6}\z/)
 
       r = color[1, 2].to_i(16)
       g = color[3, 2].to_i(16)

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative "image_magick_command_builder"
-require_relative "../terminal/text_metrics"
+require_relative 'image_magick_command_builder'
+require_relative '../terminal/text_metrics'
 
 module Shellfie
   module Rendering
@@ -11,7 +11,7 @@ module Shellfie
         draw_selected_backgrounds(convert, geometry, content_y)
 
         geometry[:lines].each_with_index do |line, index|
-          top = content_y + index * geometry[:scaled_line_height]
+          top = content_y + (index * geometry[:scaled_line_height])
           baseline = top + geometry[:scaled_font_size]
           x = geometry[:margin] + geometry[:scaled_padding]
 
@@ -31,7 +31,8 @@ module Shellfie
           text = segment.text.to_s
           next if text.empty?
 
-          width = TextMetrics.pixel_width(text, geometry[:scaled_font_size], ambiguous_width: geometry[:ambiguous_width])
+          width = TextMetrics.pixel_width(text, geometry[:scaled_font_size],
+                                          ambiguous_width: geometry[:ambiguous_width])
           top = baseline - geometry[:scaled_font_size]
           foreground, background = segment_colors(segment)
           result << {
@@ -91,23 +92,21 @@ module Shellfie
         foreground = segment.foreground ? theme.color_for(segment.foreground) : theme.colors[:foreground]
         background = segment.background ? theme.color_for(segment.background) : nil
 
-        if segment.reverse
-          foreground, background = background || theme.colors[:background], foreground
-        end
+        foreground, background = background || theme.colors[:background], foreground if segment.reverse
 
         foreground = color_with_opacity(foreground, 0.6, true) if segment.dim
         [foreground, background]
       end
 
       def draw_text(convert, text, x, y, color, font_size, font_config, bold: false, italic: false)
-        convert.gravity "NorthWest"
+        convert.gravity 'NorthWest'
         convert.fill color
-        convert.stroke "none"
+        convert.stroke 'none'
         font = font_resolver.resolve(font_config, italic: italic)
         convert.font font if font
         convert.pointsize font_size
         convert.weight(bold ? 700 : 400)
-        convert.style(italic ? "Italic" : "Normal")
+        convert.style(italic ? 'Italic' : 'Normal')
         convert.annotate "+#{x}+#{y}", escape_text(text)
       end
 
@@ -125,7 +124,10 @@ module Shellfie
         if segment.underline
           y = baseline + (geometry[:scaled_font_size] * 0.12).ceil
           ImageMagickCommandBuilder.line(convert, x, y, x + width, y)
-          ImageMagickCommandBuilder.line(convert, x, y + line_width * 2, x + width, y + line_width * 2) if segment.underline_style == :double
+          if segment.underline_style == :double
+            ImageMagickCommandBuilder.line(convert, x, y + (line_width * 2), x + width,
+                                           y + (line_width * 2))
+          end
         end
         if segment.strikethrough
           y = baseline - (geometry[:scaled_font_size] * 0.35).ceil
@@ -136,20 +138,20 @@ module Shellfie
           ImageMagickCommandBuilder.line(convert, x, y, x + width, y)
         end
 
-        convert.stroke "none"
-        convert.stroke_dasharray "none" if %i[dotted dashed].include?(segment.underline_style)
+        convert.stroke 'none'
+        convert.stroke_dasharray 'none' if %i[dotted dashed].include?(segment.underline_style)
       end
 
       def draw_selected_backgrounds(convert, geometry, content_y)
-        rectangles = geometry[:lines].each_with_index.each_with_object([]) do |(line, index), result|
+        rectangles = geometry[:lines].each_with_index.with_object([]) do |(line, index), result|
           next unless line[:selected]
 
           x = geometry[:margin] + geometry[:scaled_padding]
-          top = content_y + index * geometry[:scaled_line_height]
+          top = content_y + (index * geometry[:scaled_line_height])
           result << {
             x1: x,
             y1: top,
-            x2: x + geometry[:scaled_width] - geometry[:scaled_padding] * 2,
+            x2: x + geometry[:scaled_width] - (geometry[:scaled_padding] * 2),
             y2: top + geometry[:scaled_line_height]
           }
         end
@@ -165,8 +167,9 @@ module Shellfie
       end
 
       def fit_text(text, max_width, font_size)
-        return "" if max_width <= 0
-        return text if TextMetrics.pixel_width(text, font_size, ambiguous_width: config.window[:ambiguous_width]) <= max_width
+        return '' if max_width <= 0
+        return text if TextMetrics.pixel_width(text, font_size,
+                                               ambiguous_width: config.window[:ambiguous_width]) <= max_width
 
         max_cells = [(max_width / (font_size * 0.6)).floor - 3, 0].max
         "#{TextMetrics.take_cells(text, max_cells, ambiguous_width: config.window[:ambiguous_width])}..."
@@ -187,8 +190,8 @@ module Shellfie
 
       def escape_text(text)
         text.to_s
-          .encode("UTF-8", invalid: :replace, undef: :replace, replace: "?")
-          .gsub(/[\u0000-\u001f\u007f]/, " ")
+            .encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
+            .gsub(/[\u0000-\u001f\u007f]/, ' ')
       end
     end
   end

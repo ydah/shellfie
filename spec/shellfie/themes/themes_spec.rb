@@ -1,33 +1,33 @@
 # frozen_string_literal: true
 
-require "spec_helper"
+require 'spec_helper'
 
 RSpec.describe Shellfie::Themes do
   describe Shellfie::Themes::Base do
     subject(:theme) { described_class.new }
 
-    it "provides window decoration settings" do
+    it 'provides window decoration settings' do
       decoration = theme.window_decoration
 
       expect(decoration[:title_bar_height]).to eq(28)
       expect(decoration[:corner_radius]).to eq(10)
     end
 
-    it "provides color palette" do
+    it 'provides color palette' do
       colors = theme.colors
 
-      expect(colors[:background]).to eq("#1e1e1e")
-      expect(colors[:foreground]).to eq("#ffffff")
-      expect(colors[:red]).to eq("#ff5555")
+      expect(colors[:background]).to eq('#1e1e1e')
+      expect(colors[:foreground]).to eq('#ffffff')
+      expect(colors[:red]).to eq('#ff5555')
     end
 
-    it "provides button colors" do
+    it 'provides button colors' do
       expect(theme.button_colors).to eq(%w[#ff5f56 #ffbd2e #27c93f])
     end
 
-    it "resolves color names" do
-      expect(theme.color_for(:red)).to eq("#ff5555")
-      expect(theme.color_for("#custom")).to eq("#custom")
+    it 'resolves color names' do
+      expect(theme.color_for(:red)).to eq('#ff5555')
+      expect(theme.color_for('#custom')).to eq('#custom')
     end
   end
 
@@ -35,14 +35,14 @@ RSpec.describe Shellfie::Themes do
     subject(:theme) { described_class.new }
 
     it "has name 'macos'" do
-      expect(theme.name).to eq("macos")
+      expect(theme.name).to eq('macos')
     end
 
-    it "has buttons on the left" do
+    it 'has buttons on the left' do
       expect(theme.buttons_position).to eq(:left)
     end
 
-    it "uses circle button style" do
+    it 'uses circle button style' do
       expect(theme.button_style).to eq(:circles)
     end
   end
@@ -51,15 +51,15 @@ RSpec.describe Shellfie::Themes do
     subject(:theme) { described_class.new }
 
     it "has name 'ubuntu'" do
-      expect(theme.name).to eq("ubuntu")
+      expect(theme.name).to eq('ubuntu')
     end
 
-    it "has buttons on the right" do
+    it 'has buttons on the right' do
       expect(theme.buttons_position).to eq(:right)
     end
 
-    it "has Ubuntu-specific colors" do
-      expect(theme.colors[:background]).to eq("#300a24")
+    it 'has Ubuntu-specific colors' do
+      expect(theme.colors[:background]).to eq('#300a24')
     end
   end
 
@@ -67,47 +67,47 @@ RSpec.describe Shellfie::Themes do
     subject(:theme) { described_class.new }
 
     it "has name 'windows'" do
-      expect(theme.name).to eq("windows")
+      expect(theme.name).to eq('windows')
     end
 
-    it "has zero corner radius" do
+    it 'has zero corner radius' do
       expect(theme.window_decoration[:corner_radius]).to eq(0)
     end
 
-    it "uses icon button style" do
+    it 'uses icon button style' do
       expect(theme.button_style).to eq(:icons)
     end
 
-    it "left-aligns titles" do
+    it 'left-aligns titles' do
       expect(theme.title_alignment).to eq(:left)
     end
   end
 
   describe Shellfie::ThemeRegistry do
-    it "lists registered themes and color schemes" do
-      expect(described_class.available_themes).to include("macos", "ubuntu", "windows", "custom")
-      expect(described_class.available_color_schemes).to include("dracula")
+    it 'lists registered themes and color schemes' do
+      expect(described_class.available_themes).to include('macos', 'ubuntu', 'windows', 'custom')
+      expect(described_class.available_color_schemes).to include('dracula')
     end
 
-    it "builds custom themes from config overrides" do
+    it 'builds custom themes from config overrides' do
       config = Shellfie::Config.new(
-        theme: "custom",
-        window_theme: "windows",
-        color_scheme: "dracula",
-        colors: { background: "#111111" },
+        theme: 'custom',
+        window_theme: 'windows',
+        color_scheme: 'dracula',
+        colors: { background: '#111111' },
         window_decoration: { corner_radius: 4 }
       )
       theme = described_class.build(config)
 
       expect(theme.button_style).to eq(:icons)
-      expect(theme.colors[:background]).to eq("#111111")
+      expect(theme.colors[:background]).to eq('#111111')
       expect(theme.window_decoration[:corner_radius]).to eq(4)
       expect(theme).to be_frozen
       expect(theme.colors).to be_frozen
     end
 
-    it "builds a headless theme snapshot" do
-      config = Shellfie::Config.new(headless: true, lines: [Shellfie::Line.new(output: "test")])
+    it 'builds a headless theme snapshot' do
+      config = Shellfie::Config.new(headless: true, lines: [Shellfie::Line.new(output: 'test')])
       theme = described_class.build(config)
 
       expect(theme.window_decoration[:title_bar_height]).to eq(0)
@@ -117,11 +117,11 @@ RSpec.describe Shellfie::Themes do
   end
 
   describe Shellfie::HeadlessThemeRegistry do
-    it "provides an independent headless variant registry" do
-      base = Shellfie::ThemeRegistry.build(Shellfie::Config.new(lines: [Shellfie::Line.new(output: "test")]))
+    it 'provides an independent headless variant registry' do
+      base = Shellfie::ThemeRegistry.build(Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'test')]))
       headless = described_class.build(base)
 
-      expect(described_class.available_variants).to include("plain")
+      expect(described_class.available_variants).to include('plain')
       expect(headless.window_decoration[:title_bar_height]).to eq(0)
       expect(headless.button_colors).to eq([])
       expect(headless).to be_frozen

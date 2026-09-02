@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "cgi/escape"
-require_relative "svg_renderer"
+require 'cgi/escape'
+require_relative 'svg_renderer'
 
 module Shellfie
   class HtmlRenderer
@@ -11,7 +11,7 @@ module Shellfie
     end
 
     def render(geometry, output_path, transparent: false)
-      svg = @svg_renderer.to_svg(geometry, transparent: transparent).sub(/\A<\?xml[^>]+>\s*/, "")
+      svg = @svg_renderer.to_svg(geometry, transparent: transparent).sub(/\A<\?xml[^>]+>\s*/, '')
       transcript = geometry[:lines].map { |line| line[:segments].map(&:text).join }.join("\n")
       File.write(output_path, <<~HTML)
         <!doctype html>

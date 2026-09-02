@@ -7,7 +7,7 @@ module Shellfie
     end
 
     def output_delay(base_delay, index, total)
-      return base_delay if total <= 1 || easing == "linear"
+      return base_delay if total <= 1 || easing == 'linear'
 
       progress = index.to_f / (total - 1)
       [(base_delay * delay_factor(progress)).round, 1].max
@@ -50,12 +50,12 @@ module Shellfie
 
     def delay_factor(progress)
       case easing
-      when "ease_in"
-        0.75 + progress * 0.5
-      when "ease_out"
-        1.25 - progress * 0.5
-      when "ease_in_out"
-        0.75 + (0.5 - (progress - 0.5).abs) * 1.0
+      when 'ease_in'
+        0.75 + (progress * 0.5)
+      when 'ease_out'
+        1.25 - (progress * 0.5)
+      when 'ease_in_out'
+        0.75 + ((0.5 - (progress - 0.5).abs) * 1.0)
       else
         1.0
       end
@@ -63,12 +63,12 @@ module Shellfie
 
     def scroll_progress(progress)
       case easing
-      when "ease_in"
+      when 'ease_in'
         progress**2
-      when "ease_out"
+      when 'ease_out'
         1.0 - ((1.0 - progress)**2)
-      when "ease_in_out"
-        0.5 - Math.cos(progress * Math::PI) / 2.0
+      when 'ease_in_out'
+        0.5 - (Math.cos(progress * Math::PI) / 2.0)
       else
         progress
       end

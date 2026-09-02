@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require "strscan"
-require "uri"
-require_relative "ansi_colors"
-require_relative "ansi_normalizer"
-require_relative "../errors"
+require 'strscan'
+require 'uri'
+require_relative 'ansi_colors'
+require_relative 'ansi_normalizer'
+require_relative '../errors'
 
 module Shellfie
   Segment = Struct.new(
@@ -34,13 +34,13 @@ module Shellfie
     MAX_OSC_BYTES = MAX_LINK_BYTES + 64
     LINK_SCHEMES = %w[http https mailto].freeze
 
-    def initialize(state_mode: :persistent, tab_width: 8, osc_policy: "ignore", graphics_policy: "ignore")
+    def initialize(state_mode: :persistent, tab_width: 8, osc_policy: 'ignore', graphics_policy: 'ignore')
       @state_mode = state_mode.to_sym
       @tab_width = tab_width
       @osc_policy = osc_policy.to_s
       @graphics_policy = graphics_policy.to_s
       @link = nil
-      @pending_osc = +""
+      @pending_osc = +''
       reset_state
     end
 
@@ -55,19 +55,19 @@ module Shellfie
       input, @pending_osc = split_incomplete_osc(input)
       segments = []
       scanner = StringScanner.new(AnsiNormalizer.normalize(input, tab_width: @tab_width, osc_policy: @osc_policy))
-      current_text = +""
+      current_text = +''
 
       until scanner.eos?
         if scanner.scan(OSC_REGEX)
           unless current_text.empty?
             segments << create_segment(current_text)
-            current_text = +""
+            current_text = +''
           end
           process_osc(scanner[1])
         elsif scanner.scan(ANSI_REGEX)
           unless current_text.empty?
             segments << create_segment(current_text)
-            current_text = +""
+            current_text = +''
           end
           process_codes(scanner[1])
         else
@@ -82,9 +82,9 @@ module Shellfie
     private
 
     def reject_terminal_graphics!(text)
-      return unless @graphics_policy == "error" && text.match?(AnsiNormalizer::GRAPHICS_CONTROL_PREFIX)
+      return unless @graphics_policy == 'error' && text.match?(AnsiNormalizer::GRAPHICS_CONTROL_PREFIX)
 
-      raise ValidationError, "Terminal graphics are not supported; use window.graphics_policy: ignore to discard them"
+      raise ValidationError, 'Terminal graphics are not supported; use window.graphics_policy: ignore to discard them'
     end
 
     def reset_state
@@ -205,14 +205,16 @@ module Shellfie
     end
 
     def sgr_codes(value)
-      value.split(";").flat_map do |field|
-        parts = field.split(":", -1)
+      value.split(';').flat_map do |field|
+        parts = field.split(':', -1)
         next(field.empty? ? 0 : field.to_i) if parts.size == 1
 
         code, mode = parts.values_at(0, 1).map(&:to_i)
         if code == 4 && parts.size == 2 && parts.last.match?(/\A[0-5]\z/)
           [[:underline_style, parts.last.to_i]]
-        elsif [38, 48, 58].include?(code) && mode == 2 && [5, 6].include?(parts.size) && parts.last(3).all? { |item| item.match?(/\A\d+\z/) }
+        elsif [38, 48, 58].include?(code) && mode == 2 && [5, 6].include?(parts.size) && parts.last(3).all? do |item|
+          item.match?(/\A\d+\z/)
+        end
           [code, mode, *parts.last(3).map(&:to_i)]
         elsif [38, 48, 58].include?(code) && mode == 5 && parts.size == 3 && parts.last.match?(/\A\d+\z/)
           [code, mode, parts.last.to_i]
@@ -223,9 +225,9 @@ module Shellfie
     end
 
     def process_osc(value)
-      return unless value.to_s.start_with?("8;")
+      return unless value.to_s.start_with?('8;')
 
-      uri = value.to_s.split(";", 3)[2].to_s
+      uri = value.to_s.split(';', 3)[2].to_s
       @link = uri.empty? ? nil : safe_link(uri)
     end
 
@@ -240,14 +242,13 @@ module Shellfie
 
     def split_incomplete_osc(value)
       start = value.rindex("\e]")
-      return [value, +""] unless start
+      return [value, +''] unless start
 
       tail = value[start..]
-      return [value, +""] if tail.match?(OSC_REGEX)
+      return [value, +''] if tail.match?(OSC_REGEX)
       return [value[0...start], tail] if tail.bytesize <= MAX_OSC_BYTES
 
-      [value[0...start], +""]
+      [value[0...start], +'']
     end
-
   end
 end

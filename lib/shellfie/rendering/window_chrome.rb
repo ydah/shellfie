@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "shape_helpers"
-require_relative "image_magick_command_builder"
-require_relative "../terminal/text_metrics"
+require_relative 'shape_helpers'
+require_relative 'image_magick_command_builder'
+require_relative '../terminal/text_metrics'
 
 module Shellfie
   module Rendering
@@ -79,15 +79,16 @@ module Shellfie
 
         convert.stroke color
         convert.strokewidth 1
-        ImageMagickCommandBuilder.line(convert, geometry[:margin], y, geometry[:margin] + geometry[:scaled_width] - 1, y)
-        convert.stroke "none"
+        ImageMagickCommandBuilder.line(convert, geometry[:margin], y, geometry[:margin] + geometry[:scaled_width] - 1,
+                                       y)
+        convert.stroke 'none'
       end
 
       def draw_border(convert, geometry)
         color = theme.colors[:border]
         return unless color
 
-        convert.fill "none"
+        convert.fill 'none'
         convert.stroke color
         convert.strokewidth [geometry[:scale].to_i, 1].max
         draw_roundrect(
@@ -98,7 +99,7 @@ module Shellfie
           geometry[:margin] + geometry[:scaled_height] - 1,
           geometry[:scaled_radius]
         )
-        convert.stroke "none"
+        convert.stroke 'none'
       end
 
       def draw_buttons(convert, geometry)
@@ -109,47 +110,47 @@ module Shellfie
 
         centers.each_with_index do |(x, y), index|
           convert.fill theme.button_colors[index]
-          convert.stroke "rgba(0,0,0,0.18)"
+          convert.stroke 'rgba(0,0,0,0.18)'
           convert.strokewidth [geometry[:scale].to_i, 1].max
           ImageMagickCommandBuilder.circle(convert, x, y, button_radius)
         end
-        convert.stroke "none"
+        convert.stroke 'none'
       end
 
       def circle_button_centers(geometry)
         scale = geometry[:scale]
         size = (theme.window_decoration[:button_size] * scale).to_i
         spacing = ((theme.window_decoration[:button_spacing] + theme.window_decoration[:button_size]) * scale).to_i
-        y = geometry[:margin] + geometry[:scaled_title_bar] / 2
+        y = geometry[:margin] + (geometry[:scaled_title_bar] / 2)
 
         start_x = if theme.buttons_position == :left
                     geometry[:margin] + (16 * scale).to_i
                   else
-                    group_width = size * 3 + (theme.window_decoration[:button_spacing] * scale).to_i * 2
-                    geometry[:margin] + geometry[:scaled_width] - (16 * scale).to_i - group_width + size / 2
+                    group_width = (size * 3) + ((theme.window_decoration[:button_spacing] * scale).to_i * 2)
+                    geometry[:margin] + geometry[:scaled_width] - (16 * scale).to_i - group_width + (size / 2)
                   end
 
-        3.times.map { |index| [start_x + index * spacing, y] }
+        Array.new(3) { |index| [start_x + (index * spacing), y] }
       end
 
       def draw_windows_buttons(convert, geometry)
         scale = geometry[:scale]
         button_width = ((theme.window_decoration[:button_width] || 46) * scale).to_i
         icon_size = (10 * scale).to_i
-        start_x = geometry[:margin] + geometry[:scaled_width] - button_width * 3
-        center_y = geometry[:margin] + geometry[:scaled_title_bar] / 2
+        start_x = geometry[:margin] + geometry[:scaled_width] - (button_width * 3)
+        center_y = geometry[:margin] + (geometry[:scaled_title_bar] / 2)
         color = theme.colors[:title_text]
 
         convert.stroke color
         convert.strokewidth [scale.to_i, 1].max
-        convert.fill "none"
+        convert.fill 'none'
 
         3.times do |index|
-          center_x = start_x + button_width * index + button_width / 2
+          center_x = start_x + (button_width * index) + (button_width / 2)
           draw_windows_icon(convert, index, center_x, center_y, icon_size)
         end
 
-        convert.stroke "none"
+        convert.stroke 'none'
       end
 
       def draw_title(convert, geometry)
@@ -162,11 +163,12 @@ module Shellfie
         title_width = TextMetrics.pixel_width(title, scaled_font_size, ambiguous_width: config.window[:ambiguous_width])
         min_x = geometry[:margin] + reserve_left
         max_x = geometry[:margin] + geometry[:scaled_width] - reserve_right - title_width
-        centered_x = geometry[:margin] + (geometry[:scaled_width] - title_width) / 2
+        centered_x = geometry[:margin] + ((geometry[:scaled_width] - title_width) / 2)
         x = title_x(min_x, max_x, centered_x)
-        y = geometry[:margin] + geometry[:scaled_title_bar] / 2 + (scaled_font_size * 0.6).round
+        y = geometry[:margin] + (geometry[:scaled_title_bar] / 2) + (scaled_font_size * 0.6).round
 
-        draw_text(convert, title, x, y - scaled_font_size, theme.colors[:title_text], scaled_font_size, geometry[:font_config])
+        draw_text(convert, title, x, y - scaled_font_size, theme.colors[:title_text], scaled_font_size,
+                  geometry[:font_config])
       end
 
       def title_x(min_x, max_x, centered_x)
@@ -187,10 +189,9 @@ module Shellfie
         else
           size = theme.window_decoration[:button_size]
           spacing = theme.window_decoration[:button_spacing]
-          ((size * 3 + spacing * 2) * scale).to_i
+          (((size * 3) + (spacing * 2)) * scale).to_i
         end
       end
-
     end
   end
 end

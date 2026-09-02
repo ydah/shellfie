@@ -2,4 +2,4 @@
 # frozen_string_literal: true
 
 # shf - Short alias for shellfie
-load File.expand_path("shellfie", __dir__)
+load File.expand_path('shellfie', __dir__)

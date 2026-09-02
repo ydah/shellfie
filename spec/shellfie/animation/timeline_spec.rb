@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-require "spec_helper"
-require "shellfie/animation/timeline"
+require 'spec_helper'
+require 'shellfie/animation/timeline'
 
 RSpec.describe Shellfie::AnimationTimeline do
-  describe "#each" do
-    it "emits command, output, and pause events in frame order" do
+  describe '#each' do
+    it 'emits command, output, and pause events in frame order' do
       config = Shellfie::Config.new(
         frames: [
-          Shellfie::Frame.new(prompt: "$ ", type: "echo ok"),
-          Shellfie::Frame.new(output: "ok"),
+          Shellfie::Frame.new(prompt: '$ ', type: 'echo ok'),
+          Shellfie::Frame.new(output: 'ok'),
           Shellfie::Frame.new(delay: 250)
         ]
       )

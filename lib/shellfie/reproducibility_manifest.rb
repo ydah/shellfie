@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "digest"
-require "json"
-require "rbconfig"
+require 'digest'
+require 'json'
+require 'rbconfig'
 
 module Shellfie
   class ReproducibilityManifest
@@ -15,7 +15,7 @@ module Shellfie
         output_sha256: output_digest(output_path),
         format: format,
         ruby: RUBY_DESCRIPTION,
-        platform: RbConfig::CONFIG["host_os"],
+        platform: RbConfig::CONFIG['host_os'],
         unicode: {
           version: TextMetrics::UNICODE_VERSION,
           width_table: TextMetrics::WIDTH_TABLE_VERSION,
@@ -32,7 +32,7 @@ module Shellfie
       return unless File.directory?(path)
 
       digest = Digest::SHA256.new
-      Dir.glob(File.join(path, "**", "*"), File::FNM_DOTMATCH).select { |entry| File.file?(entry) }.sort.each do |entry|
+      Dir.glob(File.join(path, '**', '*'), File::FNM_DOTMATCH).select { |entry| File.file?(entry) }.sort.each do |entry|
         digest << entry.delete_prefix("#{path}#{File::SEPARATOR}") << "\0" << Digest::SHA256.file(entry).digest
       end
       digest.hexdigest

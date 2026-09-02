@@ -30,7 +30,9 @@ module Shellfie
     end
 
     def self.copy(segment, text)
-      new(**ATTRIBUTES.each_with_object(text: text.dup) { |attribute, values| values[attribute] = segment.public_send(attribute) })
+      new(**ATTRIBUTES.each_with_object(text: text.dup) do |attribute, values|
+        values[attribute] = segment.public_send(attribute)
+      end)
     end
 
     def self.coalesce(segments)

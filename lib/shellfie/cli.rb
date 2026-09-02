@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
-require "optparse"
-require_relative "../shellfie"
+require 'optparse'
+require_relative '../shellfie'
 
 module Shellfie
   class CLI
   end
 end
 
-require_relative "cli/generate"
-require_relative "cli/info"
-require_relative "cli/run"
-require_relative "cli/authoring"
-require_relative "dependency_checker"
-require_relative "rendering/transcript_renderer"
+require_relative 'cli/generate'
+require_relative 'cli/info'
+require_relative 'cli/run'
+require_relative 'cli/authoring'
+require_relative 'dependency_checker'
+require_relative 'rendering/transcript_renderer'
 
 module Shellfie
   class CLI
@@ -22,7 +22,8 @@ module Shellfie
     include Run
     include Authoring
 
-    COMMANDS = %w[generate run record replay new format compile schema completion watch init themes validate inspect doctor version help].freeze
+    COMMANDS = %w[generate run record replay new format compile schema completion watch init themes validate inspect
+                  doctor version help].freeze
 
     def initialize(args)
       @args = args.dup
@@ -35,39 +36,39 @@ module Shellfie
       command = @args.shift
 
       case command
-      when "generate", "g"
+      when 'generate', 'g'
         run_generate
-      when "init"
+      when 'init'
         run_init
-      when "run"
+      when 'run'
         run_session
-      when "record"
+      when 'record'
         run_session(record: true)
-      when "replay"
+      when 'replay'
         replay_session
-      when "new"
+      when 'new'
         run_new
-      when "format"
+      when 'format'
         run_format
-      when "compile"
+      when 'compile'
         run_compile
-      when "schema"
+      when 'schema'
         run_schema
-      when "completion"
+      when 'completion'
         run_completion
-      when "watch"
+      when 'watch'
         run_watch
-      when "themes"
+      when 'themes'
         run_themes
-      when "validate"
+      when 'validate'
         run_validate
-      when "inspect"
+      when 'inspect'
         run_inspect
-      when "doctor"
+      when 'doctor'
         run_doctor
-      when "version", "-v", "--version"
+      when 'version', '-v', '--version'
         run_version
-      when "help", "-h", "--help"
+      when 'help', '-h', '--help'
         show_help
       else
         warn_error "Unknown command: #{command}"
@@ -75,7 +76,7 @@ module Shellfie
         exit 1
       end
     rescue Shellfie::Error => e
-      if @options[:validation_format] && @options[:validation_format] != "text"
+      if @options[:validation_format] && @options[:validation_format] != 'text'
         emit_validation_report(valid: false, error: e)
       else
         warn_error "Error: #{e.message}"
@@ -114,8 +115,8 @@ module Shellfie
 
     def replaceable_png_sequence_directory?(path)
       entries = Dir.children(path)
-      entries.empty? || (entries.include?("timeline.json") &&
-        entries.all? { |entry| entry == "timeline.json" || entry.match?(/\Aframe_\d{4}\.png\z/) })
+      entries.empty? || (entries.include?('timeline.json') &&
+        entries.all? { |entry| entry == 'timeline.json' || entry.match?(/\Aframe_\d{4}\.png\z/) })
     end
 
     def path_within?(path, directory)
@@ -123,7 +124,7 @@ module Shellfie
     end
 
     def warn_error(message)
-      $stderr.puts message
+      warn message
     end
 
     def determine_exit_code(error)

@@ -1,25 +1,25 @@
 # frozen_string_literal: true
 
-require "spec_helper"
-require "tmpdir"
+require 'spec_helper'
+require 'tmpdir'
 
 RSpec.describe Shellfie::Renderer do
-  describe "line preparation" do
-    it "preserves trailing output lines" do
+  describe 'line preparation' do
+    it 'preserves trailing output lines' do
       config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "one\n")])
       renderer = described_class.new(config)
 
       lines = renderer.send(:build_lines)
 
       expect(lines.size).to eq(2)
-      expect(lines.first[:segments].first.text).to eq("one")
+      expect(lines.first[:segments].first.text).to eq('one')
       expect(lines.last[:segments]).to be_empty
     end
 
-    it "applies semantic prompt and command colors" do
+    it 'applies semantic prompt and command colors' do
       config = Shellfie::Config.new(
         lines: [
-          Shellfie::Line.new(prompt: "$ ", command: "echo test", prompt_color: :green, command_color: "#ff00ff")
+          Shellfie::Line.new(prompt: '$ ', command: 'echo test', prompt_color: :green, command_color: '#ff00ff')
         ]
       )
       renderer = described_class.new(config)
@@ -27,14 +27,14 @@ RSpec.describe Shellfie::Renderer do
       segments = renderer.send(:build_lines).first[:segments]
 
       expect(segments[0].foreground).to eq(:green)
-      expect(segments[1].foreground).to eq("#ff00ff")
+      expect(segments[1].foreground).to eq('#ff00ff')
     end
 
-    it "wraps long lines when configured" do
+    it 'wraps long lines when configured' do
       config = Shellfie::Config.new(
-        window: { width: 140, padding: 0, overflow: "wrap" },
+        window: { width: 140, padding: 0, overflow: 'wrap' },
         font: { size: 20 },
-        lines: [Shellfie::Line.new(output: "abcdefghijklmnopqrstuvwxyz")]
+        lines: [Shellfie::Line.new(output: 'abcdefghijklmnopqrstuvwxyz')]
       )
       renderer = described_class.new(config)
 
@@ -43,11 +43,11 @@ RSpec.describe Shellfie::Renderer do
       expect(geometry[:lines].size).to be > 1
     end
 
-    it "clips long lines by default" do
+    it 'clips long lines by default' do
       config = Shellfie::Config.new(
         window: { width: 140, padding: 0 },
         font: { size: 20 },
-        lines: [Shellfie::Line.new(output: "abcdefghijklmnopqrstuvwxyz")]
+        lines: [Shellfie::Line.new(output: 'abcdefghijklmnopqrstuvwxyz')]
       )
       renderer = described_class.new(config)
 
@@ -57,10 +57,10 @@ RSpec.describe Shellfie::Renderer do
       expect(text.length).to be < 26
     end
 
-    it "uses no implicit margin for exact-size output" do
+    it 'uses no implicit margin for exact-size output' do
       config = Shellfie::Config.new(
         window: { exact_size: true },
-        lines: [Shellfie::Line.new(output: "test")]
+        lines: [Shellfie::Line.new(output: 'test')]
       )
       renderer = described_class.new(config)
 
@@ -70,17 +70,17 @@ RSpec.describe Shellfie::Renderer do
       expect(geometry[:canvas_width]).to eq(config.window[:width])
     end
 
-    it "honors an exact configured canvas height" do
+    it 'honors an exact configured canvas height' do
       config = Shellfie::Config.new(
         window: { width: 1200, height: 630, exact_size: true },
-        lines: [Shellfie::Line.new(output: "OGP")]
+        lines: [Shellfie::Line.new(output: 'OGP')]
       )
 
       expect(described_class.new(config).estimate).to include(canvas_width: 1200, canvas_height: 630)
     end
 
-    it "returns logical dimensions separately from scaled canvas size" do
-      config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "test")])
+    it 'returns logical dimensions separately from scaled canvas size' do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'test')])
       renderer = described_class.new(config)
 
       estimate = renderer.estimate(scale: 2, shadow: false)
@@ -90,18 +90,18 @@ RSpec.describe Shellfie::Renderer do
       expect(estimate[:canvas_width]).to be > estimate[:logical_width]
     end
 
-    it "coalesces adjacent render-ready segments with matching style" do
-      config = Shellfie::Config.new(lines: [Shellfie::Line.new(prompt: "$ ", command: "echo")])
+    it 'coalesces adjacent render-ready segments with matching style' do
+      config = Shellfie::Config.new(lines: [Shellfie::Line.new(prompt: '$ ', command: 'echo')])
       renderer = described_class.new(config)
 
       segments = renderer.send(:build_lines).first[:segments]
 
       expect(segments.size).to eq(1)
-      expect(segments.first.text).to eq("$ echo")
+      expect(segments.first.text).to eq('$ echo')
       expect(segments.first).to be_a(Shellfie::RenderSegment)
     end
 
-    it "keeps a hidden scroll buffer line without growing the canvas" do
+    it 'keeps a hidden scroll buffer line without growing the canvas' do
       lines = %w[one two three].map { |line| Shellfie::Line.new(output: line) }
       config = Shellfie::Config.new(window: { visible_lines: 2, scroll_offset: 0.5 }, lines: lines)
       renderer = described_class.new(config)
@@ -116,7 +116,7 @@ RSpec.describe Shellfie::Renderer do
       expect(geometry[:scroll_offset]).to eq(0.5)
     end
 
-    it "sanitizes ImageMagick text safely" do
+    it 'sanitizes ImageMagick text safely' do
       renderer = described_class.new(Shellfie::Config.new)
 
       escaped = renderer.send(:escape_text, "it's\\ok\nnow")
@@ -125,15 +125,15 @@ RSpec.describe Shellfie::Renderer do
     end
   end
 
-  describe "rendering", :integration do
-    it "renders a PNG file" do
-      skip "ImageMagick is not available" unless Shellfie::DependencyChecker.imagemagick_available?
+  describe 'rendering', :integration do
+    it 'renders a PNG file' do
+      skip 'ImageMagick is not available' unless Shellfie::DependencyChecker.imagemagick_available?
 
-      Dir.mktmpdir("shellfie-spec") do |dir|
-        output = File.join(dir, "terminal.png")
+      Dir.mktmpdir('shellfie-spec') do |dir|
+        output = File.join(dir, 'terminal.png')
         config = Shellfie::Config.new(
           window: { width: 320, exact_size: true },
-          lines: [Shellfie::Line.new(prompt: "$ ", command: "printf 'ok'", output: "\e[32mok\e[0m")]
+          lines: [Shellfie::Line.new(prompt: '$ ', command: "printf 'ok'", output: "\e[32mok\e[0m")]
         )
 
         described_class.new(config).render(output, shadow: false)
@@ -145,59 +145,59 @@ RSpec.describe Shellfie::Renderer do
       end
     end
 
-    it "renders native SVG output with selectable text" do
-      Dir.mktmpdir("shellfie-spec") do |dir|
-        output = File.join(dir, "terminal.svg")
-        config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: "svg")])
+    it 'renders native SVG output with selectable text' do
+      Dir.mktmpdir('shellfie-spec') do |dir|
+        output = File.join(dir, 'terminal.svg')
+        config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'svg')])
 
-        described_class.new(config).render(output, shadow: false, format: "svg")
+        described_class.new(config).render(output, shadow: false, format: 'svg')
 
         svg = File.read(output)
-        expect(svg).to include("<svg")
-        expect(svg).to include(">svg</text>")
-        expect(svg).not_to include("data:image/png;base64,")
-        expect(svg).to include("role=\"img\"")
+        expect(svg).to include('<svg')
+        expect(svg).to include('>svg</text>')
+        expect(svg).not_to include('data:image/png;base64,')
+        expect(svg).to include('role="img"')
       end
     end
 
-    it "renders extended ANSI decoration semantics in SVG" do
-      Dir.mktmpdir("shellfie-spec") do |dir|
-        output = File.join(dir, "decorations.svg")
+    it 'renders extended ANSI decoration semantics in SVG' do
+      Dir.mktmpdir('shellfie-spec') do |dir|
+        output = File.join(dir, 'decorations.svg')
         value = "\e[4:3;58:2::1:2:3;5mwave\e[0m \e[8msecret\e[0m"
         config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: value)])
 
-        described_class.new(config).render(output, shadow: false, format: "svg")
+        described_class.new(config).render(output, shadow: false, format: 'svg')
 
         svg = File.read(output)
         expect(svg).to include('text-decoration-style="wavy"', 'text-decoration-color="#010203"', 'class="blink"')
-        expect(svg).to match(/fill-opacity="0"[^>]*>secret<\/text>/)
+        expect(svg).to match(%r{fill-opacity="0"[^>]*>secret</text>})
       end
     end
 
-    it "renders allowlisted OSC 8 hyperlinks in SVG" do
-      Dir.mktmpdir("shellfie-spec") do |dir|
-        output = File.join(dir, "link.svg")
+    it 'renders allowlisted OSC 8 hyperlinks in SVG' do
+      Dir.mktmpdir('shellfie-spec') do |dir|
+        output = File.join(dir, 'link.svg')
         value = "\e]8;;https://example.com?a=1&b=2\aLink\e]8;;\a \e]8;;javascript:alert(1)\aUnsafe\e]8;;\a"
-        config = Shellfie::Config.new(window: { osc_policy: "preserve" }, lines: [Shellfie::Line.new(output: value)])
+        config = Shellfie::Config.new(window: { osc_policy: 'preserve' }, lines: [Shellfie::Line.new(output: value)])
 
-        described_class.new(config).render(output, shadow: false, format: "svg")
+        described_class.new(config).render(output, shadow: false, format: 'svg')
 
         svg = File.read(output)
         expect(svg).to include('<a href="https://example.com?a=1&amp;b=2">')
-        expect(svg).not_to include("javascript:")
+        expect(svg).not_to include('javascript:')
       end
     end
 
-    it "renders a standalone accessible HTML terminal" do
-      Dir.mktmpdir("shellfie-spec") do |dir|
-        output = File.join(dir, "terminal.html")
-        config = Shellfie::Config.new(title: "Demo <terminal>", lines: [Shellfie::Line.new(output: "hello & goodbye")])
+    it 'renders a standalone accessible HTML terminal' do
+      Dir.mktmpdir('shellfie-spec') do |dir|
+        output = File.join(dir, 'terminal.html')
+        config = Shellfie::Config.new(title: 'Demo <terminal>', lines: [Shellfie::Line.new(output: 'hello & goodbye')])
 
-        described_class.new(config).render(output, shadow: false, format: "html")
+        described_class.new(config).render(output, shadow: false, format: 'html')
 
         html = File.read(output)
-        expect(html).to include("<!doctype html>", "role=\"img\"", "Demo &lt;terminal&gt;", "hello &amp; goodbye")
-        expect(html).to include("Toggle color theme", "data-theme")
+        expect(html).to include('<!doctype html>', 'role="img"', 'Demo &lt;terminal&gt;', 'hello &amp; goodbye')
+        expect(html).to include('Toggle color theme', 'data-theme')
       end
     end
   end
