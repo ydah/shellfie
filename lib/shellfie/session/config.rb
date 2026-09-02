@@ -4,10 +4,10 @@ require "yaml"
 require "did_you_mean"
 require "rbconfig"
 require "rubygems/requirement"
-require_relative "config"
-require_relative "errors"
-require_relative "parser_validation"
-require_relative "yaml_safety"
+require_relative "../config"
+require_relative "../errors"
+require_relative "../parser_validation"
+require_relative "../yaml_safety"
 
 module Shellfie
   class SessionConfig

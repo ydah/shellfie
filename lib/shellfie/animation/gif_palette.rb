@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "tempfile"
-require_relative "image_magick_command_builder"
+require_relative "../rendering/image_magick_command_builder"
 
 module Shellfie
   class GifPalette

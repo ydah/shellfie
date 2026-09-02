@@ -3,7 +3,7 @@
 require "rbconfig"
 require "open3"
 require "tempfile"
-require_relative "font_resolver"
+require_relative "rendering/font_resolver"
 
 module Shellfie
   class DependencyChecker

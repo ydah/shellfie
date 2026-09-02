@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "theme_data"
+require_relative "data"
 
 module Shellfie
   class HeadlessThemeRegistry

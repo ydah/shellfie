@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "shellfie/session_config"
-require "shellfie/session_runner"
+require "shellfie/session/config"
+require "shellfie/session/runner"
 require "tempfile"
 
 unless Gem.win_platform?

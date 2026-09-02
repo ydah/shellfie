@@ -2,8 +2,8 @@
 
 require "tempfile"
 require_relative "image_magick_command_builder"
-require_relative "rendering/text_painter"
-require_relative "rendering/window_chrome"
+require_relative "text_painter"
+require_relative "window_chrome"
 
 module Shellfie
   class RasterPainter

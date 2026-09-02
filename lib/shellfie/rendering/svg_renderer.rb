@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "cgi/escape"
-require_relative "text_metrics"
+require_relative "../terminal/text_metrics"
 
 module Shellfie
   class SvgRenderer

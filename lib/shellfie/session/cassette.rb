@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "json"
-require_relative "errors"
-require_relative "output_writer"
-require_relative "session"
+require_relative "../errors"
+require_relative "../output_writer"
+require_relative "../session"
 
 module Shellfie
   class Cassette

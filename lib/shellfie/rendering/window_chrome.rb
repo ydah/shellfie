@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "shape_helpers"
-require_relative "../image_magick_command_builder"
-require_relative "../text_metrics"
+require_relative "image_magick_command_builder"
+require_relative "../terminal/text_metrics"
 
 module Shellfie
   module Rendering

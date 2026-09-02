@@ -3,9 +3,9 @@
 require "fileutils"
 require "optparse"
 require "yaml"
-require_relative "../cassette"
+require_relative "../session/cassette"
 require_relative "../output_writer"
-require_relative "../session_config"
+require_relative "../session/config"
 
 module Shellfie
   module CLI::Run
@@ -27,7 +27,7 @@ module Shellfie
       preflight_render_dependencies!(resolved_outputs.map { |_path, format, _output| format })
       raise DependencyError, "Live sessions are not supported on native Windows" if Gem.win_platform?
 
-      require_relative "../session_runner"
+      require_relative "../session/runner"
       session = SessionRunner.new(config).run
       write_cassette(cassette_path, session) if cassette_path
       write_recording(yaml_path, session) if yaml_path

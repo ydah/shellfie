@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative "themes/base"
-require_relative "themes/configured"
-require_relative "themes/macos"
-require_relative "themes/ubuntu"
-require_relative "themes/windows_terminal"
-require_relative "headless_theme_registry"
-require_relative "theme_data"
+require_relative "base"
+require_relative "configured"
+require_relative "macos"
+require_relative "ubuntu"
+require_relative "windows_terminal"
+require_relative "headless_registry"
+require_relative "data"
 
 module Shellfie
   class ThemeRegistry

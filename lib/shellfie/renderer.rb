@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
 require "mini_magick"
-require_relative "ansi_parser"
+require_relative "terminal/ansi_parser"
 require_relative "dependency_checker"
-require_relative "font_resolver"
-require_relative "format_resolver"
-require_relative "html_renderer"
+require_relative "rendering/font_resolver"
+require_relative "rendering/format_resolver"
+require_relative "rendering/html_renderer"
 require_relative "output_writer"
-require_relative "raster_painter"
-require_relative "render_chrome_cache"
-require_relative "render_geometry"
-require_relative "render_segment"
-require_relative "svg_raster_wrapper"
-require_relative "svg_renderer"
-require_relative "theme_registry"
+require_relative "rendering/raster_painter"
+require_relative "rendering/chrome_cache"
+require_relative "rendering/geometry"
+require_relative "rendering/segment"
+require_relative "rendering/svg_raster_wrapper"
+require_relative "rendering/svg_renderer"
+require_relative "themes/registry"
 
 module Shellfie
   class Renderer

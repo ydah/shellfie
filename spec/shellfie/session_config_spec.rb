@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "shellfie/session_config"
+require "shellfie/session/config"
 require "tmpdir"
 
 RSpec.describe Shellfie::SessionConfig do

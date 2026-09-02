@@ -13,7 +13,7 @@ require_relative "cli/info"
 require_relative "cli/run"
 require_relative "cli/authoring"
 require_relative "dependency_checker"
-require_relative "transcript_renderer"
+require_relative "rendering/transcript_renderer"
 
 module Shellfie
   class CLI

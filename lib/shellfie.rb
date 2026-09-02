@@ -4,7 +4,7 @@ require_relative "shellfie/version"
 require_relative "shellfie/errors"
 require_relative "shellfie/config"
 require_relative "shellfie/parser"
-require_relative "shellfie/ansi_parser"
+require_relative "shellfie/terminal/ansi_parser"
 
 module Shellfie
   autoload :CLI, File.expand_path("shellfie/cli", __dir__)

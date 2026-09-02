@@ -9,9 +9,9 @@ require "timeout"
 require "fileutils"
 require "tmpdir"
 require "shellwords"
-require_relative "errors"
-require_relative "session"
-require_relative "text_metrics"
+require_relative "../errors"
+require_relative "../session"
+require_relative "../terminal/text_metrics"
 
 module Shellfie
   class SessionRunner

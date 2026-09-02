@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../image_magick_command_builder"
+require_relative "image_magick_command_builder"
 
 module Shellfie
   module Rendering

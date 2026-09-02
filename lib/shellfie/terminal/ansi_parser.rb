@@ -4,7 +4,7 @@ require "strscan"
 require "uri"
 require_relative "ansi_colors"
 require_relative "ansi_normalizer"
-require_relative "errors"
+require_relative "../errors"
 
 module Shellfie
   Segment = Struct.new(

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "shellfie/animation_frame_builder"
-require "shellfie/cassette"
+require "shellfie/animation/frame_builder"
+require "shellfie/session/cassette"
 require "tmpdir"
 
 RSpec.describe Shellfie::Cassette do

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "json"
-require_relative "animation_frame_builder"
-require_relative "ansi_parser"
-require_relative "output_writer"
+require_relative "../animation/frame_builder"
+require_relative "../terminal/ansi_parser"
+require_relative "../output_writer"
 
 module Shellfie
   class TranscriptRenderer

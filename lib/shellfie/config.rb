@@ -3,7 +3,7 @@
 require_relative "config_validation"
 require_relative "config_defaults"
 require_relative "errors"
-require_relative "theme_registry"
+require_relative "themes/registry"
 
 module Shellfie
   class Config

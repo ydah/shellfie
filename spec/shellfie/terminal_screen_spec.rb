@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "shellfie/terminal_screen"
+require "shellfie/terminal/screen"
 
 RSpec.describe Shellfie::TerminalScreen do
   it "does not crash on arbitrary terminal bytes" do

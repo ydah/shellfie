@@ -2,7 +2,7 @@
 
 require_relative "config"
 require_relative "parser"
-require_relative "terminal_screen"
+require_relative "terminal/screen"
 
 module Shellfie
   class Session

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "ansi_parser"
-require_relative "render_segment"
-require_relative "text_metrics"
+require_relative "../terminal/ansi_parser"
+require_relative "segment"
+require_relative "../terminal/text_metrics"
 
 module Shellfie
   class LineLayout

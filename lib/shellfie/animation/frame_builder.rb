@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "animation_scroll_easing"
-require_relative "animation_timeline"
-require_relative "text_metrics"
+require_relative "scroll_easing"
+require_relative "timeline"
+require_relative "../terminal/text_metrics"
 
 module Shellfie
   class AnimationFrameBuilder
