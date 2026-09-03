@@ -5,7 +5,7 @@ require 'json'
 require 'rbconfig'
 
 module Shellfie
-  class ReproducibilityManifest
+  module ReproducibilityManifest
     def self.build(config, output_path:, format:)
       renderer = Renderer.new(config)
       {
@@ -17,8 +17,8 @@ module Shellfie
         ruby: RUBY_DESCRIPTION,
         platform: RbConfig::CONFIG['host_os'],
         unicode: {
-          version: TextMetrics::UNICODE_VERSION,
-          width_table: TextMetrics::WIDTH_TABLE_VERSION,
+          version: Terminal::TextMetrics::UNICODE_VERSION,
+          width_table: Terminal::TextMetrics::WIDTH_TABLE_VERSION,
           ambiguous_width: config.window[:ambiguous_width]
         },
         imagemagick: DependencyChecker.imagemagick_details[:version],

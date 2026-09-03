@@ -83,7 +83,7 @@ RSpec.describe Shellfie::Themes do
     end
   end
 
-  describe Shellfie::ThemeRegistry do
+  describe Shellfie::Themes::Registry do
     it 'lists registered themes and color schemes' do
       expect(described_class.available_themes).to include('macos', 'ubuntu', 'windows', 'custom')
       expect(described_class.available_color_schemes).to include('dracula')
@@ -116,9 +116,9 @@ RSpec.describe Shellfie::Themes do
     end
   end
 
-  describe Shellfie::HeadlessThemeRegistry do
+  describe Shellfie::Themes::HeadlessRegistry do
     it 'provides an independent headless variant registry' do
-      base = Shellfie::ThemeRegistry.build(Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'test')]))
+      base = Shellfie::Themes::Registry.build(Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'test')]))
       headless = described_class.build(base)
 
       expect(described_class.available_variants).to include('plain')

@@ -3,7 +3,9 @@
 require 'yaml'
 require_relative 'config'
 require_relative 'errors'
-require_relative 'parser_validation'
+require_relative 'frame'
+require_relative 'line'
+require_relative 'parser/validates_input'
 require_relative 'yaml_safety'
 
 module Shellfie
@@ -14,7 +16,7 @@ module Shellfie
     MAX_TOTAL_INCLUDE_BYTES = 10 * MAX_INCLUDE_BYTES
 
     class << self
-      include ParserValidation
+      include ValidatesInput
 
       def parse(path)
         return parse_string($stdin.read(MAX_INCLUDE_BYTES + 1), base_dir: Dir.pwd) if path == '-'
@@ -35,7 +37,7 @@ module Shellfie
         end
 
         raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
-        YamlSafety.validate_tree!(raw)
+        YAMLSafety.validate_tree!(raw)
         if base_dir
           include_state ||= { files: 1, bytes: content.bytesize, cache: {}, sources: {} }
           raw = apply_includes(raw, base_dir, stack: include_stack, root: base_dir, state: include_state)
@@ -49,7 +51,7 @@ module Shellfie
         raise e unless source_name
 
         documents = [[source_name, content]] + include_state.fetch(:sources, {}).to_a.reverse
-        raise YamlSafety.annotate_validation_error(e, documents)
+        raise YAMLSafety.annotate_validation_error(e, documents)
       end
 
       private
@@ -114,7 +116,7 @@ module Shellfie
             end
 
             included_raw = YAML.safe_load(included_content, symbolize_names: true, aliases: true)
-            YamlSafety.validate_tree!(included_raw)
+            YAMLSafety.validate_tree!(included_raw)
             state[:cache][include_file] = included_raw
           end
           included_raw = apply_includes(
@@ -133,7 +135,7 @@ module Shellfie
       end
 
       def read_config(path)
-        YamlSafety.read_file(path, max_bytes: MAX_INCLUDE_BYTES)
+        YAMLSafety.read_file(path, max_bytes: MAX_INCLUDE_BYTES)
       end
 
       def deep_merge(base, overrides)
@@ -183,69 +185,4 @@ module Shellfie
     end
   end
 
-  class Line
-    attr_reader :prompt, :command, :output, :prompt_color, :command_color, :output_color, :selected
-
-    def initialize(prompt: nil, command: nil, output: nil, prompt_color: nil, command_color: nil, output_color: nil,
-                   selected: false)
-      @prompt = prompt
-      @command = command
-      @output = output
-      @prompt_color = prompt_color
-      @command_color = command_color
-      @output_color = output_color
-      @selected = selected
-      freeze
-    end
-
-    def to_h
-      {
-        prompt: prompt,
-        command: command,
-        output: output,
-        prompt_color: prompt_color,
-        command_color: command_color,
-        output_color: output_color,
-        selected: selected
-      }.compact
-    end
-
-    def to_s
-      [prompt, command, output].compact.join("\n")
-    end
-  end
-
-  class Frame
-    attr_reader :prompt, :type, :output, :delay, :prompt_color, :command_color, :output_color, :screen
-
-    def initialize(prompt: nil, type: nil, output: nil, delay: 0, prompt_color: nil, command_color: nil,
-                   output_color: nil, screen: nil)
-      @prompt = prompt
-      @type = type
-      @output = output
-      @delay = delay
-      @prompt_color = prompt_color
-      @command_color = command_color
-      @output_color = output_color
-      @screen = screen
-      freeze
-    end
-
-    def to_h
-      {
-        prompt: prompt,
-        type: type,
-        output: output,
-        delay: delay,
-        prompt_color: prompt_color,
-        command_color: command_color,
-        output_color: output_color,
-        screen: screen
-      }.compact
-    end
-
-    def to_s
-      [prompt, type, output, screen, delay].compact.join("\n")
-    end
-  end
 end

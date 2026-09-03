@@ -3,7 +3,7 @@
 require 'spec_helper'
 require 'shellfie/terminal/screen'
 
-RSpec.describe Shellfie::TerminalScreen do
+RSpec.describe Shellfie::Terminal::Screen do
   it 'does not crash on arbitrary terminal bytes' do
     screen = described_class.new(columns: 20, rows: 2)
     random = Random.new(98_765)
@@ -30,7 +30,7 @@ RSpec.describe Shellfie::TerminalScreen do
     screen = described_class.new(columns: 20, rows: 2)
     screen.feed("\e[4:3;58:2::1:2:3;5;8msecret")
 
-    segment = Shellfie::AnsiParser.new.parse(screen.render_lines.first).first
+    segment = Shellfie::Terminal::ANSIParser.new.parse(screen.render_lines.first).first
     expect(segment).to have_attributes(
       underline_style: :curly, underline_color: '#010203', blink: true, conceal: true
     )
@@ -103,7 +103,7 @@ RSpec.describe Shellfie::TerminalScreen do
     screen.feed("界\e[2G\e[KX")
 
     expect(screen.to_s).to eq(' X')
-    expect(Shellfie::TextMetrics.cell_width(screen.to_s)).to eq(2)
+    expect(Shellfie::Terminal::TextMetrics.cell_width(screen.to_s)).to eq(2)
   end
 
   it 'carries incomplete terminal controls across feed boundaries' do
@@ -156,7 +156,7 @@ RSpec.describe Shellfie::TerminalScreen do
     screen.feed(" 👨\u200d").feed('👩')
 
     expect(screen.to_s).to eq('é 👨‍👩')
-    expect(Shellfie::TextMetrics.graphemes(screen.to_s)).to eq(['é', ' ', '👨‍👩'])
+    expect(Shellfie::Terminal::TextMetrics.graphemes(screen.to_s)).to eq(['é', ' ', '👨‍👩'])
   end
 
   it 'joins split Hangul clusters and preserves the column on line feed' do

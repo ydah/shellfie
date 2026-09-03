@@ -4,16 +4,17 @@ require 'cgi/escape'
 require_relative 'svg_renderer'
 
 module Shellfie
-  class HtmlRenderer
-    def initialize(config:, theme:)
-      @config = config
-      @svg_renderer = SvgRenderer.new(config: config, theme: theme)
-    end
+  module Rendering
+    class HTMLRenderer
+      def initialize(config:, theme:)
+        @config = config
+        @svg_renderer = SVGRenderer.new(config: config, theme: theme)
+      end
 
-    def render(geometry, output_path, transparent: false)
-      svg = @svg_renderer.to_svg(geometry, transparent: transparent).sub(/\A<\?xml[^>]+>\s*/, '')
-      transcript = geometry[:lines].map { |line| line[:segments].map(&:text).join }.join("\n")
-      File.write(output_path, <<~HTML)
+      def render(geometry, output_path, transparent: false)
+        svg = @svg_renderer.to_svg(geometry, transparent: transparent).sub(/\A<\?xml[^>]+>\s*/, '')
+        transcript = geometry[:lines].map { |line| line[:segments].map(&:text).join }.join("\n")
+        File.write(output_path, <<~HTML)
         <!doctype html>
         <html lang="en">
         <head>
@@ -43,12 +44,13 @@ module Shellfie
         </body>
         </html>
       HTML
-    end
+      end
 
     private
 
-    def escape(value)
-      CGI.escapeHTML(value.to_s)
+      def escape(value)
+        CGI.escapeHTML(value.to_s)
+      end
     end
   end
 end

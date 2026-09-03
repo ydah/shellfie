@@ -22,18 +22,18 @@ module Shellfie
     def initialize(config, chrome_cache: nil)
       @config = config
       @chrome_cache = chrome_cache
-      @theme = ThemeRegistry.build(config)
-      @ansi_parser = AnsiParser.new(
+      @theme = Themes::Registry.build(config)
+      @ansi_parser = Terminal::ANSIParser.new(
         state_mode: config.window[:ansi_state] || :persistent,
         tab_width: config.window[:tab_width],
         osc_policy: config.window[:osc_policy],
         graphics_policy: config.window[:graphics_policy]
       )
-      @font_resolver = FontResolver.new(-> { imagemagick_command })
+      @font_resolver = Rendering::FontResolver.new(-> { imagemagick_command })
     end
 
     def render(output_path, scale: 1, shadow: true, transparent: false, format: nil, io: nil)
-      extension = FormatResolver.resolve(output_path, explicit: format, default: 'png')
+      extension = Rendering::FormatResolver.resolve(output_path, explicit: format, default: 'png')
       check_dependencies! unless %w[svg html].include?(extension)
       lines = build_lines
       OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
@@ -92,12 +92,12 @@ module Shellfie
 
     def parse_with_default(text, default_color)
       @ansi_parser.parse(text).map do |segment|
-        RenderSegment.from_segment(segment, default_color: default_color)
+        Rendering::Segment.from_segment(segment, default_color: default_color)
       end
     end
 
     def coalesce_segments(segments)
-      RenderSegment.coalesce(segments)
+      Rendering::Segment.coalesce(segments)
     end
 
     def create_image(lines, output_path, scale:, shadow:, transparent:)
@@ -108,18 +108,18 @@ module Shellfie
 
     def create_svg_image(lines, output_path, scale:, shadow:, transparent:)
       geometry = build_geometry(lines, scale: scale, shadow: shadow)
-      SvgRenderer.new(config: config, theme: theme).render(geometry, output_path, transparent: transparent)
+      Rendering::SVGRenderer.new(config: config, theme: theme).render(geometry, output_path, transparent: transparent)
     end
 
     def create_svg_raster_image(lines, output_path, scale:, shadow:, transparent:)
-      SvgRasterWrapper.write(output_path) do |png_path|
+      Rendering::SVGRasterWrapper.write(output_path) do |png_path|
         create_image(lines, png_path, scale: scale, shadow: shadow, transparent: transparent)
       end
     end
 
     def create_html(lines, output_path, scale:, shadow:, transparent:)
       geometry = build_geometry(lines, scale: scale, shadow: shadow)
-      HtmlRenderer.new(config: config, theme: theme).render(geometry, output_path, transparent: transparent)
+      Rendering::HTMLRenderer.new(config: config, theme: theme).render(geometry, output_path, transparent: transparent)
     end
 
     def build_geometry(lines, scale:, shadow:)
@@ -131,11 +131,11 @@ module Shellfie
     end
 
     def geometry_builder
-      @geometry_builder ||= RenderGeometry.new(config: config, theme: theme)
+      @geometry_builder ||= Rendering::Geometry.new(config: config, theme: theme)
     end
 
     def raster_painter
-      @raster_painter ||= RasterPainter.new(
+      @raster_painter ||= Rendering::RasterPainter.new(
         config: config,
         theme: theme,
         font_resolver: font_resolver,

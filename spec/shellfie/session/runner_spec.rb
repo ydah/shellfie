@@ -6,9 +6,9 @@ require 'shellfie/session/runner'
 require 'tempfile'
 
 unless Gem.win_platform?
-  RSpec.describe Shellfie::SessionRunner do
+  RSpec.describe Shellfie::Session::Runner do
     it 'types, executes, waits, asserts, captures, and redacts a PTY session' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', columns: 80, rows: 10, timeout: 5 },
@@ -32,7 +32,7 @@ unless Gem.win_platform?
     end
 
     it 'waits on live asynchronous output and then collects the exit status' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', columns: 80, rows: 10, timeout: 5 },
@@ -54,7 +54,7 @@ unless Gem.win_platform?
     end
 
     it 'matches line waits and elapsed assertions' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', columns: 80, rows: 10, timeout: 2, total_timeout: 5 },
@@ -72,7 +72,7 @@ unless Gem.win_platform?
     end
 
     it 'waits for the configured shell prompt' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', columns: 80, rows: 10, timeout: 2, prompt: 'READY> ' },
@@ -89,7 +89,7 @@ unless Gem.win_platform?
     end
 
     it 'does not confuse prompt-like program output with a prompt' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', timeout: 2, prompt: '$ ' },
@@ -105,7 +105,7 @@ unless Gem.win_platform?
     end
 
     it 'does not confuse an exported prompt marker with prompt completion' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', timeout: 2 },
@@ -121,7 +121,7 @@ unless Gem.win_platform?
     end
 
     it 'does not accept a copied prompt while a foreground process is running' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', timeout: 2 },
@@ -137,7 +137,7 @@ unless Gem.win_platform?
     end
 
     it 'sets the configured PTY dimensions' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', rows: 17, columns: 123, timeout: 2 },
@@ -149,7 +149,7 @@ unless Gem.win_platform?
     end
 
     it 'records repeated key delays for offline animation' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', timeout: 2 },
@@ -163,7 +163,7 @@ unless Gem.win_platform?
     end
 
     it 'flushes asynchronous output before recording a later key' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', timeout: 2 },
@@ -182,7 +182,7 @@ unless Gem.win_platform?
     end
 
     it 'flushes asynchronous output before later typing' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', timeout: 2 },
@@ -201,7 +201,7 @@ unless Gem.win_platform?
     end
 
     it 'keeps no-echo key delays in offline frames' do
-      session = Shellfie::Session.new(
+      session = Shellfie::Session::Recording.new(
         columns: 20, rows: 2,
         events: [{ text: '', delay: 0.2, visible: true }, { text: 'done', delay: 0.03, visible: true }]
       )
@@ -210,7 +210,7 @@ unless Gem.win_platform?
     end
 
     it 'records explicit sleeps as deterministic timeline pauses' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         { version: 2, terminal: { shell: '/bin/sh', timeout: 2 }, steps: [{ sleep: '20ms' }] }
       )
 
@@ -218,7 +218,7 @@ unless Gem.win_platform?
     end
 
     it 'removes its private prompt marker from recorded events' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', timeout: 2 },
@@ -231,7 +231,7 @@ unless Gem.win_platform?
     end
 
     it 'replaces its private home directory in recorded output' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         { version: 2, terminal: { shell: '/bin/sh', timeout: 2 },
           steps: [{ run: 'printf "$HOME"', visibility: 'visible' }] }
       )
@@ -242,7 +242,7 @@ unless Gem.win_platform?
     end
 
     it 'encodes modified character and navigation keys' do
-      runner = described_class.new(Shellfie::SessionConfig.new({ version: 2, steps: [] }))
+      runner = described_class.new(Shellfie::Session::Config.new({ version: 2, steps: [] }))
 
       expect(runner.send(:key_sequence, 'ctrl-c')).to eq("\x03")
       expect(runner.send(:key_sequence, 'alt-x')).to eq("\ex")
@@ -250,7 +250,7 @@ unless Gem.win_platform?
     end
 
     it 'honors a deleted PATH during requirement checks' do
-      config = Shellfie::SessionConfig.new({ version: 2, terminal: { env: { 'PATH' => nil } }, requires: ['ruby'],
+      config = Shellfie::Session::Config.new({ version: 2, terminal: { env: { 'PATH' => nil } }, requires: ['ruby'],
                                              steps: [] })
 
       expect { described_class.new(config).run }.to raise_error(Shellfie::DependencyError, /ruby/)
@@ -260,7 +260,7 @@ unless Gem.win_platform?
       Dir.mktmpdir do |dir|
         subdir = File.join(dir, 'subdir')
         Dir.mkdir(subdir)
-        config = Shellfie::SessionConfig.new(
+        config = Shellfie::Session::Config.new(
           {
             version: 2,
             terminal: { shell: '/bin/sh', cwd: dir, columns: 200, rows: 10, timeout: 2 },
@@ -273,7 +273,7 @@ unless Gem.win_platform?
 
         File.write(File.join(dir, 'expected.txt'), "expected\n")
         runner = described_class.new(config)
-        runner.instance_variable_set(:@session, Shellfie::Session.new(columns: 20, rows: 2))
+        runner.instance_variable_set(:@session, Shellfie::Session::Recording.new(columns: 20, rows: 2))
         runner.instance_variable_get(:@session).record('expected')
         expect { runner.send(:expect_condition, { golden: 'expected.txt' }) }.not_to raise_error
       end
@@ -285,7 +285,7 @@ unless Gem.win_platform?
         outside = File.join(dir, 'outside')
         Dir.mkdir(root)
         Dir.mkdir(outside)
-        config = Shellfie::SessionConfig.new(
+        config = Shellfie::Session::Config.new(
           { version: 2, terminal: { cwd: '..', cwd_policy: 'root' }, steps: [] },
           path: File.join(root, 'session.yml')
         )
@@ -294,7 +294,7 @@ unless Gem.win_platform?
           .to raise_error(Shellfie::FileSystemError, /escapes the session root/)
 
         File.symlink(outside, File.join(root, 'escape'))
-        config = Shellfie::SessionConfig.new(
+        config = Shellfie::Session::Config.new(
           { version: 2, terminal: { cwd_policy: 'root' }, steps: [{ run: 'pwd', cwd: 'escape' }] },
           path: File.join(root, 'session.yml')
         )
@@ -304,7 +304,7 @@ unless Gem.win_platform?
     end
 
     it 'preserves command output that has no trailing newline' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', columns: 80, rows: 10, timeout: 2 },
@@ -318,7 +318,7 @@ unless Gem.win_platform?
     end
 
     it 'replaces invalid terminal bytes instead of timing out' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         { version: 2, terminal: { shell: '/bin/sh', timeout: 2 },
           steps: [{ run: "printf '\\377'", visibility: 'visible' }] }
       )
@@ -327,7 +327,7 @@ unless Gem.win_platform?
     end
 
     it 'surfaces rejected terminal graphics from the PTY reader' do
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         {
           version: 2,
           terminal: { shell: '/bin/sh', timeout: 2 },
@@ -340,7 +340,7 @@ unless Gem.win_platform?
     end
 
     it 'carries incomplete UTF-8 characters across terminal chunks' do
-      runner = described_class.new(Shellfie::SessionConfig.new({ version: 2, steps: [] }))
+      runner = described_class.new(Shellfie::Session::Config.new({ version: 2, steps: [] }))
       bytes = '界'.b
 
       expect(runner.send(:decode_terminal_bytes, bytes.byteslice(0, 2))).to eq('')
@@ -351,7 +351,7 @@ unless Gem.win_platform?
       pid_file = Tempfile.new('shellfie-child-pid')
       pid_file.close
       command = "sh -c 'trap \"\" HUP TERM; sleep 30' & echo $! > #{pid_file.path}"
-      config = Shellfie::SessionConfig.new(
+      config = Shellfie::Session::Config.new(
         { version: 2, terminal: { shell: '/bin/sh', timeout: 2 }, steps: [{ run: command }] }
       )
 
@@ -375,7 +375,7 @@ unless Gem.win_platform?
     end
 
     it 'bounds pathological regular expression evaluation' do
-      config = Shellfie::SessionConfig.new({ version: 2, steps: [] })
+      config = Shellfie::Session::Config.new({ version: 2, steps: [] })
       runner = described_class.new(config)
       pattern = Object.new
       pattern.define_singleton_method(:match) { |_text| sleep(1) }

@@ -3,7 +3,7 @@
 require 'spec_helper'
 require 'shellfie/animation/timeline'
 
-RSpec.describe Shellfie::AnimationTimeline do
+RSpec.describe Shellfie::Animation::Timeline do
   describe '#each' do
     it 'emits command, output, and pause events in frame order' do
       config = Shellfie::Config.new(

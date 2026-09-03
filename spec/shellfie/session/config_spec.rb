@@ -4,7 +4,7 @@ require 'spec_helper'
 require 'shellfie/session/config'
 require 'tmpdir'
 
-RSpec.describe Shellfie::SessionConfig do
+RSpec.describe Shellfie::Session::Config do
   it 'validates and normalizes version 2 sessions' do
     config = described_class.new(
       {

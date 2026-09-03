@@ -5,9 +5,9 @@ require 'shellfie/animation/frame_builder'
 require 'shellfie/session/cassette'
 require 'tmpdir'
 
-RSpec.describe Shellfie::Cassette do
+RSpec.describe Shellfie::Session::Cassette do
   it 'round-trips captured events without executing them' do
-    session = Shellfie::Session.new(columns: 20, rows: 4, title: 'Replay')
+    session = Shellfie::Session::Recording.new(columns: 20, rows: 4, title: 'Replay')
     session.record('hello', delay: 0.1, visible: true, status: 0)
 
     Dir.mktmpdir do |dir|
@@ -21,7 +21,7 @@ RSpec.describe Shellfie::Cassette do
   end
 
   it 'exports an editable compose configuration' do
-    session = Shellfie::Session.new(columns: 20, rows: 4, title: 'Recording')
+    session = Shellfie::Session::Recording.new(columns: 20, rows: 4, title: 'Recording')
     session.record('hello', delay: 0.25, visible: true)
 
     expect(session.compose_hash).to include(
@@ -32,7 +32,7 @@ RSpec.describe Shellfie::Cassette do
   end
 
   it 'never stores hidden terminal content' do
-    session = Shellfie::Session.new(columns: 20, rows: 4)
+    session = Shellfie::Session::Recording.new(columns: 20, rows: 4)
     session.record('TOP_SECRET', visible: false, status: 0)
 
     expect(JSON.generate(session.to_h)).not_to include('TOP_SECRET')
@@ -49,12 +49,12 @@ RSpec.describe Shellfie::Cassette do
   end
 
   it 'renders terminal overwrites as screen snapshots and preserves ANSI style' do
-    session = Shellfie::Session.new(columns: 20, rows: 4)
+    session = Shellfie::Session::Recording.new(columns: 20, rows: 4)
     session.record("\e[31mprogress 0%\e[0m\r", delay: 0.1)
     session.record("progress 1%\r", delay: 0.1)
 
     config = session.render_config(theme: 'macos', animated: true)
-    frames = Shellfie::AnimationFrameBuilder.new(config).build
+    frames = Shellfie::Animation::FrameBuilder.new(config).build
 
     expect(session.screen.to_s).to eq('progress 1%')
     expect(frames.last[:lines].map(&:output)).to eq(['progress 1%'])
@@ -63,7 +63,7 @@ RSpec.describe Shellfie::Cassette do
 
   it 'bounds session snapshots while constructing exports' do
     events = Array.new(501) { { text: "x\r", delay: 0.01, visible: true } }
-    session = Shellfie::Session.new(columns: 20, rows: 4, events: events)
+    session = Shellfie::Session::Recording.new(columns: 20, rows: 4, events: events)
 
     expect { session.render_config(theme: 'macos', animated: true) }
       .to raise_error(Shellfie::ResourceLimitError, /session frames/)

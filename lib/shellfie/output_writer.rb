@@ -5,7 +5,7 @@ require 'tempfile'
 require 'tmpdir'
 
 module Shellfie
-  class OutputWriter
+  module OutputWriter
     class << self
       def write(path, extension:, io: nil)
         FileUtils.mkdir_p(output_directory(path)) unless stdout?(path)

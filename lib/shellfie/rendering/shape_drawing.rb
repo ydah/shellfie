@@ -4,7 +4,7 @@ require_relative 'image_magick_command_builder'
 
 module Shellfie
   module Rendering
-    module ShapeHelpers
+    module ShapeDrawing
       def draw_roundrect(convert, x1, y1, x2, y2, radius)
         if radius.positive?
           ImageMagickCommandBuilder.round_rectangle(convert, x1, y1, x2, y2, radius)

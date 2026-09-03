@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 
-RSpec.describe Shellfie::GifGenerator do
+RSpec.describe Shellfie::Animation::Generator do
   describe 'frame building' do
     it 'uses the configured seed for deterministic jitter' do
       config = Shellfie::Config.new(

@@ -8,8 +8,11 @@ require_relative 'shellfie/terminal/ansi_parser'
 
 module Shellfie
   autoload :CLI, File.expand_path('shellfie/cli', __dir__)
-  autoload :GifGenerator, File.expand_path('shellfie/gif_generator', __dir__)
   autoload :Renderer, File.expand_path('shellfie/renderer', __dir__)
+
+  module Animation
+    autoload :Generator, File.expand_path('shellfie/animation/generator', __dir__)
+  end
 
   class << self
     def parse(source)
@@ -26,7 +29,7 @@ module Shellfie
       animated = animate.nil? ? config.animated? : animate
 
       if animated
-        GifGenerator.new(config).generate(output, scale: scale, shadow: shadow, transparent: transparent,
+        Animation::Generator.new(config).generate(output, scale: scale, shadow: shadow, transparent: transparent,
                                                   format: format)
       else
         Renderer.new(config).render(output, scale: scale, shadow: shadow, transparent: transparent, format: format)

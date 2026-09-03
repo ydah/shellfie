@@ -212,7 +212,7 @@ RSpec.describe Shellfie::CLI do
     end
 
     it 'renders multiple configured session outputs' do
-      session = Shellfie::Session.new(columns: 40, rows: 4)
+      session = Shellfie::Session::Recording.new(columns: 40, rows: 4)
       session.record('done', visible: true, status: 0)
       cli = described_class.new([])
       options = described_class::Options.new(quiet: true)
@@ -230,7 +230,7 @@ RSpec.describe Shellfie::CLI do
     end
 
     it 'renders a named session capture' do
-      session = Shellfie::Session.new(columns: 40, rows: 4)
+      session = Shellfie::Session::Recording.new(columns: 40, rows: 4)
       session.record('first')
       session.capture('first')
       session.record("\nsecond")
@@ -255,23 +255,23 @@ RSpec.describe Shellfie::CLI do
 
     it 'does not execute replay mode as a live session' do
       cli = described_class.new(['run', 'session.yml', '-o', 'out.txt'])
-      config = Shellfie::SessionConfig.new({ version: 2, mode: 'replay', steps: [] })
-      allow(Shellfie::SessionConfig).to receive(:parse).and_return(config)
+      config = Shellfie::Session::Config.new({ version: 2, mode: 'replay', steps: [] })
+      allow(Shellfie::Session::Config).to receive(:parse).and_return(config)
 
       expect { cli.run }.to output(/use shellfie replay/).to_stderr.and raise_error(SystemExit)
     end
 
     it 'rejects missing outputs and artifact collisions before executing a session' do
-      no_outputs = Shellfie::SessionConfig.new({ version: 2, steps: [{ run: 'touch marker' }] })
-      allow(Shellfie::SessionConfig).to receive(:parse).and_return(no_outputs)
+      no_outputs = Shellfie::Session::Config.new({ version: 2, steps: [{ run: 'touch marker' }] })
+      allow(Shellfie::Session::Config).to receive(:parse).and_return(no_outputs)
 
       expect { described_class.new(['run', 'session.yml']).run }
         .to output(/Output is required/).to_stderr.and raise_error(SystemExit)
 
-      collision = Shellfie::SessionConfig.new(
+      collision = Shellfie::Session::Config.new(
         { version: 2, steps: [], outputs: [{ path: 'same.svg', format: 'svg' }] }
       )
-      allow(Shellfie::SessionConfig).to receive(:parse).and_return(collision)
+      allow(Shellfie::Session::Config).to receive(:parse).and_return(collision)
       expect do
         described_class.new(['record', 'session.yml', '--cassette', 'same.svg', '--force']).run
       end.to output(/same path/).to_stderr.and raise_error(SystemExit)
@@ -285,10 +285,10 @@ RSpec.describe Shellfie::CLI do
       skip 'Live sessions are unavailable on native Windows' if Gem.win_platform?
 
       Dir.mktmpdir do |dir|
-        config = Shellfie::SessionConfig.new({ version: 2, steps: [] })
-        session = Shellfie::Session.new(columns: 80, rows: 24)
-        allow(Shellfie::SessionConfig).to receive(:parse).and_return(config)
-        allow(Shellfie::SessionRunner).to receive(:new).and_return(instance_double(Shellfie::SessionRunner,
+        config = Shellfie::Session::Config.new({ version: 2, steps: [] })
+        session = Shellfie::Session::Recording.new(columns: 80, rows: 24)
+        allow(Shellfie::Session::Config).to receive(:parse).and_return(config)
+        allow(Shellfie::Session::Runner).to receive(:new).and_return(instance_double(Shellfie::Session::Runner,
                                                                                    run: session))
         cassette = File.join(dir, 'session.json')
 
@@ -300,10 +300,10 @@ RSpec.describe Shellfie::CLI do
     it 'checks render dependencies before executing session commands' do
       Dir.mktmpdir do |dir|
         output = File.join(dir, 'missing', 'out.mp4')
-        config = Shellfie::SessionConfig.new(
+        config = Shellfie::Session::Config.new(
           { version: 2, steps: [{ run: 'side effect' }], outputs: [{ path: output, format: 'mp4' }] }
         )
-        allow(Shellfie::SessionConfig).to receive(:parse).and_return(config)
+        allow(Shellfie::Session::Config).to receive(:parse).and_return(config)
         allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick!)
         allow(Shellfie::DependencyChecker).to receive(:ensure_ffmpeg!).and_raise(Shellfie::DependencyError, 'missing')
 

@@ -3,7 +3,7 @@
 require 'spec_helper'
 require 'strscan'
 
-RSpec.describe Shellfie::AnsiParser do
+RSpec.describe Shellfie::Terminal::ANSIParser do
   subject(:parser) { described_class.new }
 
   it 'does not crash on arbitrary terminal bytes' do

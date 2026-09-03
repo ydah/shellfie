@@ -5,7 +5,7 @@ require 'spec_helper'
 require 'shellfie/rendering/transcript_renderer'
 require 'tmpdir'
 
-RSpec.describe Shellfie::TranscriptRenderer do
+RSpec.describe Shellfie::Rendering::TranscriptRenderer do
   it 'writes the final semantic transcript as text and JSON' do
     config = Shellfie::Config.new(
       lines: [Shellfie::Line.new(output: "\e[31mready\e[0m")],

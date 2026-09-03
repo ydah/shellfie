@@ -6,7 +6,7 @@ require 'tempfile'
 require_relative 'rendering/font_resolver'
 
 module Shellfie
-  class DependencyChecker
+  module DependencyChecker
     IMAGE_MAGICK_COMMANDS = %w[magick convert].freeze
 
     class << self
@@ -87,7 +87,7 @@ module Shellfie
                      []
                    end,
           font_count: (fonts_status.success? ? fonts_output.scan(/^\s*Font:/).size : 0) +
-            FontResolver::FONT_FILES.values.uniq.count { |path| File.file?(path) },
+            Rendering::FontResolver::FONT_FILES.values.uniq.count { |path| File.file?(path) },
           render_ok: render_smoke_test,
           policy: policy_status.success? ? "#{policy_output.scan(/^\s*Policy:/).size} rules loaded" : nil
         }

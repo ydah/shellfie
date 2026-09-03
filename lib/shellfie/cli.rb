@@ -1,23 +1,18 @@
 # frozen_string_literal: true
 
 require_relative '../shellfie'
-
-module Shellfie
-  class CLI
-  end
-end
-
-require_relative 'cli/generate'
-require_relative 'cli/info'
-require_relative 'cli/run'
-require_relative 'cli/authoring'
-require_relative 'cli/options'
-require_relative 'cli/option_parser'
 require_relative 'dependency_checker'
 require_relative 'rendering/transcript_renderer'
 
 module Shellfie
   class CLI
+    require_relative 'cli/generate'
+    require_relative 'cli/info'
+    require_relative 'cli/run'
+    require_relative 'cli/authoring'
+    require_relative 'cli/options'
+    require_relative 'cli/option_parser'
+
     include Generate
     include Info
     include Run
@@ -111,7 +106,7 @@ module Shellfie
     end
 
     def configuration_version(path)
-      raw = YamlSafety.load_file(path, max_bytes: Parser::MAX_INCLUDE_BYTES)
+      raw = YAMLSafety.load_file(path, max_bytes: Parser::MAX_INCLUDE_BYTES)
       raw.is_a?(Hash) ? raw[:version] : nil
     end
 

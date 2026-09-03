@@ -4,7 +4,7 @@ require_relative 'errors'
 require 'yaml'
 
 module Shellfie
-  module YamlSafety
+  module YAMLSafety
     MAX_DEPTH = 100
     MAX_NODES = 100_000
 

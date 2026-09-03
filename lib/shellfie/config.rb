@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-require_relative 'config_validation'
-require_relative 'config_defaults'
+require_relative 'config/validatable'
+require_relative 'config/defaults'
 require_relative 'errors'
 require_relative 'themes/registry'
 
 module Shellfie
   class Config
-    include ConfigValidation
+    include Validatable
 
-    VALID_THEMES = ThemeRegistry.available_themes.freeze
+    VALID_THEMES = Themes::Registry.available_themes.freeze
     VALID_OVERFLOW_MODES = %w[clip wrap scroll].freeze
     VALID_CURSOR_STYLES = %w[block bar underline].freeze
     VALID_PALETTES = %w[global adaptive theme].freeze
@@ -54,7 +54,7 @@ module Shellfie
       end
     end
 
-    DEFAULTS = deep_freeze(deep_dup(ConfigDefaults::VALUES))
+    DEFAULTS = deep_freeze(deep_dup(Defaults::VALUES))
 
     attr_reader :version, :theme, :window_theme, :color_scheme, :colors, :window_decoration, :title, :window, :font,
                 :lines, :animation, :frames, :headless, :cursor, :limits, :source_paths

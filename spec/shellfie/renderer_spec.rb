@@ -98,7 +98,7 @@ RSpec.describe Shellfie::Renderer do
 
       expect(segments.size).to eq(1)
       expect(segments.first.text).to eq('$ echo')
-      expect(segments.first).to be_a(Shellfie::RenderSegment)
+      expect(segments.first).to be_a(Shellfie::Rendering::Segment)
     end
 
     it 'keeps a hidden scroll buffer line without growing the canvas' do

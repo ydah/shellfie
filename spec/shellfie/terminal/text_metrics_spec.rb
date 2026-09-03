@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 
-RSpec.describe Shellfie::TextMetrics do
+RSpec.describe Shellfie::Terminal::TextMetrics do
   it 'reports its Unicode profile and supports ambiguous-width terminals' do
     expect(described_class::UNICODE_VERSION).to match(/\A\d+\.\d+\.\d+\z|unknown/)
     expect(described_class.cell_width('·', ambiguous_width: 1)).to eq(1)

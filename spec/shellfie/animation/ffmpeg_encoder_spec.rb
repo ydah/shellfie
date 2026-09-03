@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'shellfie/ffmpeg_encoder'
+require 'shellfie/animation/ffmpeg_encoder'
 
-RSpec.describe Shellfie::FfmpegEncoder do
+RSpec.describe Shellfie::Animation::FFmpegEncoder do
   it 'encodes video at the requested rate and playback speed' do
     status = instance_double(Process::Status, success?: true)
     captured = nil
