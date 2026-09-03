@@ -86,52 +86,72 @@ module Shellfie
         policy ||= raw[:include_policy] || 'allow'
         raise ParseError, 'include_policy must be allow or root' unless %w[allow root].include?(policy)
 
-        includes = Array(raw[:include])
-        included_config = includes.reduce({}) do |merged, include_path|
-          raise ParseError, 'Included configuration path must be a string' unless include_path.is_a?(String)
-
-          include_file = File.expand_path(include_path, base_dir)
-          raise ParseError, "Included configuration file not found: #{include_path}" unless File.exist?(include_file)
-
-          include_file = File.realpath(include_file)
-          if policy == 'root' && include_file != root && !include_file.start_with?("#{root}#{File::SEPARATOR}")
-            raise ParseError, "Included configuration escapes the configuration root: #{include_path}"
-          end
-
-          if stack.include?(include_file)
-            chain = (stack + [include_file]).map { |path| File.basename(path) }.join(' -> ')
-            raise ParseError, "Circular YAML include: #{chain}"
-          end
-
-          state[:files] += 1
-          raise ParseError, "Too many YAML includes (max #{MAX_INCLUDE_FILES})" if state[:files] > MAX_INCLUDE_FILES
-
-          included_raw = state[:cache][include_file]
-          unless included_raw
-            included_content = read_config(include_file)
-            state[:sources][include_file] = included_content
-            state[:bytes] += included_content.bytesize
-            if state[:bytes] > MAX_TOTAL_INCLUDE_BYTES
-              raise ParseError, "Included YAML is too large in total (max #{MAX_TOTAL_INCLUDE_BYTES} bytes)"
-            end
-
-            included_raw = YAML.safe_load(included_content, symbolize_names: true, aliases: true)
-            YAMLSafety.validate_tree!(included_raw)
-            state[:cache][include_file] = included_raw
-          end
-          included_raw = apply_includes(
-            included_raw,
-            File.dirname(include_file),
-            stack: stack + [include_file],
-            root: root,
-            policy: policy,
-            state: state,
-            depth: depth + 1
-          )
-          deep_merge(merged, included_raw || {})
+        included_config = Array(raw[:include]).reduce({}) do |merged, include_path|
+          deep_merge(merged, load_include(include_path, base_dir, root: root, policy: policy, stack: stack,
+                                                                  state: state, depth: depth))
         end
 
         deep_merge(included_config, raw.except(:include))
+      end
+
+      def load_include(include_path, base_dir, root:, policy:, stack:, state:, depth:)
+        include_file = resolve_include(include_path, base_dir, root: root, policy: policy)
+        validate_include_chain!(include_file, stack)
+        track_include!(state)
+        included_raw = cached_include(include_file, state)
+        apply_includes(
+          included_raw,
+          File.dirname(include_file),
+          stack: stack + [include_file],
+          root: root,
+          policy: policy,
+          state: state,
+          depth: depth + 1
+        ) || {}
+      end
+
+      def resolve_include(include_path, base_dir, root:, policy:)
+        raise ParseError, 'Included configuration path must be a string' unless include_path.is_a?(String)
+
+        include_file = File.expand_path(include_path, base_dir)
+        raise ParseError, "Included configuration file not found: #{include_path}" unless File.exist?(include_file)
+
+        include_file = File.realpath(include_file)
+        if policy == 'root' && include_file != root && !include_file.start_with?("#{root}#{File::SEPARATOR}")
+          raise ParseError, "Included configuration escapes the configuration root: #{include_path}"
+        end
+
+        include_file
+      end
+
+      def validate_include_chain!(include_file, stack)
+        return unless stack.include?(include_file)
+
+        chain = (stack + [include_file]).map { |path| File.basename(path) }.join(' -> ')
+        raise ParseError, "Circular YAML include: #{chain}"
+      end
+
+      def track_include!(state)
+        state[:files] += 1
+        return if state[:files] <= MAX_INCLUDE_FILES
+
+        raise ParseError, "Too many YAML includes (max #{MAX_INCLUDE_FILES})"
+      end
+
+      def cached_include(include_file, state)
+        return state[:cache][include_file] if state[:cache][include_file]
+
+        content = read_config(include_file)
+        state[:sources][include_file] = content
+        state[:bytes] += content.bytesize
+        if state[:bytes] > MAX_TOTAL_INCLUDE_BYTES
+          raise ParseError, "Included YAML is too large in total (max #{MAX_TOTAL_INCLUDE_BYTES} bytes)"
+        end
+
+        YAML.safe_load(content, symbolize_names: true, aliases: true).tap do |included_raw|
+          YAMLSafety.validate_tree!(included_raw)
+          state[:cache][include_file] = included_raw
+        end
       end
 
       def read_config(path)
@@ -184,5 +204,4 @@ module Shellfie
       end
     end
   end
-
 end

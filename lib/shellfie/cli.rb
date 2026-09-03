@@ -26,9 +26,22 @@ module Shellfie
       return puts(OptionParser.help) if @args.empty?
 
       command = @args.shift
-      options = CLI::OptionParser.parse(command, @args)
+      options = OptionParser.parse(command, @args)
       validation_path = @args.first if command == 'validate'
+      dispatch(command, options)
+    rescue Shellfie::Error => e
+      report_error(e, command, options, validation_path)
+    rescue ::OptionParser::ParseError => e
+      warn_error "Error: #{e.message}"
+      exit 1
+    rescue SystemCallError => e
+      warn_error "Error: #{e.message}"
+      exit 5
+    end
 
+    private
+
+    def dispatch(command, options)
       case command
       when 'generate', 'g'
         run_generate(options)
@@ -37,7 +50,7 @@ module Shellfie
       when 'run'
         run_session(options)
       when 'record'
-        run_session(options, record: true)
+        record_session(options)
       when 'replay'
         replay_session(options)
       when 'new'
@@ -69,22 +82,16 @@ module Shellfie
         warn_error "Run 'shellfie help' for usage information."
         exit 1
       end
-    rescue Shellfie::Error => e
-      if command == 'validate' && options&.format != 'text'
-        emit_validation_report(options, valid: false, path: validation_path, error: e)
-      else
-        warn_error "Error: #{e.message}"
-      end
-      exit determine_exit_code(e)
-    rescue ::OptionParser::ParseError => e
-      warn_error "Error: #{e.message}"
-      exit 1
-    rescue SystemCallError => e
-      warn_error "Error: #{e.message}"
-      exit 5
     end
 
-    private
+    def report_error(error, command, options, validation_path)
+      if command == 'validate' && options&.format != 'text'
+        emit_validation_report(options, valid: false, path: validation_path, error: error)
+      else
+        warn_error "Error: #{error.message}"
+      end
+      exit determine_exit_code(error)
+    end
 
     def canonical_output_path(path)
       expanded = File.expand_path(path)

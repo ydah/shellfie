@@ -11,23 +11,35 @@ module Shellfie
     module_function
 
     def annotate_validation_error(error, documents, provenance: {})
-      if (target = validation_path(error.message)) && (origin = provenance[target])
-        path, local_path = origin
-        content = documents.assoc(path)&.last
-        if content && (location = location_for_path(content, local_path))
-          return error.class.new("#{path}:#{location[0]}:#{location[1]}: #{error.message}")
-        end
-      end
+      annotated = error_from_provenance(error, documents, provenance)
+      return annotated if annotated
 
+      annotated = error_from_documents(error, documents)
+      return annotated if annotated
+
+      path = documents.first&.first
+      error.class.new(path ? "#{path}: #{error.message}" : error.message)
+    end
+
+    def error_from_provenance(error, documents, provenance)
+      target = validation_path(error.message)
+      origin = provenance[target] if target
+      return unless origin
+
+      path, local_path = origin
+      content = documents.assoc(path)&.last
+      location = location_for_path(content, local_path) if content
+      error.class.new("#{path}:#{location[0]}:#{location[1]}: #{error.message}") if location
+    end
+
+    def error_from_documents(error, documents)
       documents.each do |path, content|
         next unless path && content
 
         location = validation_location(content, error.message)
         return error.class.new("#{path}:#{location[0]}:#{location[1]}: #{error.message}") if location
       end
-
-      path = documents.first&.first
-      error.class.new(path ? "#{path}: #{error.message}" : error.message)
+      nil
     end
 
     def read_file(path, max_bytes:, label: 'Configuration')

@@ -19,22 +19,10 @@ module Shellfie
         frames = []
         current_lines = @config.lines.flat_map { |line| line_data(line) }
         Timeline.new(@config).each do |event|
-          case event.kind
-          when :screen
-            current_lines.replace(event.frame.screen.map { |line| { output: line } })
-            frames << { lines: build_display_lines(current_lines), delay: [event.frame.delay, 1].max }
-          when :command
-            frames.concat(command_frames(current_lines, event.frame))
-          when :output
-            frames.concat(output_frames(current_lines, event.frame))
-          when :pause
-            frames << { lines: build_display_lines(current_lines), delay: event.frame.delay }
-          end
+          frames.concat(frames_for(event, current_lines))
         end
 
-        if @config.animation[:final_delay].positive?
-          frames << { lines: build_display_lines(current_lines), delay: @config.animation[:final_delay] }
-        end
+        append_final_frame(frames, current_lines)
         frames
       end
 
@@ -53,7 +41,26 @@ module Shellfie
         "#{ansi_color(color)}#{glyph}\e[0m"
       end
 
-    private
+      private
+
+      def frames_for(event, current_lines)
+        case event.kind
+        when :screen
+          current_lines.replace(event.frame.screen.map { |line| { output: line } })
+          [{ lines: build_display_lines(current_lines), delay: [event.frame.delay, 1].max }]
+        when :command
+          command_frames(current_lines, event.frame)
+        when :output
+          output_frames(current_lines, event.frame)
+        when :pause
+          [{ lines: build_display_lines(current_lines), delay: event.frame.delay }]
+        end
+      end
+
+      def append_final_frame(frames, current_lines)
+        delay = @config.animation[:final_delay]
+        frames << { lines: build_display_lines(current_lines), delay: delay } if delay.positive?
+      end
 
       def command_frames(current_lines, frame)
         prompt = frame.prompt || ''
@@ -78,7 +85,8 @@ module Shellfie
 
         frames << typing_frame(base_lines, frame, command) if chars.length % chunk_size != 0 || frames.empty?
         final_lines = base_lines.dup
-        final_lines << command_line(prompt, command, prompt_color: frame.prompt_color, command_color: frame.command_color)
+        final_lines << command_line(prompt, command, prompt_color: frame.prompt_color,
+                                                     command_color: frame.command_color)
         frames << { lines: build_display_lines(final_lines), delay: @config.animation[:typing_speed] }
         frames
       end
@@ -117,26 +125,26 @@ module Shellfie
       def output_frames(current_lines, frame)
         output_lines = frame.output.to_s.split("\n", -1)
         output_delay = @config.animation[:output_delay]
+        return immediate_output_frames(current_lines, frame, output_lines) unless output_delay.positive?
 
-        if output_delay.positive?
-          frames = output_lines.each_with_index.with_object([]) do |(line, index), result|
-            previous_count = current_lines.size
-            current_lines << { output: line, output_color: frame.output_color }
-            delay = @scroll_easing.output_delay(output_delay, index, output_lines.size)
-            result.concat(
-              @scroll_easing.transition_frames(
-                build_display_lines(current_lines),
-                delay: delay,
-                previous_count: previous_count
-              )
-            )
-          end
-          frames << { lines: build_display_lines(current_lines), delay: frame.delay } if frame.delay.positive?
-          frames
-        else
-          output_lines.each { |line| current_lines << { output: line, output_color: frame.output_color } }
-          [{ lines: build_display_lines(current_lines), delay: [frame.delay, 1].max }]
+        animated_output_frames(current_lines, frame, output_lines, output_delay)
+      end
+
+      def animated_output_frames(current_lines, frame, output_lines, output_delay)
+        frames = output_lines.each_with_index.with_object([]) do |(line, index), result|
+          previous_count = current_lines.size
+          current_lines << { output: line, output_color: frame.output_color }
+          delay = @scroll_easing.output_delay(output_delay, index, output_lines.size)
+          result.concat(@scroll_easing.transition_frames(build_display_lines(current_lines), delay: delay,
+                                                                                             previous_count: previous_count))
         end
+        frames << { lines: build_display_lines(current_lines), delay: frame.delay } if frame.delay.positive?
+        frames
+      end
+
+      def immediate_output_frames(current_lines, frame, output_lines)
+        output_lines.each { |line| current_lines << { output: line, output_color: frame.output_color } }
+        [{ lines: build_display_lines(current_lines), delay: [frame.delay, 1].max }]
       end
 
       def command_line(prompt, command, cursor: false, prompt_color: nil, command_color: nil)

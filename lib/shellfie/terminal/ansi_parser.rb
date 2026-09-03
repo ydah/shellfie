@@ -28,16 +28,30 @@ module Shellfie
       end
 
       def parse(text)
-        if @state_mode == :line
-          reset_state
-          @link = nil
-        end
+        reset_line_state
+        input = normalized_input(text)
+        scan_segments(input)
+      end
 
+      private
+
+      def reset_line_state
+        return unless @state_mode == :line
+
+        reset_state
+        @link = nil
+      end
+
+      def normalized_input(text)
         input = @pending_osc + text.to_s
         reject_terminal_graphics!(input)
         input, @pending_osc = split_incomplete_osc(input)
+        ANSINormalization.normalize(input, tab_width: @tab_width, osc_policy: @osc_policy)
+      end
+
+      def scan_segments(input)
         segments = []
-        scanner = StringScanner.new(ANSINormalization.normalize(input, tab_width: @tab_width, osc_policy: @osc_policy))
+        scanner = StringScanner.new(input)
         current_text = +''
 
         until scanner.eos?
@@ -61,8 +75,6 @@ module Shellfie
         segments << create_segment(current_text) unless current_text.empty?
         segments
       end
-
-    private
 
       def reject_terminal_graphics!(text)
         return unless @graphics_policy == 'error' && text.match?(ANSINormalization::GRAPHICS_CONTROL_PREFIX)
@@ -114,77 +126,82 @@ module Shellfie
 
         while i < codes.length
           code = codes[i]
-
           if code.is_a?(Array) && code.first == :underline_style
-            @underline_style = %i[none single double curly dotted dashed][code.last]
-            @underline = @underline_style && @underline_style != :none
-            i += 1
-            next
+            apply_underline_style(code.last)
+          else
+            i = apply_sgr_code(code, codes, i)
           end
-
-          case code
-          when 0
-            reset_state
-          when 1
-            @bold = true
-          when 2
-            @dim = true
-          when 3
-            @italic = true
-          when 4
-            @underline = true
-            @underline_style = :single
-          when 5, 6
-            @blink = true
-          when 8
-            @conceal = true
-          when 7
-            @reverse = true
-          when 9
-            @strikethrough = true
-          when 22
-            @bold = false
-            @dim = false
-          when 23
-            @italic = false
-          when 24
-            @underline = false
-            @underline_style = nil
-          when 25
-            @blink = false
-          when 27
-            @reverse = false
-          when 28
-            @conceal = false
-          when 29
-            @strikethrough = false
-          when 30..37, 90..97
-            @foreground = ANSIColors::COLORS[code]
-          when 38
-            i, @foreground = ANSIColors.parse_extended_color(codes, i)
-          when 39
-            @foreground = nil
-          when 40..47, 100..107
-            @background = ANSIColors::BG_COLORS[code]
-          when 48
-            i, @background = ANSIColors.parse_extended_color(codes, i)
-          when 49
-            @background = nil
-          when 21
-            @underline = true
-            @underline_style = :double
-          when 53
-            @overline = true
-          when 55
-            @overline = false
-          when 58
-            i, @underline_color = ANSIColors.parse_extended_color(codes, i)
-          when 59
-            @underline_color = nil
-          end
-
           i += 1
         end
+      end
+
+      def apply_underline_style(index)
+        @underline_style = %i[none single double curly dotted dashed][index]
+        @underline = @underline_style && @underline_style != :none
+      end
+
+      def apply_sgr_code(code, codes, index)
+        case code
+        when 0
+          reset_state
+        when 1
+          @bold = true
+        when 2
+          @dim = true
+        when 3
+          @italic = true
+        when 4
+          @underline = true
+          @underline_style = :single
+        when 5, 6
+          @blink = true
+        when 8
+          @conceal = true
+        when 7
+          @reverse = true
+        when 9
+          @strikethrough = true
+        when 22
+          @bold = false
+          @dim = false
+        when 23
+          @italic = false
+        when 24
+          @underline = false
+          @underline_style = nil
+        when 25
+          @blink = false
+        when 27
+          @reverse = false
+        when 28
+          @conceal = false
+        when 29
+          @strikethrough = false
+        when 30..37, 90..97
+          @foreground = ANSIColors::COLORS[code]
+        when 38
+          index, @foreground = ANSIColors.parse_extended_color(codes, index)
+        when 39
+          @foreground = nil
+        when 40..47, 100..107
+          @background = ANSIColors::BG_COLORS[code]
+        when 48
+          index, @background = ANSIColors.parse_extended_color(codes, index)
+        when 49
+          @background = nil
+        when 21
+          @underline = true
+          @underline_style = :double
+        when 53
+          @overline = true
+        when 55
+          @overline = false
+        when 58
+          index, @underline_color = ANSIColors.parse_extended_color(codes, index)
+        when 59
+          @underline_color = nil
+        end
+        index
       end
 
       def sgr_codes(value)

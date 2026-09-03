@@ -40,7 +40,8 @@ module Shellfie
 
         input = @pending_control << input
         if @graphics_policy == 'error' && input.match?(ANSINormalization::GRAPHICS_CONTROL_PREFIX)
-          raise ValidationError, 'Terminal graphics are not supported; use window.graphics_policy: ignore to discard them'
+          raise ValidationError,
+                'Terminal graphics are not supported; use window.graphics_policy: ignore to discard them'
         end
 
         input, @pending_control = split_incomplete_control(input)
@@ -57,35 +58,41 @@ module Shellfie
       end
 
       def render_lines
-        visible_rows.map do |cells|
-          visible = cells.reject { |cell| cell.equal?(CONTINUATION) }
-          last = visible.rindex { |cell| cell && cell.text != ' ' }
-          next '' unless last
-
-          visible[0..last].chunk { |cell| style_key(cell) }.map do |_style, group|
-            cells_in_style = group.to_a
-            text = cells_in_style.map { |cell| cell&.text || ' ' }.join
-            styled_cell(cells_in_style.first, text)
-          end.join
-        end
+        visible_rows.map { |cells| render_row(cells) }
       end
 
       def to_s
         lines.join("\n")
       end
 
-    private
+      private
+
+      def render_row(cells)
+        visible = cells.reject { |cell| cell.equal?(CONTINUATION) }
+        last = visible.rindex { |cell| cell && cell.text != ' ' }
+        return '' unless last
+
+        visible[0..last].chunk { |cell| style_key(cell) }.map do |_style, group|
+          cells_in_style = group.to_a
+          text = cells_in_style.map { |cell| cell&.text || ' ' }.join
+          styled_cell(cells_in_style.first, text)
+        end.join
+      end
 
       def process(token)
         return if token.match?(/\A\e(?:\]|P|_|\^)/)
 
         match = CSI.match(token)
-        @ansi_parser.parse(token) if match && match[3] == 'm'
         if match
+          @ansi_parser.parse(token) if match[3] == 'm'
           @wrap_pending = false unless match[3] == 'm'
           return process_csi(match[1], match[3])
         end
 
+        process_control_or_text(token)
+      end
+
+      def process_control_or_text(token)
         case token
         when "\r" then @column = 0
                        @wrap_pending = false
@@ -109,16 +116,9 @@ module Shellfie
         private_mode = params.start_with?('?')
         values = params.delete_prefix('?').split(';').map { |value| Integer(value, exception: false) || 0 }
         amount = values.first.to_i.positive? ? values.first : 1
+        return move_cursor(command, amount) if %w[A B C D E F G].include?(command)
+
         case command
-        when 'A' then @row = [@row - amount, 0].max
-        when 'B' then @row = [@row + amount, @rows - 1].min
-        when 'C' then @column = [@column + amount, @columns - 1].min
-        when 'D' then @column = [@column - amount, 0].max
-        when 'E' then @row = [@row + amount, @rows - 1].min
-                      @column = 0
-        when 'F' then @row = [@row - amount, 0].max
-                      @column = 0
-        when 'G' then @column = [[amount - 1, 0].max, @columns - 1].min
         when 'H', 'f' then position(values)
         when 'J' then erase_display(values.first || 0)
         when 'K' then erase_line(values.first || 0)
@@ -129,9 +129,27 @@ module Shellfie
         when 's' then @saved_cursor = [@row, @column]
         when 'u' then @row, @column = @saved_cursor
         when 'r' then set_scroll_region(values)
-        when 'h' then enter_alternate_screen if private_mode && (values & [47, 1047, 1049]).any?
-        when 'l' then leave_alternate_screen if private_mode && (values & [47, 1047, 1049]).any?
+        when 'h' then enter_alternate_screen if alternate_screen_mode?(private_mode, values)
+        when 'l' then leave_alternate_screen if alternate_screen_mode?(private_mode, values)
         end
+      end
+
+      def move_cursor(command, amount)
+        case command
+        when 'A' then @row = [@row - amount, 0].max
+        when 'B' then @row = [@row + amount, @rows - 1].min
+        when 'C' then @column = [@column + amount, @columns - 1].min
+        when 'D' then @column = [@column - amount, 0].max
+        when 'E' then @row = [@row + amount, @rows - 1].min
+                      @column = 0
+        when 'F' then @row = [@row - amount, 0].max
+                      @column = 0
+        when 'G' then @column = [[amount - 1, 0].max, @columns - 1].min
+        end
+      end
+
+      def alternate_screen_mode?(private_mode, values)
+        private_mode && (values & [47, 1047, 1049]).any?
       end
 
       def write(grapheme)
@@ -362,6 +380,13 @@ module Shellfie
       def styled_cell(cell, text = cell&.text || ' ')
         return text unless cell
 
+        codes = style_codes(cell)
+        return text if codes.empty?
+
+        "\e[#{codes.join(';')}m#{text}\e[0m"
+      end
+
+      def style_codes(cell)
         codes = []
         codes << 1 if cell.bold
         codes << 2 if cell.dim
@@ -378,9 +403,7 @@ module Shellfie
         codes << 53 if cell.overline
         codes.concat(color_codes(cell.foreground, 38)) if cell.foreground
         codes.concat(color_codes(cell.background, 48)) if cell.background
-        return text if codes.empty?
-
-        "\e[#{codes.join(';')}m#{text}\e[0m"
+        codes
       end
 
       def style_key(cell)

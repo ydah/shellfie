@@ -7,6 +7,8 @@ require 'cgi/escape'
 module Shellfie
   class CLI
     module Info
+      VALIDATION_FORMATS = %w[text json sarif junit].freeze
+
       private
 
       def run_init
@@ -26,39 +28,51 @@ module Shellfie
       end
 
       def run_validate(options)
-        format = options.format
-        raise ValidationError, 'validation format must be text, json, sarif, or junit' unless %w[text json sarif
-                                                                                                 junit].include?(format)
-
-        input_file = @args.shift
-        raise ConfigError, 'Input file is required' unless input_file
+        validate_validation_format!(options.format)
+        input_file = required_input_file
 
         if configuration_version(input_file) == 2
-          session = Session::Config.parse(input_file)
-          if format != 'text'
-            return emit_validation_report(
-              options,
-              valid: true,
-              path: input_file,
-              details: { version: 2, steps: session.steps.size, outputs: session.outputs.size }
-            )
-          end
-
-          puts '✓ Session configuration is valid'
-          puts "  Steps: #{session.steps.size}"
-          puts "  Outputs: #{session.outputs.size}"
-          return
+          validate_session_config(input_file, options)
+        else
+          validate_render_config(input_file, options)
         end
+      end
 
+      def run_inspect(options)
+        input_file = required_input_file
+        if configuration_version(input_file) == 2
+          inspect_session_config(input_file, json: options.json)
+        else
+          inspect_render_config(input_file, json: options.json)
+        end
+      end
+
+      def required_input_file
+        @args.shift || raise(ConfigError, 'Input file is required')
+      end
+
+      def validate_validation_format!(format)
+        return if VALIDATION_FORMATS.include?(format)
+
+        raise ValidationError, 'validation format must be text, json, sarif, or junit'
+      end
+
+      def validate_session_config(input_file, options)
+        session = Session::Config.parse(input_file)
+        return emit_validation_report(options, valid: true, path: input_file,
+                                               details: { version: 2, steps: session.steps.size,
+                                                          outputs: session.outputs.size }) unless options.format == 'text'
+
+        puts '✓ Session configuration is valid'
+        puts "  Steps: #{session.steps.size}"
+        puts "  Outputs: #{session.outputs.size}"
+      end
+
+      def validate_render_config(input_file, options)
         config = Parser.parse(input_file)
-        if format != 'text'
-          return emit_validation_report(
-            options,
-            valid: true,
-            path: input_file,
-            details: { version: 1, theme: config.theme, mode: config.animated? ? 'animated' : 'static' }
-          )
-        end
+        return emit_validation_report(options, valid: true, path: input_file,
+                                               details: { version: 1, theme: config.theme,
+                                                          mode: config.animated? ? 'animated' : 'static' }) unless options.format == 'text'
 
         puts '✓ Configuration is valid'
         puts "  Theme: #{config.theme}"
@@ -72,37 +86,33 @@ module Shellfie
         puts "  Logical size: #{geometry[:logical_width]}x#{geometry[:logical_height]} @#{geometry[:scale]}x"
       end
 
-      def run_inspect(options)
-        input_file = @args.shift
-        raise ConfigError, 'Input file is required' unless input_file
+      def inspect_session_config(input_file, json:)
+        session = Session::Config.parse(input_file)
+        info = {
+          config: session.to_h,
+          mode: session.mode,
+          terminal: session.terminal,
+          steps: session.steps.size,
+          outputs: session.outputs
+        }
+        return puts(JSON.pretty_generate(info)) if json
 
-        if configuration_version(input_file) == 2
-          session = Session::Config.parse(input_file)
-          info = {
-            config: session.to_h,
-            mode: session.mode,
-            terminal: session.terminal,
-            steps: session.steps.size,
-            outputs: session.outputs
-          }
-          return puts(JSON.pretty_generate(info)) if options.json
+        puts 'Session:'
+        puts '  Version: 2'
+        puts "  Mode: #{session.mode}"
+        puts "  Terminal: #{session.terminal[:columns]}x#{session.terminal[:rows]} (#{session.terminal[:shell]})"
+        puts "  Steps: #{session.steps.size}"
+        puts "  Outputs: #{session.outputs.size}"
+      end
 
-          puts 'Session:'
-          puts '  Version: 2'
-          puts "  Mode: #{session.mode}"
-          puts "  Terminal: #{session.terminal[:columns]}x#{session.terminal[:rows]} (#{session.terminal[:shell]})"
-          puts "  Steps: #{session.steps.size}"
-          puts "  Outputs: #{session.outputs.size}"
-          return
-        end
-
+      def inspect_render_config(input_file, json:)
         info = Shellfie.inspect_config(input_file)
         info[:unicode] = {
           version: Terminal::TextMetrics::UNICODE_VERSION,
           width_table: Terminal::TextMetrics::WIDTH_TABLE_VERSION,
           ambiguous_width: info.dig(:config, :window, :ambiguous_width) || 1
         }
-        return puts(JSON.pretty_generate(info)) if options.json
+        return puts(JSON.pretty_generate(info)) if json
 
         puts 'Config:'
         puts "  Version: #{info[:config][:version]}"
@@ -135,31 +145,38 @@ module Shellfie
       end
 
       def emit_validation_report(options, valid:, path:, details: nil, error: nil)
-        format = options.format
         message = error&.message
-        case format
-        when 'json'
-          puts JSON.pretty_generate(version: 1, valid: valid, path: path, details: details,
-                                    errors: message ? [{ message: message }] : [])
-        when 'sarif'
-          result = if message
-                     [{ level: 'error', message: { text: message },
-                        locations: path ? [{ physicalLocation: { artifactLocation: { uri: path } } }] : [] }]
-                   else
-                     []
-                   end
-          puts JSON.pretty_generate(
-            version: '2.1.0', '$schema': 'https://json.schemastore.org/sarif-2.1.0.json',
-            runs: [{ tool: { driver: { name: 'shellfie', version: VERSION } }, results: result }]
-          )
-        when 'junit'
-          failure = %(<failure message="#{CGI.escapeHTML(message)}">#{CGI.escapeHTML(message)}</failure>) if message
-          puts %(<testsuite name="shellfie validate" tests="1" failures="#{valid ? 0 : 1}"><testcase name="#{CGI.escapeHTML(path || 'configuration')}">#{failure}</testcase></testsuite>)
-        else
-          raise ValidationError, 'validation format must be text, json, sarif, or junit'
-        end
+        report = case options.format
+                 when 'json' then json_validation_report(valid, path, details, message)
+                 when 'sarif' then sarif_validation_report(path, message)
+                 when 'junit' then junit_validation_report(valid, path, message)
+                 else raise ValidationError, 'validation format must be text, json, sarif, or junit'
+                 end
+        puts report
       end
 
+      def json_validation_report(valid, path, details, message)
+        JSON.pretty_generate(version: 1, valid: valid, path: path, details: details,
+                             errors: message ? [{ message: message }] : [])
+      end
+
+      def sarif_validation_report(path, message)
+        results = if message
+                    [{ level: 'error', message: { text: message },
+                       locations: path ? [{ physicalLocation: { artifactLocation: { uri: path } } }] : [] }]
+                  else
+                    []
+                  end
+        JSON.pretty_generate(
+          version: '2.1.0', '$schema': 'https://json.schemastore.org/sarif-2.1.0.json',
+          runs: [{ tool: { driver: { name: 'shellfie', version: VERSION } }, results: results }]
+        )
+      end
+
+      def junit_validation_report(valid, path, message)
+        failure = %(<failure message="#{CGI.escapeHTML(message)}">#{CGI.escapeHTML(message)}</failure>) if message
+        %(<testsuite name="shellfie validate" tests="1" failures="#{valid ? 0 : 1}"><testcase name="#{CGI.escapeHTML(path || 'configuration')}">#{failure}</testcase></testsuite>)
+      end
     end
   end
 end

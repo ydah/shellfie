@@ -36,13 +36,20 @@ module Shellfie
       ].freeze
       SHADOW_KEYS = %i[blur offset_x offset_y color].freeze
 
-    private
+      private
 
       def validate_config(raw)
         raise ValidationError, 'Empty configuration' if raw.nil? || (raw.respond_to?(:empty?) && raw.empty?)
         raise ValidationError, 'Configuration must be a YAML mapping' unless raw.is_a?(Hash)
 
         validate_keys!(raw, TOP_LEVEL_KEYS, 'configuration')
+        validate_config_mappings!(raw)
+        validate_config_themes!(raw)
+        validate_include_policy!(raw)
+        validate_config_content!(raw)
+      end
+
+      def validate_config_mappings!(raw)
         validate_nested_hash!(raw, :window, WINDOW_KEYS)
         validate_nested_hash!(raw, :font, FONT_KEYS)
         validate_nested_hash!(raw, :animation, ANIMATION_KEYS)
@@ -53,13 +60,21 @@ module Shellfie
         if raw.dig(:window_decoration, :shadow)
           validate_nested_hash!(raw[:window_decoration], :shadow, SHADOW_KEYS, 'window_decoration.shadow')
         end
+      end
+
+      def validate_config_themes!(raw)
         validate_theme!(raw[:theme]) if raw[:theme]
         validate_window_theme!(raw[:window_theme]) if raw[:window_theme]
         validate_color_scheme!(raw[:color_scheme]) if raw.key?(:color_scheme)
+      end
+
+      def validate_include_policy!(raw)
         if raw[:include_policy] && !%w[allow root].include?(raw[:include_policy])
           raise ValidationError, 'include_policy must be allow or root'
         end
+      end
 
+      def validate_config_content!(raw)
         if raw[:lines].nil? && raw[:frames].nil?
           raise ValidationError,
                 "Configuration must have either 'lines' or 'frames'"

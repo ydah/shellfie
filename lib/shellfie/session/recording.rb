@@ -43,18 +43,9 @@ module Shellfie
           animation: options.fetch(:animation, {}),
           headless: options.fetch(:headless, false)
         }
-        if animated
-          raise ValidationError, 'Captured screens cannot be rendered as animations' if lines
+        return animated_render_config(base, lines) if animated
 
-          frames = []
-          each_snapshot do |event, snapshot|
-            frame = Frame.new(screen: snapshot, delay: [(event[:delay].to_f * 1_000).round, 1].max)
-            frames << frame
-          end
-          Shellfie::Config.new(**base, frames: frames)
-        else
-          Shellfie::Config.new(**base, lines: (lines || screen.render_lines).map { |line| Line.new(output: line) })
-        end
+        static_render_config(base, lines)
       end
 
       def compose_hash
@@ -85,7 +76,22 @@ module Shellfie
         }
       end
 
-    private
+      private
+
+      def animated_render_config(base, lines)
+        raise ValidationError, 'Captured screens cannot be rendered as animations' if lines
+
+        frames = []
+        each_snapshot do |event, snapshot|
+          frames << Frame.new(screen: snapshot, delay: [(event[:delay].to_f * 1_000).round, 1].max)
+        end
+        Shellfie::Config.new(**base, frames: frames)
+      end
+
+      def static_render_config(base, lines)
+        rendered_lines = lines || screen.render_lines
+        Shellfie::Config.new(**base, lines: rendered_lines.map { |line| Line.new(output: line) })
+      end
 
       def each_snapshot
         replay = Terminal::Screen.new(columns: screen.columns, rows: screen.rows)

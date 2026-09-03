@@ -28,7 +28,7 @@ module Shellfie
         validate_resource_limits!
       end
 
-    private
+      private
 
       def validate_version!
         return if @version == 1
@@ -58,16 +58,26 @@ module Shellfie
       def validate_window!
         validate_window_theme!
         validate_color_scheme!
+        validate_window_dimensions!
+        validate_window_behavior!
+        validate_background_gradient!
+        validate_minimum_width!
+      end
+
+      def validate_window_dimensions!
         validate_positive_integer!(@window[:width], 'window.width')
         validate_optional_positive_integer!(@window[:height], 'window.height')
         validate_non_negative_integer!(@window[:padding], 'window.padding')
         raise ValidationError, 'window.padding must be at most 40' if @window[:padding] > 40
 
-        %i[opacity scroll_offset].each { |key| validate_number_range!(@window[key], "window.#{key}", 0.0, 1.0) }
         validate_optional_positive_integer!(@window[:visible_lines], 'window.visible_lines')
         validate_optional_positive_integer!(@window[:max_lines], 'window.max_lines')
         validate_optional_positive_integer!(@window[:max_height], 'window.max_height')
         validate_optional_non_negative_integer!(@window[:margin], 'window.margin')
+      end
+
+      def validate_window_behavior!
+        %i[opacity scroll_offset].each { |key| validate_number_range!(@window[key], "window.#{key}", 0.0, 1.0) }
         validate_positive_integer!(@window[:tab_width], 'window.tab_width')
         validate_inclusion!(@window[:ambiguous_width], 'window.ambiguous_width', [1, 2])
         validate_inclusion!(@window[:osc_policy], 'window.osc_policy', %w[ignore preserve apply])
@@ -77,8 +87,6 @@ module Shellfie
         validate_boolean!(@window[:trim], 'window.trim')
         validate_overflow!
         validate_ansi_state!
-        validate_background_gradient!
-        validate_minimum_width!
       end
 
       def validate_appearance!
@@ -114,6 +122,15 @@ module Shellfie
       end
 
       def validate_animation!
+        validate_typing_animation!
+        validate_animation_delays!
+        validate_animation_flags!
+        validate_gif_animation!
+        validate_webp_animation!
+        validate_animation_playback!
+      end
+
+      def validate_typing_animation!
         validate_non_negative_integer!(@animation[:typing_speed], 'animation.typing_speed')
         validate_non_negative_integer!(@animation[:command_delay], 'animation.command_delay')
         validate_number_range!(@animation[:typing_jitter], 'animation.typing_jitter', 0.0, 1.0)
@@ -121,6 +138,9 @@ module Shellfie
         raise ValidationError, 'animation.seed must be at most 2147483647' if @animation[:seed] > 2_147_483_647
 
         validate_positive_integer!(@animation[:typing_chunk_size], 'animation.typing_chunk_size')
+      end
+
+      def validate_animation_delays!
         validate_non_negative_integer!(@animation[:output_delay], 'animation.output_delay')
         validate_non_negative_integer!(@animation[:final_delay], 'animation.final_delay')
         %i[typing_speed command_delay output_delay final_delay].each do |key|
@@ -128,26 +148,37 @@ module Shellfie
             raise ValidationError, "animation.#{key} must be at most #{MAX_FRAME_DELAY_MS}"
           end
         end
+      end
+
+      def validate_animation_flags!
         validate_optional_positive_integer!(@animation[:max_frames], 'animation.max_frames')
         validate_boolean!(@animation[:cursor_blink], 'animation.cursor_blink')
         validate_boolean!(@animation[:loop], 'animation.loop')
         validate_boolean!(@animation[:dither], 'animation.dither')
         validate_boolean!(@animation[:gif_optimize], 'animation.gif_optimize')
         validate_boolean!(@animation[:webp_lossless], 'animation.webp_lossless')
+      end
+
+      def validate_gif_animation!
         validate_inclusion!(@animation[:palette], 'animation.palette', self.class::VALID_PALETTES)
-        validate_inclusion!(@animation[:apng_prediction], 'animation.apng_prediction', self.class::VALID_APNG_PREDICTIONS)
+        validate_inclusion!(@animation[:apng_prediction], 'animation.apng_prediction',
+                            self.class::VALID_APNG_PREDICTIONS)
         validate_positive_integer!(@animation[:gif_colors], 'animation.gif_colors')
         raise ValidationError, 'animation.gif_colors must be between 2 and 256' unless @animation[:gif_colors].between?(
           2, 256
         )
+      end
 
+      def validate_webp_animation!
         %i[webp_quality webp_near_lossless].each do |key|
           validate_non_negative_integer!(@animation[key], "animation.#{key}")
           raise ValidationError, "animation.#{key} must be at most 100" if @animation[key] > 100
         end
         validate_non_negative_integer!(@animation[:webp_method], 'animation.webp_method')
         raise ValidationError, 'animation.webp_method must be at most 6' if @animation[:webp_method] > 6
+      end
 
+      def validate_animation_playback!
         unless @animation[:loop_count].nil?
           validate_non_negative_integer!(@animation[:loop_count], 'animation.loop_count')
           raise ValidationError, 'animation.loop_count must be at most 65535' if @animation[:loop_count] > 65_535

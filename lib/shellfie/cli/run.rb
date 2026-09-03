@@ -11,22 +11,33 @@ module Shellfie
     module Run
       private
 
-      def run_session(options, record: false)
+      def run_session(options)
+        execute_session(options, recording: false)
+      end
+
+      def record_session(options)
+        execute_session(options, recording: true)
+      end
+
+      def execute_session(options, recording:)
         input = @args.shift
         raise ConfigError, 'Session configuration is required' unless input
 
         config = Session::Config.parse(input)
-        raise ConfigError, 'mode: replay is not executable; use shellfie replay CASSETTE.json' if config.mode == 'replay'
+        raise ConfigError,
+              'mode: replay is not executable; use shellfie replay CASSETTE.json' if config.mode == 'replay'
 
         cassette_path = options.cassette
         yaml_path = options.yaml
-        raise ConfigError, 'record requires --cassette PATH or --yaml PATH' if record && !cassette_path && !yaml_path
+        if recording && !cassette_path && !yaml_path
+          raise ConfigError, 'record requires --cassette PATH or --yaml PATH'
+        end
 
         resolved_outputs = resolve_session_outputs(
           config.outputs,
           base_dir: config.base_dir,
           options: options,
-          allow_empty: record && (cassette_path || yaml_path)
+          allow_empty: recording && (cassette_path || yaml_path)
         )
         preflight_session_artifacts!(resolved_outputs, cassette_path, yaml_path,
                                      options: options, input_path: config.path)
@@ -59,17 +70,22 @@ module Shellfie
 
       def render_session_outputs(session, configured_outputs, base_dir:, theme:, render:, options:, resolved: nil)
         resolved ||= resolve_session_outputs(configured_outputs, base_dir: base_dir, options: options)
-        resolved.each do |path, format, output|
-          ensure_output_writable!(path, options)
-          animate = output.fetch(:animate, options.animate || CLI::Generate::ANIMATED_FORMATS.include?(format))
-          capture = output[:capture]
-          captured_lines = capture && (session.captures[capture] || session.captures[capture.to_sym])
-          raise ConfigError, "Unknown capture: #{capture}" if capture && !captured_lines
-
-          config = session.render_config(theme: theme, options: render, animated: animate, lines: captured_lines)
-          output_options = CLI::Options.new(**options.to_h.merge(output.slice(:scale, :shadow, :transparent))).freeze
-          write_rendered_output(config, path, animate: animate, format: format, options: output_options)
+        resolved.each do |output|
+          render_session_output(session, output, theme: theme, render: render, options: options)
         end
+      end
+
+      def render_session_output(session, resolved_output, theme:, render:, options:)
+        path, format, output = resolved_output
+        ensure_output_writable!(path, options)
+        animate = output.fetch(:animate, options.animate || CLI::Generate::ANIMATED_FORMATS.include?(format))
+        capture = output[:capture]
+        captured_lines = capture && (session.captures[capture] || session.captures[capture.to_sym])
+        raise ConfigError, "Unknown capture: #{capture}" if capture && !captured_lines
+
+        config = session.render_config(theme: theme, options: render, animated: animate, lines: captured_lines)
+        output_options = CLI::Options.new(**options.to_h.merge(output.slice(:scale, :shadow, :transparent))).freeze
+        write_rendered_output(config, path, animate: animate, format: format, options: output_options)
       end
 
       def resolve_session_outputs(configured_outputs, base_dir:, options:, allow_empty: false)
@@ -78,29 +94,32 @@ module Shellfie
                   else
                     configured_outputs
                   end
-        raise ConfigError, 'Output is required with -o or outputs in the session config' if outputs.empty? && !allow_empty
+        raise ConfigError,
+              'Output is required with -o or outputs in the session config' if outputs.empty? && !allow_empty
 
-        resolved = outputs.map do |output|
-          path = output[:path] == '-' ? '-' : File.expand_path(output[:path], base_dir)
-          format = (output[:format] || options.format || File.extname(path).delete_prefix('.')).to_s.downcase
-          unless CLI::Generate::SUPPORTED_FORMATS.include?(format)
-            raise ValidationError, "format must be one of: #{CLI::Generate::SUPPORTED_FORMATS.join(', ')}"
-          end
-
-          animate = if output[:animate].nil?
-                      options.animate || CLI::Generate::ANIMATED_FORMATS.include?(format)
-                    else
-                      output[:animate]
-                    end
-          validate_output_mode!(format, animate, options)
-          raise ConfigError, 'Captured screens cannot be rendered as animations' if output[:capture] && animate
-
-          [path, format, output.merge(animate: animate)]
-        end
+        resolved = outputs.map { |output| resolve_session_output(output, base_dir: base_dir, options: options) }
         duplicate = resolved.group_by(&:first).find { |_path, items| items.size > 1 }&.first
         raise ConfigError, "Multiple outputs resolve to the same path: #{duplicate}" if duplicate
 
         resolved
+      end
+
+      def resolve_session_output(output, base_dir:, options:)
+        path = output[:path] == '-' ? '-' : File.expand_path(output[:path], base_dir)
+        format = (output[:format] || options.format || File.extname(path).delete_prefix('.')).to_s.downcase
+        unless CLI::Generate::SUPPORTED_FORMATS.include?(format)
+          raise ValidationError, "format must be one of: #{CLI::Generate::SUPPORTED_FORMATS.join(', ')}"
+        end
+
+        animate = output[:animate].nil? ? inferred_session_animation?(format, options) : output[:animate]
+        validate_output_mode!(format, animate, options)
+        raise ConfigError, 'Captured screens cannot be rendered as animations' if output[:capture] && animate
+
+        [path, format, output.merge(animate: animate)]
+      end
+
+      def inferred_session_animation?(format, options)
+        options.animate || CLI::Generate::ANIMATED_FORMATS.include?(format)
       end
 
       def preflight_session_artifacts!(resolved_outputs, cassette_path, yaml_path, options:, input_path: nil)
@@ -109,9 +128,20 @@ module Shellfie
 
         paths = resolved_outputs.filter_map { |path, _format, _output| path unless path == '-' } +
                 metadata.map { |path| File.expand_path(path) }
+        validate_artifact_path_collisions!(paths)
+        validate_sequence_artifacts!(resolved_outputs, paths)
+        validate_session_input_collision!(paths, input_path)
+
+        paths.each { |path| ensure_output_writable!(path, options) }
+        validate_session_transparency!(resolved_outputs, options)
+      end
+
+      def validate_artifact_path_collisions!(paths)
         collision = paths.group_by { |path| canonical_output_path(path) }.find { |_path, items| items.size > 1 }&.first
         raise ConfigError, "Session artifacts resolve to the same path: #{collision}" if collision
+      end
 
+      def validate_sequence_artifacts!(resolved_outputs, paths)
         canonical_paths = paths.map { |path| canonical_output_path(path) }
         sequence_dirs = resolved_outputs.filter_map do |path, format, _output|
           canonical_output_path(path) if format == 'png-sequence'
@@ -122,22 +152,27 @@ module Shellfie
           end
         end
         raise ConfigError, "Session artifact conflicts with a PNG sequence directory: #{nested}" if nested
-        if input_path && paths.any? { |path| canonical_output_path(path) == canonical_output_path(input_path) }
-          raise ConfigError, "Session artifact conflicts with the session configuration: #{input_path}"
-        end
 
         resolved_outputs.each do |path, format, _output|
           if format == 'png-sequence' && Dir.exist?(path) && !replaceable_png_sequence_directory?(path)
             raise FileSystemError, "Refusing to replace a non-Shellfie directory: #{path}"
           end
         end
+      end
 
-        paths.each { |path| ensure_output_writable!(path, options) }
-        if resolved_outputs.any? do |_path, format, output|
+      def validate_session_input_collision!(paths, input_path)
+        return unless input_path && paths.any? { |path|
+          canonical_output_path(path) == canonical_output_path(input_path)
+        }
+
+        raise ConfigError, "Session artifact conflicts with the session configuration: #{input_path}"
+      end
+
+      def validate_session_transparency!(resolved_outputs, options)
+        transparent_mp4 = resolved_outputs.any? do |_path, format, output|
           format == 'mp4' && (options.transparent || output[:transparent])
         end
-          raise ConfigError, 'MP4 output does not support transparency'
-        end
+        raise ConfigError, 'MP4 output does not support transparency' if transparent_mp4
       end
 
       def write_cassette(path, session, options)

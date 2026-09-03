@@ -27,7 +27,8 @@ module Shellfie
       TOP_LEVEL_KEYS = %i[version mode title theme terminal requires steps outputs render redact vars step_sets].freeze
       TERMINAL_KEYS = %i[shell columns rows cwd cwd_policy env env_allowlist timeout total_timeout prompt].freeze
       OUTPUT_KEYS = %i[path format animate scale shadow transparent capture].freeze
-      OUTPUT_FORMATS = %w[png gif svg svg-raster webp apng mp4 webm png-sequence html txt ansi json asciicast cast].freeze
+      OUTPUT_FORMATS = %w[png gif svg svg-raster webp apng mp4 webm png-sequence html txt ansi json asciicast
+                          cast].freeze
       RENDER_KEYS = %i[window font animation headless].freeze
 
       attr_reader :path, :source_paths, :mode, :title, :theme, :terminal, :requires, :steps, :outputs, :render,
@@ -35,8 +36,7 @@ module Shellfie
 
       def self.parse(path)
         source_path = File.realpath(path)
-        state = { files: 0, bytes: 0 }
-        raw, documents, provenance = load_included(source_path, root: File.dirname(source_path), stack: [], state: state)
+        raw, documents, provenance = IncludeResolver.call(source_path)
         new(raw, path: source_path, source_paths: documents.map(&:first).uniq)
       rescue ValidationError => e
         raise YAMLSafety.annotate_validation_error(e, documents || [], provenance: provenance || {})
@@ -45,106 +45,6 @@ module Shellfie
       rescue Errno::ENOENT
         raise ParseError, "Session file not found: #{path}"
       end
-
-      def self.load_included(path, root:, stack:, state:, policy: nil)
-        if stack.include?(path)
-          raise ParseError, "Circular session include: #{(stack + [path]).map do |item|
-          File.basename(item)
-        end.join(' -> ')}"
-        end
-
-        content = YAMLSafety.read_file(path, max_bytes: MAX_BYTES, label: 'Session')
-        state[:files] += 1
-        state[:bytes] += content.bytesize
-        raise ParseError, "Too many session includes (max #{MAX_INCLUDE_FILES})" if state[:files] > MAX_INCLUDE_FILES
-        if state[:bytes] > MAX_TOTAL_BYTES
-          raise ParseError,
-                "Included sessions are too large in total (max #{MAX_TOTAL_BYTES} bytes)"
-        end
-
-        raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
-        YAMLSafety.validate_tree!(raw)
-        raise ParseError, "Included session must be a YAML mapping: #{path}" unless raw.is_a?(Hash)
-
-        own_provenance = provenance_for(raw, path)
-        return [raw, [[path, content]], own_provenance] unless raw[:include]
-
-        declared_policy = raw[:include_policy]
-        if raw.key?(:include_policy) && !%w[allow root].include?(declared_policy)
-          raise ParseError, 'include_policy must be allow or root'
-        end
-
-        policy = 'root' if policy == 'root' || declared_policy == 'root'
-        policy ||= declared_policy || 'allow'
-
-        merged = {}
-        provenance = {}
-        documents = [[path, content]]
-        Array(raw[:include]).each do |included|
-          raise ParseError, 'Included session path must be a string' unless included.is_a?(String)
-
-          included_path = File.realpath(File.expand_path(included, File.dirname(path)))
-          if policy == 'root' && included_path != root && !included_path.start_with?("#{root}#{File::SEPARATOR}")
-            raise ParseError, "Included session escapes the session root: #{included}"
-          end
-
-          value, nested_documents, nested_provenance = load_included(
-            included_path, root: root, stack: stack + [path], state: state, policy: policy
-          )
-          merged, provenance = merge_included(merged, value, provenance, nested_provenance)
-          documents.concat(nested_documents)
-        end
-        own = raw.except(:include, :include_policy)
-        own_provenance.reject! { |key, _value| %i[include include_policy].include?(key.first) }
-        merged, provenance = merge_included(merged, own, provenance, own_provenance)
-        [merged, documents, provenance]
-      rescue Errno::ENOENT
-        raise ParseError, "Included session file not found from #{path}"
-      end
-
-      def self.merge_included(base, overrides, base_provenance = {}, override_provenance = {}, prefix = [])
-        merged = base.dup
-        provenance = base_provenance.dup
-        overrides.each do |key, right|
-          left = base[key]
-          target = prefix + [key]
-          if %i[steps requires outputs redact].include?(key)
-            offset = Array(left).size
-            merged[key] = Array(left) + Array(right)
-            copy_provenance!(provenance, override_provenance, target) do |path|
-              path.size > target.size && path[target.size].is_a?(Integer) ? target + [path[target.size] + offset] + path[(target.size + 1)..] : path
-            end
-          elsif left.is_a?(Hash) && right.is_a?(Hash)
-            merged[key], provenance = merge_included(left, right, provenance, override_provenance, target)
-          else
-            merged[key] = right
-            provenance.delete_if { |path, _value| path[0, target.size] == target }
-            copy_provenance!(provenance, override_provenance, target)
-          end
-        end
-        [merged, provenance]
-      end
-
-      def self.provenance_for(value, source, path = [], result = {})
-        result[path] = [source, path]
-        case value
-        when Hash
-          value.each { |key, nested| provenance_for(nested, source, path + [key], result) }
-        when Array
-          value.each_with_index { |nested, index| provenance_for(nested, source, path + [index], result) }
-        end
-        result
-      end
-
-      def self.copy_provenance!(target_map, source_map, prefix)
-        source_map.each do |path, source|
-          next unless path[0, prefix.size] == prefix
-
-          target_map[block_given? ? yield(path) : path] = source
-        end
-      end
-
-      private_class_method :load_included, :merge_included, :provenance_for, :copy_provenance!
 
       def initialize(raw, path: nil, source_paths: nil)
         raise ValidationError, 'Session configuration must be a YAML mapping' unless raw.is_a?(Hash)
@@ -195,7 +95,7 @@ module Shellfie
         }
       end
 
-    private
+      private
 
       def defaults
         {
@@ -282,32 +182,35 @@ module Shellfie
 
       def expand_steps(entries, sets, stack = [])
         entries.each_with_object([]) do |entry, result|
-          step = normalize_step(entry)
-          condition = step.is_a?(Hash) && step.delete(:if)
-          next unless condition.nil? || condition_matches?(condition)
+          expanded, repeat = expand_step(entry, sets, stack)
+          next unless expanded
 
-          repeat = step.is_a?(Hash) ? step.delete(:repeat) || 1 : 1
-          unless repeat.is_a?(Integer) && repeat.between?(1, MAX_COUNT)
-            raise ValidationError, "step repeat must be between 1 and #{MAX_COUNT}"
-          end
-
-          expanded = if step.is_a?(Hash) && step.key?(:use)
-                       raise ValidationError, 'A reusable step may contain only use and repeat' unless step.keys == [:use]
-
-                       name = step[:use].to_s
-                       raise ValidationError, "Unknown step set: #{name}" unless sets.key?(name)
-                       if stack.include?(name)
-                         raise ValidationError,
-                               "Circular step set: #{(stack + [name]).join(' -> ')}"
-                       end
-
-                       expand_steps(sets[name], sets, stack + [name])
-                     else
-                       [step]
-                     end
           repeat.times { result.concat(Shellfie::Config.deep_dup(expanded)) }
           raise ValidationError, 'Session has too many expanded steps (max 10,000)' if result.size > 10_000
         end
+      end
+
+      def expand_step(entry, sets, stack)
+        step = normalize_step(entry)
+        condition = step.delete(:if)
+        return unless condition.nil? || condition_matches?(condition)
+
+        repeat = step.delete(:repeat) || 1
+        unless repeat.is_a?(Integer) && repeat.between?(1, MAX_COUNT)
+          raise ValidationError, "step repeat must be between 1 and #{MAX_COUNT}"
+        end
+
+        [step.key?(:use) ? expand_step_set(step, sets, stack) : [step], repeat]
+      end
+
+      def expand_step_set(step, sets, stack)
+        raise ValidationError, 'A reusable step may contain only use and repeat' unless step.keys == [:use]
+
+        name = step[:use].to_s
+        raise ValidationError, "Unknown step set: #{name}" unless sets.key?(name)
+        raise ValidationError, "Circular step set: #{(stack + [name]).join(' -> ')}" if stack.include?(name)
+
+        expand_steps(sets[name], sets, stack + [name])
       end
 
       def condition_matches?(value)
@@ -316,32 +219,40 @@ module Shellfie
         raise ValidationError, 'step.if must contain a condition' if condition.empty?
 
         matches = []
-        if condition.key?(:os)
-          systems = Array(condition[:os]).map(&:to_s)
-          raise ValidationError, 'step.if.os must be macos, linux, or windows' unless (systems - %w[macos linux
-                                                                                                    windows]).empty?
-
-          matches << systems.include?(host_os)
-        end
-        if condition.key?(:shell)
-          raise ValidationError, 'step.if.shell must be a string' unless condition[:shell].is_a?(String)
-
-          matches << File.basename(terminal[:shell]) == condition[:shell]
-        end
-        if condition.key?(:ruby)
-          raise ValidationError, 'step.if.ruby must be a requirement string' unless condition[:ruby].is_a?(String)
-
-          matches << Gem::Requirement.new(condition[:ruby]).satisfied_by?(Gem::Version.new(RUBY_VERSION))
-        end
-        if condition.key?(:env)
-          raise ValidationError, 'step.if.env must be a mapping' unless condition[:env].is_a?(Hash)
-
-          configured = terminal[:env].transform_keys(&:to_s)
-          matches << condition[:env].all? { |name, expected| configured[name.to_s] == expected }
-        end
+        matches << os_condition_matches?(condition[:os]) if condition.key?(:os)
+        matches << shell_condition_matches?(condition[:shell]) if condition.key?(:shell)
+        matches << ruby_condition_matches?(condition[:ruby]) if condition.key?(:ruby)
+        matches << env_condition_matches?(condition[:env]) if condition.key?(:env)
         matches.all?
       rescue Gem::Requirement::BadRequirementError => e
         raise ValidationError, "Invalid step.if.ruby requirement: #{e.message}"
+      end
+
+      def os_condition_matches?(value)
+        systems = Array(value).map(&:to_s)
+        raise ValidationError, 'step.if.os must be macos, linux, or windows' unless (systems - %w[macos linux
+                                                                                                  windows]).empty?
+
+        systems.include?(host_os)
+      end
+
+      def shell_condition_matches?(value)
+        raise ValidationError, 'step.if.shell must be a string' unless value.is_a?(String)
+
+        File.basename(terminal[:shell]) == value
+      end
+
+      def ruby_condition_matches?(value)
+        raise ValidationError, 'step.if.ruby must be a requirement string' unless value.is_a?(String)
+
+        Gem::Requirement.new(value).satisfied_by?(Gem::Version.new(RUBY_VERSION))
+      end
+
+      def env_condition_matches?(value)
+        raise ValidationError, 'step.if.env must be a mapping' unless value.is_a?(Hash)
+
+        configured = terminal[:env].transform_keys(&:to_s)
+        value.all? { |name, expected| configured[name.to_s] == expected }
       end
 
       def host_os
@@ -361,22 +272,43 @@ module Shellfie
       def validate!
         raise ValidationError, 'mode must be run or replay' unless %w[run replay].include?(mode)
 
+        validate_terminal!
+        validate_requirements!
+        validate_steps!
+        capture_names = validate_captures!
+        validate_outputs!(capture_names)
+        validate_redactions!
+        validate_render!
+      end
+
+      def validate_terminal!
         validate_mapping_keys!(terminal, TERMINAL_KEYS, 'terminal')
         raise ValidationError, 'terminal.shell must be a string' unless terminal[:shell].is_a?(String)
 
-        %i[columns rows].each do |key|
-          unless terminal[key].is_a?(Integer) && terminal[key].positive?
-            raise ValidationError,
-                  "terminal.#{key} must be a positive integer"
-          end
-        end
-        raise ValidationError, 'terminal.columns must be at most 500' if terminal[:columns] > 500
-        raise ValidationError, 'terminal.rows must be at most 200' if terminal[:rows] > 200
+        validate_terminal_dimensions!
         raise ValidationError, 'terminal.cwd must be a string' unless terminal[:cwd].is_a?(String)
         raise ValidationError, 'terminal.cwd_policy must be allow or root' unless %w[allow
                                                                                      root].include?(terminal[:cwd_policy])
         raise ValidationError, 'terminal.prompt must be a string' unless terminal[:prompt].is_a?(String)
         raise ValidationError, 'terminal.prompt must not be blank' if terminal[:prompt].strip.empty?
+
+        validate_terminal_environment!
+        raise ValidationError, 'terminal.timeout must be positive' unless duration(terminal[:timeout]).positive?
+
+        duration(terminal[:total_timeout]) unless terminal[:total_timeout].nil?
+      end
+
+      def validate_terminal_dimensions!
+        %i[columns rows].each do |key|
+          unless terminal[key].is_a?(Integer) && terminal[key].positive?
+            raise ValidationError, "terminal.#{key} must be a positive integer"
+          end
+        end
+        raise ValidationError, 'terminal.columns must be at most 500' if terminal[:columns] > 500
+        raise ValidationError, 'terminal.rows must be at most 200' if terminal[:rows] > 200
+      end
+
+      def validate_terminal_environment!
         raise ValidationError, 'terminal.env must be a mapping' unless terminal[:env].is_a?(Hash)
         unless terminal[:env].all? do |key, value|
           key.to_s.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/) && (value.nil? || value.is_a?(String))
@@ -387,33 +319,43 @@ module Shellfie
           key.to_s == 'PS1'
         end
 
-        unless terminal[:env_allowlist].nil?
-          unless terminal[:env_allowlist].is_a?(Array) && terminal[:env_allowlist].all? do |name|
-            name.is_a?(String) && name.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
-          end
-            raise ValidationError, 'terminal.env_allowlist must contain environment variable names'
-          end
-          unless terminal[:env_allowlist].uniq.size == terminal[:env_allowlist].size
-            raise ValidationError,
-                  'terminal.env_allowlist must not contain duplicates'
-          end
+        validate_environment_allowlist! unless terminal[:env_allowlist].nil?
+      end
 
-          disallowed = terminal[:env].keys.map(&:to_s) - terminal[:env_allowlist]
-          unless disallowed.empty?
-            raise ValidationError,
-                  "terminal.env contains variables outside env_allowlist: #{disallowed.join(', ')}"
-          end
+      def validate_environment_allowlist!
+        unless terminal[:env_allowlist].is_a?(Array) && terminal[:env_allowlist].all? do |name|
+          name.is_a?(String) && name.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
         end
-        raise ValidationError, 'terminal.timeout must be positive' unless duration(terminal[:timeout]).positive?
+          raise ValidationError, 'terminal.env_allowlist must contain environment variable names'
+        end
+        unless terminal[:env_allowlist].uniq.size == terminal[:env_allowlist].size
+          raise ValidationError, 'terminal.env_allowlist must not contain duplicates'
+        end
 
-        duration(terminal[:total_timeout]) unless terminal[:total_timeout].nil?
+        disallowed = terminal[:env].keys.map(&:to_s) - terminal[:env_allowlist]
+        unless disallowed.empty?
+          raise ValidationError, "terminal.env contains variables outside env_allowlist: #{disallowed.join(', ')}"
+        end
+      end
+
+      def validate_requirements!
         raise ValidationError, 'requires must contain command names' unless requires.all? do |item|
           item.is_a?(String) && item.match?(/\A[\w.+-]+\z/)
         end
+      end
+
+      def validate_steps!
         raise ValidationError, 'Session has too many steps (max 10,000)' if steps.size > 10_000
 
         steps.each_with_index { |step, index| validate_step!(step, index) }
-        expanded_events = steps.sum do |step|
+        max_events = Shellfie::Config::DEFAULTS[:limits][:max_frames]
+        if expanded_event_count > max_events
+          raise ValidationError, "Session expands to too many events (max #{max_events})"
+        end
+      end
+
+      def expanded_event_count
+        steps.sum do |step|
           action = (step.keys & ACTIONS).first
           case action
           when :run
@@ -428,35 +370,46 @@ module Shellfie
           else 0
           end
         end
-        max_events = Shellfie::Config::DEFAULTS[:limits][:max_frames]
-        raise ValidationError, "Session expands to too many events (max #{max_events})" if expanded_events > max_events
+      end
 
+      def validate_captures!
         capture_names = steps.filter_map { |step| step[:capture] }
         raise ValidationError, "Too many captures (max #{MAX_CAPTURES})" if capture_names.size > MAX_CAPTURES
         raise ValidationError, 'Capture names must be unique' unless capture_names.uniq.size == capture_names.size
 
-        outputs.each_with_index do |output, index|
-          validate_mapping_keys!(output, OUTPUT_KEYS, "outputs[#{index}]")
-          raise ValidationError, "outputs[#{index}].path must be a string" unless output[:path].is_a?(String)
-          if output.key?(:capture) && !output[:capture].is_a?(String)
-            raise ValidationError, "outputs[#{index}].capture must be a string"
-          end
-          if output[:capture] && !capture_names.include?(output[:capture])
-            raise ValidationError, "outputs[#{index}] references unknown capture: #{output[:capture]}"
-          end
-          if output[:format] && !OUTPUT_FORMATS.include?(output[:format].to_s)
-            raise ValidationError, "outputs[#{index}].format is unsupported"
-          end
-          if output[:scale] && (!output[:scale].is_a?(Integer) || !output[:scale].between?(1, 3))
-            raise ValidationError, "outputs[#{index}].scale must be between 1 and 3"
-          end
+        capture_names
+      end
 
-          %i[animate shadow transparent].each do |key|
-            if output.key?(key) && ![true, false].include?(output[key])
-              raise ValidationError, "outputs[#{index}].#{key} must be true or false"
-            end
+      def validate_outputs!(capture_names)
+        outputs.each_with_index do |output, index|
+          validate_output!(output, index, capture_names)
+        end
+      end
+
+      def validate_output!(output, index, capture_names)
+        validate_mapping_keys!(output, OUTPUT_KEYS, "outputs[#{index}]")
+        raise ValidationError, "outputs[#{index}].path must be a string" unless output[:path].is_a?(String)
+        if output.key?(:capture) && !output[:capture].is_a?(String)
+          raise ValidationError, "outputs[#{index}].capture must be a string"
+        end
+        if output[:capture] && !capture_names.include?(output[:capture])
+          raise ValidationError, "outputs[#{index}] references unknown capture: #{output[:capture]}"
+        end
+        if output[:format] && !OUTPUT_FORMATS.include?(output[:format].to_s)
+          raise ValidationError, "outputs[#{index}].format is unsupported"
+        end
+        if output[:scale] && (!output[:scale].is_a?(Integer) || !output[:scale].between?(1, 3))
+          raise ValidationError, "outputs[#{index}].scale must be between 1 and 3"
+        end
+
+        %i[animate shadow transparent].each do |key|
+          if output.key?(key) && ![true, false].include?(output[key])
+            raise ValidationError, "outputs[#{index}].#{key} must be true or false"
           end
         end
+      end
+
+      def validate_redactions!
         raise ValidationError, 'Too many redaction patterns (max 100)' if redactions.size > 100
         if redactions.any? { |pattern| pattern.to_s.length > MAX_PATTERN_LENGTH }
           raise ValidationError, "Redaction patterns must be at most #{MAX_PATTERN_LENGTH} characters"
@@ -464,14 +417,19 @@ module Shellfie
         raise ValidationError, 'Redaction patterns must be strings' unless redactions.all?(String)
 
         redactions.each { |pattern| Regexp.new(pattern) }
+      rescue RegexpError => e
+        raise ValidationError, "Invalid redaction pattern: #{e.message}"
+      end
+
+      def validate_render!
         validate_mapping_keys!(render, RENDER_KEYS, 'render')
         %i[window font animation].each do |key|
           raise ValidationError, "render.#{key} must be a mapping" if render.key?(key) && !render[key].is_a?(Hash)
         end
         {
-        window: Parser::ValidatesInput::WINDOW_KEYS,
-        font: Parser::ValidatesInput::FONT_KEYS,
-        animation: Parser::ValidatesInput::ANIMATION_KEYS
+          window: Parser::ValidatesInput::WINDOW_KEYS,
+          font: Parser::ValidatesInput::FONT_KEYS,
+          animation: Parser::ValidatesInput::ANIMATION_KEYS
         }.each do |key, allowed|
           validate_mapping_keys!(render[key], allowed, "render.#{key}") if render[key]
         end
@@ -486,25 +444,40 @@ module Shellfie
           animation: render[:animation] || {},
           headless: render.fetch(:headless, false)
         )
-      rescue RegexpError => e
-        raise ValidationError, "Invalid redaction pattern: #{e.message}"
       end
 
       def validate_step!(step, index)
+        action = step_action(step, index)
+        allowed = [action] + STEP_OPTION_KEYS.fetch(action)
+        validate_mapping_keys!(step, allowed, "steps[#{index}]")
+        value = step[action]
+        validate_step_action_value!(action, value, index)
+        validate_step_options!(step, action, value, index)
+        validate_wait!(value, index) if action == :wait && value.is_a?(Hash)
+        validate_pattern_size!(value, "steps[#{index}].wait") if action == :wait && value.is_a?(String)
+        validate_expect!(value, index) if action == :expect && value.is_a?(Hash)
+      end
+
+      def step_action(step, index)
         actions = step.keys & ACTIONS
         raise ValidationError, "steps[#{index}] must contain exactly one action" unless actions.size == 1
 
-        allowed = actions + STEP_OPTION_KEYS.fetch(actions.first)
-        validate_mapping_keys!(step, allowed, "steps[#{index}]")
-        action = actions.first
-        value = step[action]
+        actions.first
+      end
+
+      def validate_step_action_value!(action, value, index)
         if %i[run type key capture].include?(action) && !value.is_a?(String)
           raise ValidationError, "steps[#{index}].#{action} must be a string"
         end
         if %i[wait expect].include?(action) && !value.is_a?(Hash) && !value.is_a?(String)
           raise ValidationError, "steps[#{index}].#{action} must be a string or mapping"
         end
+        if %i[hide show].include?(action) && value != true
+          raise ValidationError, "steps[#{index}].#{action} must be true"
+        end
+      end
 
+      def validate_step_options!(step, action, value, index)
         duration(step[:timeout]) if step.key?(:timeout)
         duration(step[:delay]) if step.key?(:delay)
         duration(value) if action == :sleep
@@ -521,16 +494,16 @@ module Shellfie
         if action == :run && step[:async] && step.fetch(:visibility, 'visible') == 'hidden'
           raise ValidationError, "steps[#{index}] cannot hide an asynchronous run"
         end
-        raise ValidationError, "steps[#{index}].#{action} must be true" if %i[hide show].include?(action) && value != true
 
-        if step.key?(:speed)
-          speed_text = step[:speed].to_s
-          speed = /\A(\d+(?:\.\d+)?)cps\z/.match(speed_text)&.[](1)&.to_f if speed_text.bytesize <= 32
-          raise ValidationError, "steps[#{index}].speed must be between 1cps and 1000cps" unless speed&.between?(1, 1_000)
-        end
-        validate_wait!(value, index) if action == :wait && value.is_a?(Hash)
-        validate_pattern_size!(value, "steps[#{index}].wait") if action == :wait && value.is_a?(String)
-        validate_expect!(value, index) if action == :expect && value.is_a?(Hash)
+        validate_step_speed!(step[:speed], index) if step.key?(:speed)
+      end
+
+      def validate_step_speed!(value, index)
+        text = value.to_s
+        speed = /\A(\d+(?:\.\d+)?)cps\z/.match(text)&.[](1)&.to_f if text.bytesize <= 32
+        return if speed&.between?(1, 1_000)
+
+        raise ValidationError, "steps[#{index}].speed must be between 1cps and 1000cps"
       end
 
       def validate_wait!(value, index)
@@ -541,18 +514,24 @@ module Shellfie
 
         duration(condition[:stable]) if condition.key?(:stable)
         duration(condition[:timeout]) if condition.key?(:timeout)
-        if condition.key?(:exit) && condition[:exit] != true
-          raise ValidationError, "steps[#{index}].wait.exit must be true"
-        end
-        if condition.key?(:prompt) && condition[:prompt] != true
-          raise ValidationError, "steps[#{index}].wait.prompt must be true"
-        end
+        validate_wait_flags!(condition, index)
+        validate_wait_patterns!(condition, index)
+      end
 
-        validate_pattern_size!(condition[:screen] || condition[:line], "steps[#{index}].wait")
+      def validate_wait_flags!(condition, index)
+        %i[exit prompt].each do |key|
+          next unless condition.key?(key) && condition[key] != true
+
+          raise ValidationError, "steps[#{index}].wait.#{key} must be true"
+        end
+      end
+
+      def validate_wait_patterns!(condition, index)
+        context = "steps[#{index}].wait"
+        validate_pattern_size!(condition[:screen] || condition[:line], context)
         %i[screen line].each do |key|
-          if condition.key?(key) && !condition[key].is_a?(String)
-            raise ValidationError, "steps[#{index}].wait.#{key} must be a string"
-          end
+          raise ValidationError,
+                "#{context}.#{key} must be a string" if condition.key?(key) && !condition[key].is_a?(String)
         end
       end
 
@@ -561,30 +540,42 @@ module Shellfie
         validate_mapping_keys!(condition,
                                %i[screen_contains screen line exit_status cursor_row cursor_column golden elapsed_under elapsed_over], "steps[#{index}].expect")
         raise ValidationError, "steps[#{index}].expect must contain a condition" if condition.empty?
+
+        validate_expected_exit_status!(condition, index)
+        validate_expected_cursor!(condition, index)
+        validate_expected_text!(condition, index)
+        %i[elapsed_under elapsed_over].each { |key| duration(condition[key]) if condition.key?(key) }
+      end
+
+      def validate_expected_exit_status!(condition, index)
         if condition.key?(:exit_status) && (!condition[:exit_status].is_a?(Integer) || !condition[:exit_status].between?(
           0, 255
         ))
           raise ValidationError, "steps[#{index}].expect.exit_status must be between 0 and 255"
         end
+      end
 
+      def validate_expected_cursor!(condition, index)
         %i[cursor_row cursor_column].each do |key|
           next unless condition.key?(key)
           unless condition[key].is_a?(Integer) && condition[key] >= 0
             raise ValidationError, "steps[#{index}].expect.#{key} must be a non-negative integer"
           end
         end
+      end
+
+      def validate_expected_text!(condition, index)
+        context = "steps[#{index}].expect"
         validate_pattern_size!(condition[:screen], "steps[#{index}].expect")
         validate_pattern_size!(condition[:line], "steps[#{index}].expect")
         %i[screen line screen_contains].each do |key|
           if condition.key?(key) && !condition[key].is_a?(String)
-            raise ValidationError, "steps[#{index}].expect.#{key} must be a string"
+            raise ValidationError, "#{context}.#{key} must be a string"
           end
         end
         if condition.key?(:golden) && !condition[:golden].is_a?(String)
-          raise ValidationError, "steps[#{index}].expect.golden must be a string"
+          raise ValidationError, "#{context}.golden must be a string"
         end
-
-        %i[elapsed_under elapsed_over].each { |key| duration(condition[key]) if condition.key?(key) }
       end
 
       def validate_mapping_keys!(hash, allowed, context)
@@ -625,3 +616,5 @@ module Shellfie
     end
   end
 end
+
+require_relative 'config/include_resolver'

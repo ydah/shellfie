@@ -32,18 +32,10 @@ module Shellfie
         images = []
         chrome_cache = Rendering::ChromeCache.new
         begin
-          frames = playback_frames(coalesce_frames(build_animation_frames))
-          validate_frame_limit!(frames)
-          validate_workload!(frames, scale: scale, shadow: shadow)
-          warn_frame_count(frames)
+          frames = prepared_frames(scale: scale, shadow: shadow)
           images = render_frames(frames, scale: scale, shadow: shadow, transparent: transparent,
                                          chrome_cache: chrome_cache)
-          extension = Rendering::FormatResolver.resolve(output_path, explicit: format, default: 'gif')
-          return write_png_sequence(images, output_path) if extension == 'png-sequence'
-
-          OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
-            combine_to_animation(images, temporary_path, format: extension)
-          end
+          write_animation(images, output_path, format: format, io: io)
         ensure
           cleanup_temp_files(images)
           chrome_cache.cleanup
@@ -52,7 +44,7 @@ module Shellfie
         raise RenderError.new("ImageMagick animation render failed: #{e.message}", category: :render)
       end
 
-    private
+      private
 
       def check_dependencies!
         DependencyChecker.configure_mini_magick!
@@ -65,6 +57,23 @@ module Shellfie
 
       def cursor_text
         @frame_builder.cursor_text
+      end
+
+      def prepared_frames(scale:, shadow:)
+        frames = playback_frames(coalesce_frames(build_animation_frames))
+        validate_frame_limit!(frames)
+        validate_workload!(frames, scale: scale, shadow: shadow)
+        warn_frame_count(frames)
+        frames
+      end
+
+      def write_animation(images, output_path, format:, io:)
+        extension = Rendering::FormatResolver.resolve(output_path, explicit: format, default: 'gif')
+        return write_png_sequence(images, output_path) if extension == 'png-sequence'
+
+        OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
+          combine_to_animation(images, temporary_path, format: extension)
+        end
       end
 
       def render_frames(frames, scale:, shadow:, transparent:, chrome_cache:)
@@ -109,20 +118,7 @@ module Shellfie
       end
 
       def combine_to_animation(images, output_path, format:)
-        if %w[mp4 webm apng].include?(format)
-          DependencyChecker.ensure_ffmpeg!
-          return FFmpegEncoder.encode(
-            images,
-            output_path,
-            format: format,
-            command: DependencyChecker.ffmpeg_path,
-            framerate: config.animation[:framerate],
-            playback_speed: config.animation[:playback_speed],
-            loop: config.animation[:loop],
-            loop_count: config.animation[:loop_count],
-            apng_prediction: config.animation[:apng_prediction]
-          )
-        end
+        return encode_video(images, output_path, format) if %w[mp4 webm apng].include?(format)
 
         palette = GIFPalette.new(config: config, theme: theme) if format == 'gif'
         Rendering::ImageMagickCommandBuilder.convert do |convert|
@@ -139,6 +135,21 @@ module Shellfie
         end
       ensure
         palette&.cleanup
+      end
+
+      def encode_video(images, output_path, format)
+        DependencyChecker.ensure_ffmpeg!
+        FFmpegEncoder.encode(
+          images,
+          output_path,
+          format: format,
+          command: DependencyChecker.ffmpeg_path,
+          framerate: config.animation[:framerate],
+          playback_speed: config.animation[:playback_speed],
+          loop: config.animation[:loop],
+          loop_count: config.animation[:loop_count],
+          apng_prediction: config.animation[:apng_prediction]
+        )
       end
 
       def configure_animation_format(convert, format, images:, palette:)
@@ -263,21 +274,8 @@ module Shellfie
       end
 
       def validate_workload!(frames, scale:, shadow:)
-        speed = Rational(config.animation[:playback_speed].to_s)
-        encoded_frames = (frames.sum { |frame| frame[:delay] } * config.animation[:framerate] / (1_000 * speed)).ceil
-        if encoded_frames > config.limits[:max_render_frames]
-          raise ResourceLimitError,
-                "Animation timeline would encode #{encoded_frames} frames (max #{config.limits[:max_render_frames]})"
-        end
-
-        visible_lines = fixed_visible_lines(frames)
-        max_pixels = frames.map do |frame|
-          frame_config = create_frame_config(frame[:lines],
-                                             window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {}))
-          geometry = Renderer.new(frame_config).estimate(scale: scale, shadow: shadow)
-          geometry[:canvas_width] * geometry[:canvas_height]
-        end.max || 0
-        total_pixels = max_pixels * frames.size
+        validate_encoded_frame_count!(frames)
+        total_pixels = maximum_frame_pixels(frames, scale: scale, shadow: shadow) * frames.size
         if total_pixels > config.limits[:max_total_pixels]
           raise ResourceLimitError,
                 "Animation workload is too large (#{total_pixels} pixels, max #{config.limits[:max_total_pixels]})"
@@ -288,6 +286,26 @@ module Shellfie
 
         raise ResourceLimitError,
               "Animation temporary data is too large (#{estimated_bytes} bytes, max #{config.limits[:max_temp_bytes]})"
+      end
+
+      def validate_encoded_frame_count!(frames)
+        speed = Rational(config.animation[:playback_speed].to_s)
+        count = (frames.sum { |frame| frame[:delay] } * config.animation[:framerate] / (1_000 * speed)).ceil
+        return if count <= config.limits[:max_render_frames]
+
+        raise ResourceLimitError,
+              "Animation timeline would encode #{count} frames (max #{config.limits[:max_render_frames]})"
+      end
+
+      def maximum_frame_pixels(frames, scale:, shadow:)
+        visible_lines = fixed_visible_lines(frames)
+        frames.map do |frame|
+          frame_config = create_frame_config(
+            frame[:lines], window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {})
+          )
+          geometry = Renderer.new(frame_config).estimate(scale: scale, shadow: shadow)
+          geometry[:canvas_width] * geometry[:canvas_height]
+        end.max || 0
       end
 
       def fixed_visible_lines(frames)

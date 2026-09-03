@@ -24,7 +24,7 @@ module Shellfie
         end
       end
 
-    private
+      private
 
       attr_reader :config
 
@@ -52,19 +52,18 @@ module Shellfie
         width = [config.window[:width].to_i / 8, 1].max
         header = { version: 2, width: width, height: [final_lines.size, 1].max, env: { 'TERM' => 'xterm-256color' } }
         elapsed = 0.0
-        source = if config.frames.empty?
-                   [{ text: ansi_text, delay: 0 }]
-                 else
-                   config.frames.map do |frame|
-                     { text: frame_to_ansi(frame), delay: frame.delay }
-                   end
-                 end
-        events = source.map do |event|
+        events = asciicast_source.map do |event|
           value = [elapsed.round(6), 'o', event[:text]]
           elapsed += event[:delay].to_f / 1_000
           value
         end
         ([JSON.generate(header)] + events.map { |event| JSON.generate(event) }).join("\n") + "\n"
+      end
+
+      def asciicast_source
+        return [{ text: ansi_text, delay: 0 }] if config.frames.empty?
+
+        config.frames.map { |frame| { text: frame_to_ansi(frame), delay: frame.delay } }
       end
 
       def frame_to_ansi(frame)

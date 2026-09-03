@@ -21,14 +21,26 @@ module Shellfie
         'vertical' => { width: 720, height: 1280 }
       }.freeze
 
-    private
+      private
 
       def run_generate(options)
         input_files = expand_input_paths(@args)
+        validate_generate_request!(input_files, options)
+        default_output = options.output.nil?
+        jobs = build_render_jobs(input_files, options, default_output: default_output)
+        input_paths = source_paths_for(jobs, input_files)
+
+        validate_render_job_paths!(jobs, input_paths)
+        validate_manifest_path!(jobs, input_paths, options)
+        preflight_render_jobs!(jobs, options)
+
+        manifests = render_jobs(jobs, options)
+        write_manifest(manifests, options) if options.manifest
+      end
+
+      def validate_generate_request!(input_files, options)
         raise ConfigError, 'Input file is required' if input_files.empty?
         raise ConfigError, 'Output is required when reading stdin' if !options.output && input_files.include?('-')
-
-        default_output = options.output.nil?
         if options.output == '-' && input_files.size > 1
           raise ConfigError,
                 'stdout output supports only one input file'
@@ -43,16 +55,14 @@ module Shellfie
           raise ConfigError,
                 '--check cannot be combined with --force or --manifest'
         end
+      end
 
+      def build_render_jobs(input_files, options, default_output:)
         configs = input_files.to_h { |input_file| [input_file, apply_overrides(Parser.parse(input_file), options)] }
-        jobs = input_files.map do |input_file|
+        input_files.map do |input_file|
           config = configs.fetch(input_file)
           animate = animation_output?(config, options)
-          format = if default_output
-                     options.format || (animate ? 'gif' : 'png')
-                   else
-                     output_format_for(options.output, animate, options)
-                   end
+          format = render_format_for(options, animate, default_output: default_output)
           output_path = output_path_for(input_file, format, multiple: input_files.size > 1, config: config,
                                                             options: options, default_output: default_output)
           if output_path == '-' && format == 'png-sequence'
@@ -63,12 +73,25 @@ module Shellfie
           validate_output_mode!(format, animate, options)
           [config, animate, format, output_path]
         end
+      end
+
+      def render_format_for(options, animate, default_output:)
+        return options.format || (animate ? 'gif' : 'png') if default_output
+
+        output_format_for(options.output, animate, options)
+      end
+
+      def source_paths_for(jobs, input_files)
+        jobs.flat_map { |config, _animate, _format, _output| config.source_paths }
+            .concat(input_files.reject { |path| path == '-' })
+            .map { |path| canonical_output_path(path) }
+            .uniq
+      end
+
+      def validate_render_job_paths!(jobs, input_paths)
         duplicate = jobs.group_by(&:last).find { |_path, grouped| grouped.size > 1 }&.first
         raise ConfigError, "Multiple inputs resolve to the same output: #{duplicate}" if duplicate
 
-        input_paths = jobs.flat_map { |config, _animate, _format, _output| config.source_paths }
-                          .concat(input_files.reject { |path| path == '-' })
-                          .map { |path| canonical_output_path(path) }.uniq
         output_collision = jobs.find do |_config, _animate, _format, output_path|
           output_path != '-' && input_paths.include?(canonical_output_path(output_path))
         end
@@ -83,29 +106,33 @@ module Shellfie
         if directory_collision
           raise ConfigError, "PNG sequence output contains an input file: #{directory_collision.last}"
         end
+      end
 
-        if options.manifest
-          raise ConfigError, 'Manifest output cannot be stdout' if options.manifest == '-'
+      def validate_manifest_path!(jobs, input_paths, options)
+        return unless options.manifest
 
-          manifest_path = canonical_output_path(options.manifest)
-          collision = jobs.any? do |_config, _animate, _format, output_path|
-            output_path != '-' && canonical_output_path(output_path) == manifest_path
-          end
-          raise ConfigError, "Manifest path conflicts with a generated output: #{options.manifest}" if collision
-          if input_paths.include?(manifest_path)
-            raise ConfigError,
-                  "Manifest path conflicts with an input file: #{options.manifest}"
-          end
+        raise ConfigError, 'Manifest output cannot be stdout' if options.manifest == '-'
 
-          sequence_dirs = jobs.filter_map do |_config, _animate, format, output_path|
-            canonical_output_path(output_path) if format == 'png-sequence'
-          end
-          nested = sequence_dirs.any? do |directory|
-            path_within?(manifest_path, directory) || path_within?(directory, manifest_path)
-          end
-          raise ConfigError, "Manifest path conflicts with a PNG sequence directory: #{options.manifest}" if nested
+        manifest_path = canonical_output_path(options.manifest)
+        collision = jobs.any? do |_config, _animate, _format, output_path|
+          output_path != '-' && canonical_output_path(output_path) == manifest_path
+        end
+        raise ConfigError, "Manifest path conflicts with a generated output: #{options.manifest}" if collision
+        if input_paths.include?(manifest_path)
+          raise ConfigError,
+                "Manifest path conflicts with an input file: #{options.manifest}"
         end
 
+        sequence_dirs = jobs.filter_map do |_config, _animate, format, output_path|
+          canonical_output_path(output_path) if format == 'png-sequence'
+        end
+        nested = sequence_dirs.any? do |directory|
+          path_within?(manifest_path, directory) || path_within?(directory, manifest_path)
+        end
+        raise ConfigError, "Manifest path conflicts with a PNG sequence directory: #{options.manifest}" if nested
+      end
+
+      def preflight_render_jobs!(jobs, options)
         preflight_render_dependencies!(jobs.map { |_config, _animate, format, _output_path| format })
         jobs.each do |_config, _animate, format, output_path|
           if format == 'png-sequence' && Dir.exist?(output_path) && !replaceable_png_sequence_directory?(output_path)
@@ -120,8 +147,6 @@ module Shellfie
           end
         end
         ensure_output_writable!(options.manifest, options) if options.manifest
-        manifests = render_jobs(jobs, options)
-        write_manifest(manifests, options) if options.manifest
       end
 
       def render_jobs(jobs, options)
@@ -163,7 +188,7 @@ module Shellfie
         $stdout.binmode if output_path == '-'
         result = if SEMANTIC_FORMATS.include?(format)
                    Rendering::TranscriptRenderer.new(config).render(output_path, format: format,
-                                                                      io: output_path == '-' ? $stdout : nil)
+                                                                                 io: output_path == '-' ? $stdout : nil)
                  elsif animate
                    generate_animation(config, output_path, format, options)
                  else

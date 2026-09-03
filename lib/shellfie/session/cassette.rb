@@ -48,35 +48,57 @@ module Shellfie
         raise ParseError, 'Unsupported cassette version' unless raw[:version] == 1
         raise ParseError, 'Unknown cassette key' unless (raw.keys - TOP_LEVEL_KEYS).empty?
         raise ParseError, 'Cassette title must be a string' unless raw[:title].is_a?(String)
+
+        validate_dimensions!(raw)
+        validate_events!(raw[:events] || [])
+        validate_captures!(raw[:captures] || {})
+        validate_exit_status!(raw[:exit_status])
+      end
+
+      def self.validate_dimensions!(raw)
         unless raw[:columns].is_a?(Integer) && raw[:columns].between?(1, 500) &&
                raw[:rows].is_a?(Integer) && raw[:rows].between?(1, 200)
           raise ParseError, 'Invalid cassette dimensions'
         end
+      end
 
-        events = raw[:events] || []
+      def self.validate_events!(events)
         raise ParseError, 'Cassette events must be an array' unless events.is_a?(Array)
         raise ParseError, 'Cassette has too many events' if events.size > MAX_EVENTS
 
         events.each_with_index do |event, index|
-          next if event.is_a?(Hash) && (event.keys - EVENT_KEYS).empty? && event[:text].is_a?(String) &&
-                  event[:delay].is_a?(Numeric) && event[:delay].finite? && event[:delay] >= 0 &&
-                  [true, false].include?(event.fetch(:visible, true)) &&
-                  (!event.key?(:screen) || (event[:screen].is_a?(Array) && event[:screen].all?(String))) &&
-                  (event[:status].nil? || (event[:status].is_a?(Integer) && event[:status].between?(0, 255)))
+          next if valid_event?(event)
 
           raise ParseError, "Invalid cassette event at index #{index}"
         end
+      end
 
-        captures = raw[:captures] || {}
+      def self.valid_event?(event)
+        event.is_a?(Hash) &&
+          (event.keys - EVENT_KEYS).empty? &&
+          event[:text].is_a?(String) &&
+          event[:delay].is_a?(Numeric) && event[:delay].finite? && event[:delay] >= 0 &&
+          [true, false].include?(event.fetch(:visible, true)) &&
+          (!event.key?(:screen) || (event[:screen].is_a?(Array) && event[:screen].all?(String))) &&
+          (event[:status].nil? || (event[:status].is_a?(Integer) && event[:status].between?(0, 255)))
+      end
+
+      def self.validate_captures!(captures)
         unless captures.is_a?(Hash) && captures.all? do |name, lines|
           name.is_a?(Symbol) && lines.is_a?(Array) && lines.all?(String)
         end
           raise ParseError, 'Cassette captures must map names to arrays of strings'
         end
-        return if raw[:exit_status].nil? || (raw[:exit_status].is_a?(Integer) && raw[:exit_status].between?(0, 255))
+      end
+
+      def self.validate_exit_status!(status)
+        return if status.nil? || (status.is_a?(Integer) && status.between?(0, 255))
 
         raise ParseError, 'Invalid cassette exit status'
       end
+
+      private_class_method :validate_dimensions!, :validate_events!, :valid_event?, :validate_captures!,
+                           :validate_exit_status!
     end
   end
 end

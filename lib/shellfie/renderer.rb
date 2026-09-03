@@ -69,24 +69,23 @@ module Shellfie
 
     def build_lines
       config.lines.flat_map do |line|
-        rendered_lines = []
-        if line.prompt || line.command
-          rendered_lines << {
-            segments: coalesce_segments(
-              parse_with_default(line.prompt.to_s, line.prompt_color) +
-                parse_with_default(line.command.to_s, line.command_color)
-            ),
-            selected: line.selected
-          }
-        end
+        [command_line(line), *output_lines(line)].compact
+      end
+    end
 
-        next rendered_lines unless line.output
+    def command_line(line)
+      return unless line.prompt || line.command
 
-        line.output.to_s.split("\n", -1).each do |output_line|
-          rendered_lines << { segments: coalesce_segments(parse_with_default(output_line, line.output_color)),
-                              selected: line.selected }
-        end
-        rendered_lines
+      segments = parse_with_default(line.prompt.to_s, line.prompt_color) +
+                 parse_with_default(line.command.to_s, line.command_color)
+      { segments: coalesce_segments(segments), selected: line.selected }
+    end
+
+    def output_lines(line)
+      return [] unless line.output
+
+      line.output.to_s.split("\n", -1).map do |output|
+        { segments: coalesce_segments(parse_with_default(output, line.output_color)), selected: line.selected }
       end
     end
 

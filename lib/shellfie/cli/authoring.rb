@@ -10,7 +10,7 @@ module Shellfie
     module Authoring
       TEMPLATE_NAMES = %w[static animation run tui ci theme-gallery].freeze
 
-    private
+      private
 
       def run_new(options)
         path = @args.shift
@@ -37,21 +37,26 @@ module Shellfie
         normalized = YAML.dump(
           YAMLSafety.load_file(path, max_bytes: Parser::MAX_INCLUDE_BYTES, symbolize_names: false)
         )
-        if options.check
-          raise ValidationError, "Configuration is not formatted: #{path}" unless original == normalized
-
-          puts "Formatted: #{path}"
-          return
-        end
+        return check_format(path, original, normalized) if options.check
         return puts("Unchanged: #{path}") if original == normalized
 
+        write_formatted(path, normalized)
+        puts "Formatted: #{path}"
+      end
+
+      def check_format(path, original, normalized)
+        raise ValidationError, "Configuration is not formatted: #{path}" unless original == normalized
+
+        puts "Formatted: #{path}"
+      end
+
+      def write_formatted(path, normalized)
         mode = File.stat(path).mode
         temp = Tempfile.new([File.basename(path), '.tmp'], File.dirname(path))
         temp.write(normalized)
         temp.close
         File.chmod(mode, temp.path)
         FileUtils.mv(temp.path, path)
-        puts "Formatted: #{path}"
       ensure
         temp&.close!
       end
@@ -83,11 +88,11 @@ module Shellfie
                  when 'fish' then commands.split.map { |command| "complete -c shellfie -f -a #{command}" }.join("\n")
                  when 'powershell', 'pwsh'
                    <<~POWERSHELL.chomp
-                   Register-ArgumentCompleter -Native -CommandName shellfie,shf -ScriptBlock {
-                     param($wordToComplete)
-                     '#{commands}'.Split(' ') | Where-Object { $_ -like "$wordToComplete*" }
-                   }
-                 POWERSHELL
+                     Register-ArgumentCompleter -Native -CommandName shellfie,shf -ScriptBlock {
+                       param($wordToComplete)
+                       '#{commands}'.Split(' ') | Where-Object { $_ -like "$wordToComplete*" }
+                     }
+                   POWERSHELL
                  else raise ValidationError, 'completion shell must be bash, zsh, fish, or powershell'
                  end
         puts script
@@ -104,11 +109,7 @@ module Shellfie
           current = watch_snapshot(watched)
           if current != previous
             begin
-              version = configuration_version(input)
-              config = version == 2 ? Session::Config.parse(input) : Parser.parse(input)
-              watched = config.source_paths
-              command = version == 2 ? 'run' : 'generate'
-              CLI.new([command, input, '-o', options.output, '--force']).run
+              watched = regenerate(input, options.output)
             rescue SystemExit
               nil
             rescue Shellfie::Error => e
@@ -120,6 +121,14 @@ module Shellfie
         end
       rescue Interrupt
         puts 'Stopped'
+      end
+
+      def regenerate(input, output)
+        version = configuration_version(input)
+        config = version == 2 ? Session::Config.parse(input) : Parser.parse(input)
+        command = version == 2 ? 'run' : 'generate'
+        CLI.new([command, input, '-o', output, '--force']).run
+        config.source_paths
       end
 
       def watch_snapshot(paths)
