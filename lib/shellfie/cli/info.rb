@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'json'
-require 'optparse'
 require 'yaml'
 require 'cgi/escape'
 
@@ -47,27 +46,23 @@ module Shellfie
       puts 'Use: shellfie generate config.yml -o output.png -t THEME_NAME'
     end
 
-    def run_validate
-      format = 'text'
-      OptionParser.new do |opts|
-        opts.on('--format FORMAT', 'text, json, sarif, or junit') do |value|
-          format = value
-        end
-      end.parse!(@args)
+    def run_validate(options)
+      format = options.format
       raise ValidationError, 'validation format must be text, json, sarif, or junit' unless %w[text json sarif
                                                                                                junit].include?(format)
 
-      @options[:validation_format] = format
       input_file = @args.shift
       raise ConfigError, 'Input file is required' unless input_file
-
-      @options[:validation_path] = input_file
 
       if configuration_version(input_file) == 2
         session = SessionConfig.parse(input_file)
         if format != 'text'
-          return emit_validation_report(valid: true, path: input_file,
-                                        details: { version: 2, steps: session.steps.size, outputs: session.outputs.size })
+          return emit_validation_report(
+            options,
+            valid: true,
+            path: input_file,
+            details: { version: 2, steps: session.steps.size, outputs: session.outputs.size }
+          )
         end
 
         puts '✓ Session configuration is valid'
@@ -79,7 +74,9 @@ module Shellfie
       config = Parser.parse(input_file)
       if format != 'text'
         return emit_validation_report(
-          valid: true, path: input_file,
+          options,
+          valid: true,
+          path: input_file,
           details: { version: 1, theme: config.theme, mode: config.animated? ? 'animated' : 'static' }
         )
       end
@@ -96,9 +93,7 @@ module Shellfie
       puts "  Logical size: #{geometry[:logical_width]}x#{geometry[:logical_height]} @#{geometry[:scale]}x"
     end
 
-    def run_inspect
-      json = false
-      OptionParser.new { |opts| opts.on('--json', 'Print machine-readable JSON') { json = true } }.parse!(@args)
+    def run_inspect(options)
       input_file = @args.shift
       raise ConfigError, 'Input file is required' unless input_file
 
@@ -111,7 +106,7 @@ module Shellfie
           steps: session.steps.size,
           outputs: session.outputs
         }
-        return puts(JSON.pretty_generate(info)) if json
+        return puts(JSON.pretty_generate(info)) if options.json
 
         puts 'Session:'
         puts '  Version: 2'
@@ -128,7 +123,7 @@ module Shellfie
         width_table: TextMetrics::WIDTH_TABLE_VERSION,
         ambiguous_width: info.dig(:config, :window, :ambiguous_width) || 1
       }
-      return puts(JSON.pretty_generate(info)) if json
+      return puts(JSON.pretty_generate(info)) if options.json
 
       puts 'Config:'
       puts "  Version: #{info[:config][:version]}"
@@ -160,9 +155,8 @@ module Shellfie
       puts "shellfie #{VERSION}"
     end
 
-    def emit_validation_report(valid:, path: nil, details: nil, error: nil)
-      format = @options[:validation_format]
-      path ||= @options[:validation_path]
+    def emit_validation_report(options, valid:, path:, details: nil, error: nil)
+      format = options.format
       message = error&.message
       case format
       when 'json'

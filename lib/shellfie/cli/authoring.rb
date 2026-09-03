@@ -2,7 +2,6 @@
 
 require 'fileutils'
 require 'json'
-require 'optparse'
 require 'tempfile'
 require 'yaml'
 
@@ -12,19 +11,12 @@ module Shellfie
 
     private
 
-    def run_new
-      options = { template: 'static' }
-      OptionParser.new do |opts|
-        opts.on('--template NAME', 'static, animation, run, tui, ci, or theme-gallery') do |name|
-          options[:template] = name
-        end
-        opts.on('--force', 'Overwrite an existing file') { options[:force] = true }
-      end.parse!(@args)
+    def run_new(options)
       path = @args.shift
-      template = options[:template]
+      template = options.template
       raise ConfigError, 'Output path is required' unless path
       raise ValidationError, "unknown template: #{template}" unless TEMPLATE_NAMES.include?(template)
-      if File.exist?(path) && !options[:force]
+      if File.exist?(path) && !options.force
         raise FileSystemError,
               "File already exists: #{path} (use --force to overwrite)"
       end
@@ -36,13 +28,7 @@ module Shellfie
       puts "Created: #{path}"
     end
 
-    def run_format
-      check = false
-      OptionParser.new do |opts|
-        opts.on('--check', 'Exit unsuccessfully if formatting differs') do
-          check = true
-        end
-      end.parse!(@args)
+    def run_format(options)
       path = @args.shift
       raise ConfigError, 'Configuration file is required' unless path
 
@@ -50,7 +36,7 @@ module Shellfie
       normalized = YAML.dump(
         YamlSafety.load_file(path, max_bytes: Parser::MAX_INCLUDE_BYTES, symbolize_names: false)
       )
-      if check
+      if options.check
         raise ValidationError, "Configuration is not formatted: #{path}" unless original == normalized
 
         puts "Formatted: #{path}"
@@ -69,11 +55,8 @@ module Shellfie
       temp&.close!
     end
 
-    def run_compile
-      output_format = 'json'
-      OptionParser.new do |opts|
-        opts.on('--format FORMAT', 'json or yaml') { |format| output_format = format }
-      end.parse!(@args)
+    def run_compile(options)
+      output_format = options.format
       path = @args.shift
       raise ConfigError, 'Configuration file is required' unless path
       raise ValidationError, 'compile format must be json or yaml' unless %w[json yaml].include?(output_format)
@@ -109,15 +92,10 @@ module Shellfie
       puts script
     end
 
-    def run_watch
-      options = { interval: 0.5 }
-      OptionParser.new do |opts|
-        opts.on('-o', '--output PATH', 'Output path') { |path| options[:output] = path }
-        opts.on('--interval SECONDS', Float, 'Polling interval') { |value| options[:interval] = value }
-      end.parse!(@args)
+    def run_watch(options)
       input = @args.shift
-      raise ConfigError, 'Input and -o output are required' unless input && options[:output]
-      raise ValidationError, 'interval must be positive' unless options[:interval].positive?
+      raise ConfigError, 'Input and -o output are required' unless input && options.output
+      raise ValidationError, 'interval must be positive' unless options.interval.positive?
 
       watched = [File.realpath(input)]
       previous = nil
@@ -129,7 +107,7 @@ module Shellfie
             config = version == 2 ? SessionConfig.parse(input) : Parser.parse(input)
             watched = config.source_paths
             command = version == 2 ? 'run' : 'generate'
-            CLI.new([command, input, '-o', options[:output], '--force']).run
+            CLI.new([command, input, '-o', options.output, '--force']).run
           rescue SystemExit
             nil
           rescue Shellfie::Error => e
@@ -137,7 +115,7 @@ module Shellfie
           end
           previous = watch_snapshot(watched)
         end
-        sleep options[:interval]
+        sleep options.interval
       end
     rescue Interrupt
       puts 'Stopped'

@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'optparse'
 require_relative '../shellfie'
 
 module Shellfie
@@ -12,6 +11,8 @@ require_relative 'cli/generate'
 require_relative 'cli/info'
 require_relative 'cli/run'
 require_relative 'cli/authoring'
+require_relative 'cli/options'
+require_relative 'cli/option_parser'
 require_relative 'dependency_checker'
 require_relative 'rendering/transcript_renderer'
 
@@ -27,43 +28,44 @@ module Shellfie
 
     def initialize(args)
       @args = args.dup
-      @options = {}
     end
 
     def run
       return show_help if @args.empty?
 
       command = @args.shift
+      options = CLI::OptionParser.parse(command, @args)
+      validation_path = @args.first if command == 'validate'
 
       case command
       when 'generate', 'g'
-        run_generate
+        run_generate(options)
       when 'init'
         run_init
       when 'run'
-        run_session
+        run_session(options)
       when 'record'
-        run_session(record: true)
+        run_session(options, record: true)
       when 'replay'
-        replay_session
+        replay_session(options)
       when 'new'
-        run_new
+        run_new(options)
       when 'format'
-        run_format
+        run_format(options)
       when 'compile'
-        run_compile
+        run_compile(options)
       when 'schema'
         run_schema
       when 'completion'
         run_completion
       when 'watch'
-        run_watch
+        run_watch(options)
       when 'themes'
         run_themes
       when 'validate'
-        run_validate
+        run_validate(options)
       when 'inspect'
-        run_inspect
+        run_inspect(options)
       when 'doctor'
         run_doctor
       when 'version', '-v', '--version'
@@ -76,13 +78,13 @@ module Shellfie
         exit 1
       end
     rescue Shellfie::Error => e
-      if @options[:validation_format] && @options[:validation_format] != 'text'
-        emit_validation_report(valid: false, error: e)
+      if command == 'validate' && options&.format != 'text'
+        emit_validation_report(options, valid: false, path: validation_path, error: e)
       else
         warn_error "Error: #{e.message}"
       end
       exit determine_exit_code(e)
-    rescue OptionParser::ParseError => e
+    rescue ::OptionParser::ParseError => e
       warn_error "Error: #{e.message}"
       exit 1
     rescue SystemCallError => e

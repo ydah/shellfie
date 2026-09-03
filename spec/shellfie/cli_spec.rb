@@ -60,26 +60,28 @@ RSpec.describe Shellfie::CLI do
     it 'keeps explicit WebP output static without frames or --animate' do
       config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'ok')])
       cli = described_class.new([])
-      cli.instance_variable_set(:@options, { format: 'webp' })
+      options = described_class::Options.new(format: 'webp')
 
-      expect(cli.send(:animation_output?, config)).to be false
+      expect(cli.send(:animation_output?, config, options)).to be false
     end
 
     it 'applies exact aspect presets while allowing an explicit width override' do
       cli = described_class.new([])
-      cli.instance_variable_set(:@options, { preset: 'ogp', width: 1000 })
+      options = described_class::Options.new(preset: 'ogp', width: 1000)
 
-      expect(cli.send(:build_window_overrides)).to include(width: 1000, height: 630, exact_size: true)
+      expect(cli.send(:build_window_overrides, options)).to include(width: 1000, height: 630, exact_size: true)
     end
 
     it 'derives safe default and templated output names' do
       config = Shellfie::Config.new(theme: 'ubuntu', lines: [Shellfie::Line.new(output: 'ok')])
       cli = described_class.new([])
-      cli.instance_variable_set(:@options, { default_output: true })
-      expect(cli.send(:output_path_for, 'docs/demo.yml', 'png', multiple: false, config: config)).to eq('docs/demo.png')
+      options = described_class::Options.new
+      expect(cli.send(:output_path_for, 'docs/demo.yml', 'png', multiple: false, config: config,
+                                                                options: options, default_output: true))
+        .to eq('docs/demo.png')
 
-      cli.instance_variable_set(:@options, { output: 'build/{name}-{theme}-{scale}.{format}', scale: 2 })
-      expect(cli.send(:output_path_for, 'docs/demo.yml', 'svg', multiple: false, config: config))
+      options = described_class::Options.new(output: 'build/{name}-{theme}-{scale}.{format}', scale: 2)
+      expect(cli.send(:output_path_for, 'docs/demo.yml', 'svg', multiple: false, config: config, options: options))
         .to eq('build/demo-ubuntu-2.svg')
     end
 
@@ -181,7 +183,8 @@ RSpec.describe Shellfie::CLI do
         parent = File.join(dir, 'not-a-directory')
         File.write(parent, 'x')
 
-        expect { described_class.new([]).send(:ensure_output_writable!, File.join(parent, 'out.png')) }
+        options = described_class::Options.new
+        expect { described_class.new([]).send(:ensure_output_writable!, File.join(parent, 'out.png'), options) }
           .to raise_error(Shellfie::FileSystemError, /not writable/)
       end
     end
@@ -212,14 +215,14 @@ RSpec.describe Shellfie::CLI do
       session = Shellfie::Session.new(columns: 40, rows: 4)
       session.record('done', visible: true, status: 0)
       cli = described_class.new([])
-      cli.instance_variable_set(:@options, { quiet: true })
+      options = described_class::Options.new(quiet: true)
 
       Dir.mktmpdir('shellfie-session-output') do |dir|
         outputs = [
           { path: File.join(dir, 'session.svg'), format: 'svg', scale: 2, shadow: false },
           { path: File.join(dir, 'session.txt'), format: 'txt' }
         ]
-        cli.send(:render_session_outputs, session, outputs, base_dir: dir, theme: 'macos', render: {})
+        cli.send(:render_session_outputs, session, outputs, base_dir: dir, theme: 'macos', render: {}, options: options)
 
         expect(File.read(outputs[0][:path])).to include('width="1240"', '>done</text>')
         expect(File.read(outputs[1][:path])).to eq("done\n")
@@ -232,7 +235,7 @@ RSpec.describe Shellfie::CLI do
       session.capture('first')
       session.record("\nsecond")
       cli = described_class.new([])
-      cli.instance_variable_set(:@options, { quiet: true })
+      options = described_class::Options.new(quiet: true)
 
       Dir.mktmpdir('shellfie-capture-output') do |dir|
         path = File.join(dir, 'capture.txt')
@@ -242,7 +245,8 @@ RSpec.describe Shellfie::CLI do
           [{ path: path, format: 'txt', capture: 'first' }],
           base_dir: dir,
           theme: 'macos',
-          render: {}
+          render: {},
+          options: options
         )
 
         expect(File.read(path)).to eq("first\n")
