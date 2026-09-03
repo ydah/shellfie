@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
-require 'pty'
+begin
+  require 'pty'
+rescue LoadError
+  # PTY is unavailable on Windows; live session execution reports this below.
+end
 require 'io/console'
 require 'rbconfig'
 require 'open3'
@@ -68,6 +72,8 @@ module Shellfie
       end
 
       def start_pty
+        raise DependencyError, 'PTY is not available on this platform' unless defined?(PTY)
+
         @prompt_marker = SecureRandom.hex(4)
         env = shell_environment
         shell = resolve_command(terminal[:shell])

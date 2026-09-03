@@ -5,6 +5,28 @@ require 'shellfie/session/config'
 require 'shellfie/session/runner'
 require 'tempfile'
 
+RSpec.describe 'loading the session runner' do
+  it 'does not require PTY support until a live session starts' do
+    script = <<~'RUBY'
+      module Kernel
+        alias shellfie_require require
+
+        def require(path)
+          raise LoadError if path == 'pty'
+
+          shellfie_require(path)
+        end
+      end
+
+      require 'shellfie/session/runner'
+    RUBY
+
+    _output, error, status = Open3.capture3(Gem.ruby, '-Ilib', '-e', script)
+
+    expect(status).to be_success, error
+  end
+end
+
 unless Gem.win_platform?
   RSpec.describe Shellfie::Session::Runner do
     it 'types, executes, waits, asserts, captures, and redacts a PTY session' do
