@@ -18,15 +18,12 @@ module Shellfie
     include Run
     include Authoring
 
-    COMMANDS = %w[generate run record replay new format compile schema completion watch init themes validate inspect
-                  doctor version help].freeze
-
     def initialize(args)
       @args = args.dup
     end
 
     def run
-      return show_help if @args.empty?
+      return puts(OptionParser.help) if @args.empty?
 
       command = @args.shift
       options = CLI::OptionParser.parse(command, @args)
@@ -66,7 +63,7 @@ module Shellfie
       when 'version', '-v', '--version'
         run_version
       when 'help', '-h', '--help'
-        show_help
+        puts OptionParser.help
       else
         warn_error "Unknown command: #{command}"
         warn_error "Run 'shellfie help' for usage information."

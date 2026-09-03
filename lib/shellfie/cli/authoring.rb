@@ -76,7 +76,7 @@ module Shellfie
 
       def run_completion
         shell = @args.shift || 'bash'
-        commands = CLI::COMMANDS.join(' ')
+        commands = CLI::OptionParser::COMMANDS.keys.join(' ')
         script = case shell
                  when 'bash' then "complete -W '#{commands}' shellfie shf"
                  when 'zsh' then "compdef '_arguments \"1:command:(#{commands})\"' shellfie shf"

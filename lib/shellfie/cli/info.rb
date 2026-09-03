@@ -182,67 +182,6 @@ module Shellfie
         end
       end
 
-      def show_help
-        puts <<~HELP
-        Shellfie - Deterministic terminal visual compiler
-
-        Usage: shellfie <command> [options]
-               shf <command> [options]
-
-        Commands:
-          generate    Render outputs from a configuration file
-          run         Execute and render a version 2 terminal session
-          record      Run a session and save a cassette or editable YAML
-          replay      Render an existing cassette without executing commands
-          new         Create a config from a template
-          format      Normalize YAML formatting
-          compile     Print the resolved config or session IR
-          schema      Print the version 1 or 2 JSON Schema
-          completion  Print bash, zsh, fish, or PowerShell completion
-          watch       Regenerate when a config or included file changes
-          init        Output sample configuration
-          themes      List available themes
-          validate    Validate configuration file
-          inspect     Print resolved config and estimated image size
-          doctor      Check dependencies and local environment
-          version     Show version
-          help        Show this help
-
-        Generate Options:
-          -o, --output PATH      Output path/template (defaults beside input)
-          -t, --theme NAME       Override theme (macos, ubuntu, windows)
-          -a, --animate          Render animated output
-          -s, --scale FACTOR     Output scale (1, 2, 3)
-          -w, --width PIXELS     Override width
-          --no-shadow            Disable shadow effect
-          --no-header            Disable window header (headless mode)
-          --transparent          Transparent background
-          --typing-rate CPS      Typing rate in characters per second
-          --framerate FPS        Output timing precision
-          --seed N               Deterministic animation jitter seed
-          --playback-speed N     Playback speed multiplier
-          --fps FPS              Deprecated alias for --framerate
-          --overflow MODE        Line overflow mode: clip, wrap, scroll
-          --wrap, --no-wrap      Enable or disable long-line wrapping
-          --exact-size           Match canvas to configured window size
-          --format FORMAT        Also: mp4, webm, png-sequence, html, txt, json
-          --force                Overwrite existing output files
-          --quiet                Suppress non-error output
-          --verbose              Print progress details
-          --manifest PATH        Write environment and output fingerprints
-
-        Examples:
-          shellfie generate config.yml -o terminal.png
-          shellfie generate config.yml -o demo.gif --animate
-          shellfie generate config.yml -o retina.png --scale 2
-          shellfie init > my-config.yml
-          shellfie themes
-
-          # Short form
-          shf generate config.yml -o terminal.png
-          shf init > config.yml
-      HELP
-      end
     end
   end
 end

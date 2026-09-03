@@ -5,11 +5,63 @@ require 'optparse'
 module Shellfie
   class CLI
     class OptionParser
+      COMMANDS = {
+        'generate' => 'Render outputs from a configuration file',
+        'run' => 'Execute and render a version 2 terminal session',
+        'record' => 'Run a session and save a cassette or editable YAML',
+        'replay' => 'Render an existing cassette without executing commands',
+        'new' => 'Create a config from a template',
+        'format' => 'Normalize YAML formatting',
+        'compile' => 'Print the resolved config or session IR',
+        'schema' => 'Print the version 1 or 2 JSON Schema',
+        'completion' => 'Print bash, zsh, fish, or PowerShell completion',
+        'watch' => 'Regenerate when a config or included file changes',
+        'init' => 'Output sample configuration',
+        'themes' => 'List available themes',
+        'validate' => 'Validate configuration file',
+        'inspect' => 'Print resolved config and estimated image size',
+        'doctor' => 'Check dependencies and local environment',
+        'version' => 'Show version',
+        'help' => 'Show this help'
+      }.freeze
+
       class << self
         def parse(command, args)
           options = Options.new
           parser_for(command, options)&.parse!(args)
           options.freeze
+        end
+
+        def help
+          ::OptionParser.new do |parser|
+            parser.banner = <<~HELP.chomp
+              Shellfie - Deterministic terminal visual compiler
+
+              Usage: shellfie <command> [options]
+                     shf <command> [options]
+            HELP
+            parser.separator ''
+            parser.separator 'Commands:'
+            COMMANDS.each do |command, description|
+              parser.separator format('  %-11s %s', command, description)
+            end
+            parser.separator ''
+            parser.separator 'Generate Options:'
+            generate_parser(Options.new).summarize.each { |line| parser.separator(line.chomp) }
+            parser.separator ''
+            parser.separator <<~EXAMPLES.chomp
+              Examples:
+                shellfie generate config.yml -o terminal.png
+                shellfie generate config.yml -o demo.gif --animate
+                shellfie generate config.yml -o retina.png --scale 2
+                shellfie init > my-config.yml
+                shellfie themes
+
+                # Short form
+                shf generate config.yml -o terminal.png
+                shf init > config.yml
+            EXAMPLES
+          end.to_s
         end
 
         private
