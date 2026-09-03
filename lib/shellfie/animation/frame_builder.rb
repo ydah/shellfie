@@ -17,7 +17,7 @@ module Shellfie
         return [{ lines: @config.lines, delay: @config.animation[:final_delay] }] if @config.frames.empty?
 
         frames = []
-        current_lines = @config.lines.flat_map { |line| line_data(line) }
+        current_lines = @config.lines.flat_map { |line| display_entries_for(line) }
         Timeline.new(@config).each do |event|
           frames.concat(frames_for(event, current_lines))
         end
@@ -151,7 +151,7 @@ module Shellfie
         { prompt: prompt, command: command, cursor: cursor, prompt_color: prompt_color, command_color: command_color }
       end
 
-      def line_data(line)
+      def display_entries_for(line)
         data = []
         if line.prompt || line.command
           data << command_line(

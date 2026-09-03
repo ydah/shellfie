@@ -21,26 +21,26 @@ module Shellfie
       end
 
       def paint(geometry, output_path, transparent:)
-        return create_cached_image(geometry, output_path, transparent: transparent) if @chrome_cache
+        return write_cached_image(geometry, output_path, transparent: transparent) if @chrome_cache
 
-        create_full_image(geometry, output_path, transparent: transparent)
+        write_full_image(geometry, output_path, transparent: transparent)
       end
 
     private
 
-      def create_full_image(geometry, output_path, transparent:)
-        return create_direct_image(geometry, output_path, transparent: transparent) unless clip_content?(geometry)
+      def write_full_image(geometry, output_path, transparent:)
+        return write_direct_image(geometry, output_path, transparent: transparent) unless clip_content?(geometry)
 
         with_temp_png do |base_path|
           with_temp_png do |content_path|
-            create_chrome_image(geometry, base_path, transparent: transparent)
-            create_content_layer(geometry, content_path)
+            write_chrome_image(geometry, base_path, transparent: transparent)
+            write_content_layer(geometry, content_path)
             composite_layers(base_path, content_path, output_path)
           end
         end
       end
 
-      def create_direct_image(geometry, output_path, transparent:)
+      def write_direct_image(geometry, output_path, transparent:)
         ImageMagickCommandBuilder.convert do |convert|
           ImageMagickCommandBuilder.canvas(
             convert,
@@ -54,19 +54,19 @@ module Shellfie
         end
       end
 
-      def create_cached_image(geometry, output_path, transparent:)
+      def write_cached_image(geometry, output_path, transparent:)
         base_path = @chrome_cache.fetch(geometry, transparent: transparent) do |path|
-          create_chrome_image(geometry, path, transparent: transparent)
+          write_chrome_image(geometry, path, transparent: transparent)
         end
-        return create_cached_direct_image(base_path, geometry, output_path) unless clip_content?(geometry)
+        return write_cached_direct_image(base_path, geometry, output_path) unless clip_content?(geometry)
 
         with_temp_png do |content_path|
-          create_content_layer(geometry, content_path)
+          write_content_layer(geometry, content_path)
           composite_layers(base_path, content_path, output_path)
         end
       end
 
-      def create_cached_direct_image(base_path, geometry, output_path)
+      def write_cached_direct_image(base_path, geometry, output_path)
         ImageMagickCommandBuilder.convert do |convert|
           convert << base_path
           draw_content(convert, geometry)
@@ -74,7 +74,7 @@ module Shellfie
         end
       end
 
-      def create_chrome_image(geometry, output_path, transparent:)
+      def write_chrome_image(geometry, output_path, transparent:)
         ImageMagickCommandBuilder.convert do |convert|
           ImageMagickCommandBuilder.canvas(
             convert,
@@ -87,7 +87,7 @@ module Shellfie
         end
       end
 
-      def create_content_layer(geometry, output_path)
+      def write_content_layer(geometry, output_path)
         ImageMagickCommandBuilder.convert do |convert|
           ImageMagickCommandBuilder.canvas(
             convert,

@@ -23,7 +23,7 @@ module Shellfie
         },
         imagemagick: DependencyChecker.imagemagick_details[:version],
         ffmpeg: DependencyChecker.ffmpeg_version,
-        fonts: renderer.font_info
+        fonts: renderer.font_details
       }
     end
 

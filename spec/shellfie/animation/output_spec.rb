@@ -16,8 +16,8 @@ RSpec.describe 'animation output support' do
     generator = instance_double(Shellfie::Animation::Generator, generate: 'out.apng')
 
     allow(Shellfie::Parser).to receive(:parse).with('config.yml').and_return(config)
-    allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick!)
-    allow(Shellfie::DependencyChecker).to receive(:ensure_ffmpeg!)
+    allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick)
+    allow(Shellfie::DependencyChecker).to receive(:ensure_ffmpeg)
     expect(Shellfie::Animation::Generator).to receive(:new).and_return(generator)
 
     cli.run
@@ -25,11 +25,11 @@ RSpec.describe 'animation output support' do
 
   it 'applies theme GIF palettes through a remap image' do
     config = Shellfie::Config.new(animation: { palette: 'theme', dither: false })
-    theme = Shellfie::Themes::Registry.build(config)
+    theme = Shellfie::Themes::Registry.resolve(config)
     palette = Shellfie::Animation::GIFPalette.new(config: config, theme: theme)
     convert = double('MiniMagick::Tool::Convert')
 
-    allow(palette).to receive(:build_theme_palette).and_return('theme-palette.png')
+    allow(palette).to receive(:write_theme_palette).and_return('theme-palette.png')
     expect(convert).to receive(:dither).with('None')
     expect(convert).to receive(:remap).with('theme-palette.png')
     expect(convert).to receive(:colors).with(a_value_between(16, 256))
@@ -41,12 +41,12 @@ RSpec.describe 'animation output support' do
 
   it 'builds a global GIF palette from all frames' do
     config = Shellfie::Config.new(animation: { palette: 'global', dither: true })
-    theme = Shellfie::Themes::Registry.build(config)
+    theme = Shellfie::Themes::Registry.resolve(config)
     palette = Shellfie::Animation::GIFPalette.new(config: config, theme: theme)
     convert = double('MiniMagick::Tool::Convert')
     images = [{ path: 'frame-1.png' }, { path: 'frame-2.png' }]
 
-    allow(palette).to receive(:build_global_palette).with(images).and_return('global-palette.png')
+    allow(palette).to receive(:write_global_palette).with(images).and_return('global-palette.png')
     expect(convert).to receive(:dither).with('FloydSteinberg')
     expect(convert).to receive(:remap).with('global-palette.png')
     expect(convert).to receive(:colors).with(256)
@@ -62,10 +62,10 @@ RSpec.describe 'animation output support' do
         gif_colors: 32, webp_lossless: false, webp_quality: 72, webp_method: 5, webp_near_lossless: 80
       }
     )
-    theme = Shellfie::Themes::Registry.build(config)
+    theme = Shellfie::Themes::Registry.resolve(config)
     palette = Shellfie::Animation::GIFPalette.new(config: config, theme: theme)
     gif = double('gif')
-    allow(palette).to receive(:build_global_palette).and_return(nil)
+    allow(palette).to receive(:write_global_palette).and_return(nil)
     expect(gif).to receive(:dither).with('FloydSteinberg')
     expect(gif).to receive(:colors).with(32)
     palette.apply(gif, images: [{ path: 'frame.png' }])

@@ -22,7 +22,7 @@ module Shellfie
         @ffmpeg_path ||= find_executable(%w[ffmpeg], verify_imagemagick: false)
       end
 
-      def ensure_ffmpeg!
+      def ensure_ffmpeg
         return if ffmpeg_path
 
         raise DependencyError, 'ffmpeg not found; install ffmpeg to generate APNG, MP4, or WebM'
@@ -37,7 +37,7 @@ module Shellfie
         nil
       end
 
-      def ensure_imagemagick!
+      def ensure_imagemagick
         return if imagemagick_available?
 
         raise DependencyError, <<~MSG
@@ -47,7 +47,7 @@ module Shellfie
         MSG
       end
 
-      def configure_mini_magick!(timeout: 30)
+      def configure_mini_magick(timeout: 30)
         return unless defined?(MiniMagick) && MiniMagick.respond_to?(:timeout=)
 
         MiniMagick.timeout = timeout
@@ -57,16 +57,16 @@ module Shellfie
         details = imagemagick_details
         video_version = ffmpeg_version
         [
-          check('Ruby', RUBY_VERSION, Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.0.0')),
-          check('ImageMagick', details[:version] || 'not found', imagemagick_available?),
-          check('Image formats', details[:formats].empty? ? 'unavailable' : details[:formats].join(', '),
-                (required_formats - details[:formats]).empty?),
-          check('Image render', details[:render_ok] ? '1x1 PNG generated' : 'failed', details[:render_ok]),
-          check('Fonts', details[:font_count].to_s, details[:font_count].positive?),
-          check('Security policy', details[:policy] || 'unavailable', !details[:policy].nil?),
-          check('ffmpeg (optional)', video_version || 'not found; required only for APNG/MP4/WebM', true),
-          check('Writable output', output_dir, File.writable?(output_dir)),
-          check('Encoding', Encoding.default_external.name, true)
+          diagnostic('Ruby', RUBY_VERSION, Gem::Version.new(RUBY_VERSION) >= Gem::Version.new('3.0.0')),
+          diagnostic('ImageMagick', details[:version] || 'not found', imagemagick_available?),
+          diagnostic('Image formats', details[:formats].empty? ? 'unavailable' : details[:formats].join(', '),
+                     (required_formats - details[:formats]).empty?),
+          diagnostic('Image render', details[:render_ok] ? '1x1 PNG generated' : 'failed', details[:render_ok]),
+          diagnostic('Fonts', details[:font_count].to_s, details[:font_count].positive?),
+          diagnostic('Security policy', details[:policy] || 'unavailable', !details[:policy].nil?),
+          diagnostic('ffmpeg (optional)', video_version || 'not found; required only for APNG/MP4/WebM', true),
+          diagnostic('Writable output', output_dir, File.writable?(output_dir)),
+          diagnostic('Encoding', Encoding.default_external.name, true)
         ]
       end
 
@@ -88,7 +88,7 @@ module Shellfie
                    end,
           font_count: (fonts_status.success? ? fonts_output.scan(/^\s*Font:/).size : 0) +
             Rendering::FontResolver::FONT_FILES.values.uniq.count { |path| File.file?(path) },
-          render_ok: render_smoke_test,
+          render_ok: render_smoke_test_passes?,
           policy: policy_status.success? ? "#{policy_output.scan(/^\s*Policy:/).size} rules loaded" : nil
         }
       rescue SystemCallError
@@ -97,7 +97,7 @@ module Shellfie
 
       private
 
-      def check(name, detail, ok)
+      def diagnostic(name, detail, ok)
         { name: name, detail: detail, ok: ok }
       end
 
@@ -130,7 +130,7 @@ module Shellfie
         %w[PNG GIF WEBP SVG]
       end
 
-      def render_smoke_test
+      def render_smoke_test_passes?
         Tempfile.create(['shellfie-doctor', '.png']) do |file|
           _output, _error, status = Open3.capture3(imagemagick_path, '-size', '1x1', 'xc:none', file.path)
           return status.success? && File.binread(file.path, 8) == "\x89PNG\r\n\x1a\n".b

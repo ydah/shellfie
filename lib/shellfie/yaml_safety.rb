@@ -55,12 +55,12 @@ module Shellfie
       value = YAML.safe_load(
         read_file(path, max_bytes: max_bytes, label: label), symbolize_names: symbolize_names, aliases: true
       )
-      validate_tree!(value)
+      validate_tree(value)
     rescue Psych::Exception => e
       raise ParseError, "Invalid #{label.downcase} YAML syntax: #{e.message}"
     end
 
-    def validate_tree!(value)
+    def validate_tree(value)
       active = {}
       nodes = 0
       stack = [[value, 0, false]]

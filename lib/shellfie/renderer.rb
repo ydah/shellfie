@@ -22,7 +22,7 @@ module Shellfie
     def initialize(config, chrome_cache: nil)
       @config = config
       @chrome_cache = chrome_cache
-      @theme = Themes::Registry.build(config)
+      @theme = Themes::Registry.resolve(config)
       @ansi_parser = Terminal::ANSIParser.new(
         state_mode: config.window[:ansi_state] || :persistent,
         tab_width: config.window[:tab_width],
@@ -34,11 +34,11 @@ module Shellfie
 
     def render(output_path, scale: 1, shadow: true, transparent: false, format: nil, io: nil)
       extension = Rendering::FormatResolver.resolve(output_path, explicit: format, default: 'png')
-      check_dependencies! unless %w[svg html].include?(extension)
+      ensure_dependencies unless %w[svg html].include?(extension)
       lines = build_lines
       OutputWriter.write(output_path, extension: extension, io: io) do |temporary_path|
-        render_method = { 'svg' => :create_svg_image, 'svg-raster' => :create_svg_raster_image, 'html' => :create_html }.fetch(
-          extension, :create_image
+        render_method = { 'svg' => :write_svg, 'svg-raster' => :write_svg_raster, 'html' => :write_html }.fetch(
+          extension, :write_raster_image
         )
         send(render_method, lines, temporary_path, scale: scale, shadow: shadow, transparent: transparent)
       end
@@ -52,15 +52,15 @@ module Shellfie
                      :scale)
     end
 
-    def font_info
+    def font_details
       font_resolver.details(theme.font)
     end
 
     private
 
-    def check_dependencies!
-      DependencyChecker.configure_mini_magick!
-      DependencyChecker.ensure_imagemagick!
+    def ensure_dependencies
+      DependencyChecker.configure_mini_magick
+      DependencyChecker.ensure_imagemagick
     end
 
     def imagemagick_command
@@ -91,7 +91,7 @@ module Shellfie
 
     def parse_with_default(text, default_color)
       @ansi_parser.parse(text).map do |segment|
-        Rendering::Segment.from_segment(segment, default_color: default_color)
+        Rendering::Segment.from_terminal(segment, default_color: default_color)
       end
     end
 
@@ -99,24 +99,24 @@ module Shellfie
       Rendering::Segment.coalesce(segments)
     end
 
-    def create_image(lines, output_path, scale:, shadow:, transparent:)
+    def write_raster_image(lines, output_path, scale:, shadow:, transparent:)
       geometry = build_geometry(lines, scale: scale, shadow: shadow)
 
       raster_painter.paint(geometry, output_path, transparent: transparent)
     end
 
-    def create_svg_image(lines, output_path, scale:, shadow:, transparent:)
+    def write_svg(lines, output_path, scale:, shadow:, transparent:)
       geometry = build_geometry(lines, scale: scale, shadow: shadow)
       Rendering::SVGRenderer.new(config: config, theme: theme).render(geometry, output_path, transparent: transparent)
     end
 
-    def create_svg_raster_image(lines, output_path, scale:, shadow:, transparent:)
+    def write_svg_raster(lines, output_path, scale:, shadow:, transparent:)
       Rendering::SVGRasterWrapper.write(output_path) do |png_path|
-        create_image(lines, png_path, scale: scale, shadow: shadow, transparent: transparent)
+        write_raster_image(lines, png_path, scale: scale, shadow: shadow, transparent: transparent)
       end
     end
 
-    def create_html(lines, output_path, scale:, shadow:, transparent:)
+    def write_html(lines, output_path, scale:, shadow:, transparent:)
       geometry = build_geometry(lines, scale: scale, shadow: shadow)
       Rendering::HTMLRenderer.new(config: config, theme: theme).render(geometry, output_path, transparent: transparent)
     end

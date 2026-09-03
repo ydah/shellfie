@@ -25,20 +25,20 @@ module Shellfie
 
       def run_generate(options)
         input_files = expand_input_paths(@args)
-        validate_generate_request!(input_files, options)
+        validate_generate_request(input_files, options)
         default_output = options.output.nil?
         jobs = build_render_jobs(input_files, options, default_output: default_output)
         input_paths = source_paths_for(jobs, input_files)
 
-        validate_render_job_paths!(jobs, input_paths)
-        validate_manifest_path!(jobs, input_paths, options)
-        preflight_render_jobs!(jobs, options)
+        validate_render_job_paths(jobs, input_paths)
+        validate_manifest_path(jobs, input_paths, options)
+        preflight_render_jobs(jobs, options)
 
         manifests = render_jobs(jobs, options)
         write_manifest(manifests, options) if options.manifest
       end
 
-      def validate_generate_request!(input_files, options)
+      def validate_generate_request(input_files, options)
         raise ConfigError, 'Input file is required' if input_files.empty?
         raise ConfigError, 'Output is required when reading stdin' if !options.output && input_files.include?('-')
         if options.output == '-' && input_files.size > 1
@@ -70,7 +70,7 @@ module Shellfie
                   'PNG sequence output cannot be written to stdout'
           end
 
-          validate_output_mode!(format, animate, options)
+          validate_output_mode(format, animate, options)
           [config, animate, format, output_path]
         end
       end
@@ -88,7 +88,7 @@ module Shellfie
             .uniq
       end
 
-      def validate_render_job_paths!(jobs, input_paths)
+      def validate_render_job_paths(jobs, input_paths)
         duplicate = jobs.group_by(&:last).find { |_path, grouped| grouped.size > 1 }&.first
         raise ConfigError, "Multiple inputs resolve to the same output: #{duplicate}" if duplicate
 
@@ -108,7 +108,7 @@ module Shellfie
         end
       end
 
-      def validate_manifest_path!(jobs, input_paths, options)
+      def validate_manifest_path(jobs, input_paths, options)
         return unless options.manifest
 
         raise ConfigError, 'Manifest output cannot be stdout' if options.manifest == '-'
@@ -132,8 +132,8 @@ module Shellfie
         raise ConfigError, "Manifest path conflicts with a PNG sequence directory: #{options.manifest}" if nested
       end
 
-      def preflight_render_jobs!(jobs, options)
-        preflight_render_dependencies!(jobs.map { |_config, _animate, format, _output_path| format })
+      def preflight_render_jobs(jobs, options)
+        preflight_render_dependencies(jobs.map { |_config, _animate, format, _output_path| format })
         jobs.each do |_config, _animate, format, output_path|
           if format == 'png-sequence' && Dir.exist?(output_path) && !replaceable_png_sequence_directory?(output_path)
             raise FileSystemError, "Refusing to replace a non-Shellfie directory: #{output_path}"
@@ -143,10 +143,10 @@ module Shellfie
           if options.check
             raise FileSystemError, "Output is missing: #{output_path}" unless File.exist?(output_path)
           else
-            ensure_output_writable!(output_path, options)
+            ensure_output_writable(output_path, options)
           end
         end
-        ensure_output_writable!(options.manifest, options) if options.manifest
+        ensure_output_writable(options.manifest, options) if options.manifest
       end
 
       def render_jobs(jobs, options)
@@ -177,7 +177,7 @@ module Shellfie
       def render_job(job, options)
         config, animate, format, output_path = job
         if options.check
-          check_rendered_output(config, output_path, animate: animate, format: format, options: options)
+          verify_rendered_output(config, output_path, animate: animate, format: format, options: options)
         else
           write_rendered_output(config, output_path, animate: animate, format: format, options: options)
         end
@@ -197,7 +197,7 @@ module Shellfie
         warn "Generated: #{result}" if announce && output_path != '-' && !options.quiet
       end
 
-      def check_rendered_output(config, output_path, animate:, format:, options:)
+      def verify_rendered_output(config, output_path, animate:, format:, options:)
         Dir.mktmpdir('shellfie-check') do |dir|
           candidate = format == 'png-sequence' ? File.join(dir, 'sequence') : File.join(dir, "output.#{format}")
           write_rendered_output(config, candidate, animate: animate, format: format, options: options, announce: false)
@@ -270,7 +270,7 @@ module Shellfie
         end
       end
 
-      def validate_output_mode!(format, animate, options)
+      def validate_output_mode(format, animate, options)
         raise ConfigError, 'MP4 output does not support transparency' if format == 'mp4' && options.transparent
 
         if SEMANTIC_FORMATS.include?(format)
@@ -285,7 +285,7 @@ module Shellfie
         raise ConfigError, "#{mode} output does not support .#{format}"
       end
 
-      def ensure_output_writable!(path, options)
+      def ensure_output_writable(path, options)
         return if path == '-'
 
         if File.exist?(path) && !options.force
@@ -299,9 +299,9 @@ module Shellfie
         raise FileSystemError, "Output directory is not writable: #{directory}"
       end
 
-      def preflight_render_dependencies!(formats)
-        DependencyChecker.ensure_imagemagick! if (formats - %w[svg html txt json]).any?
-        DependencyChecker.ensure_ffmpeg! if (formats & %w[apng mp4 webm]).any?
+      def preflight_render_dependencies(formats)
+        DependencyChecker.ensure_imagemagick if (formats - %w[svg html txt json]).any?
+        DependencyChecker.ensure_ffmpeg if (formats & %w[apng mp4 webm]).any?
       end
 
       def expand_input_paths(args)

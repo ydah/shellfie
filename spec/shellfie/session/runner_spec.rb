@@ -228,7 +228,7 @@ unless Gem.win_platform?
         events: [{ text: '', delay: 0.2, visible: true }, { text: 'done', delay: 0.03, visible: true }]
       )
 
-      expect(session.compose_hash['frames'].map { |frame| frame['delay'] }).to eq([200, 30])
+      expect(session.editable_config['frames'].map { |frame| frame['delay'] }).to eq([200, 30])
     end
 
     it 'records explicit sleeps as deterministic timeline pauses' do
@@ -236,7 +236,7 @@ unless Gem.win_platform?
         { version: 2, terminal: { shell: '/bin/sh', timeout: 2 }, steps: [{ sleep: '20ms' }] }
       )
 
-      expect(described_class.new(config).run.compose_hash['frames'].map { |frame| frame['delay'] }).to eq([20])
+      expect(described_class.new(config).run.editable_config['frames'].map { |frame| frame['delay'] }).to eq([20])
     end
 
     it 'removes its private prompt marker from recorded events' do
@@ -266,9 +266,9 @@ unless Gem.win_platform?
     it 'encodes modified character and navigation keys' do
       runner = described_class.new(Shellfie::Session::Config.new({ version: 2, steps: [] }))
 
-      expect(runner.send(:key_sequence, 'ctrl-c')).to eq("\x03")
-      expect(runner.send(:key_sequence, 'alt-x')).to eq("\ex")
-      expect(runner.send(:key_sequence, 'ctrl-shift-up')).to eq("\e[1;6A")
+      expect(runner.send(:fetch_key_sequence, 'ctrl-c')).to eq("\x03")
+      expect(runner.send(:fetch_key_sequence, 'alt-x')).to eq("\ex")
+      expect(runner.send(:fetch_key_sequence, 'ctrl-shift-up')).to eq("\e[1;6A")
     end
 
     it 'honors a deleted PATH during requirement checks' do
@@ -312,7 +312,7 @@ unless Gem.win_platform?
           path: File.join(root, 'session.yml')
         )
 
-        expect { described_class.new(config).send(:validate_working_directories!) }
+        expect { described_class.new(config).send(:validate_working_directories) }
           .to raise_error(Shellfie::FileSystemError, /escapes the session root/)
 
         File.symlink(outside, File.join(root, 'escape'))
@@ -320,7 +320,7 @@ unless Gem.win_platform?
           { version: 2, terminal: { cwd_policy: 'root' }, steps: [{ run: 'pwd', cwd: 'escape' }] },
           path: File.join(root, 'session.yml')
         )
-        expect { described_class.new(config).send(:validate_working_directories!) }
+        expect { described_class.new(config).send(:validate_working_directories) }
           .to raise_error(Shellfie::FileSystemError, /escapes the session root/)
       end
     end

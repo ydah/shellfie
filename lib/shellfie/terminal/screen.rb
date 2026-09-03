@@ -45,7 +45,7 @@ module Shellfie
         end
 
         input, @pending_control = split_incomplete_control(input)
-        input.scan(TOKENS).each { |token| process(token) }
+        input.scan(TOKENS).each { |token| apply_token(token) }
         self
       end
 
@@ -79,20 +79,20 @@ module Shellfie
         end.join
       end
 
-      def process(token)
+      def apply_token(token)
         return if token.match?(/\A\e(?:\]|P|_|\^)/)
 
         match = CSI.match(token)
         if match
           @ansi_parser.parse(token) if match[3] == 'm'
           @wrap_pending = false unless match[3] == 'm'
-          return process_csi(match[1], match[3])
+          return apply_csi(match[1], match[3])
         end
 
-        process_control_or_text(token)
+        apply_control_or_text(token)
       end
 
-      def process_control_or_text(token)
+      def apply_control_or_text(token)
         case token
         when "\r" then @column = 0
                        @wrap_pending = false
@@ -112,7 +112,7 @@ module Shellfie
         end
       end
 
-      def process_csi(params, command)
+      def apply_csi(params, command)
         private_mode = params.start_with?('?')
         values = params.delete_prefix('?').split(';').map { |value| Integer(value, exception: false) || 0 }
         amount = values.first.to_i.positive? ? values.first : 1
@@ -128,7 +128,7 @@ module Shellfie
         when 'M' then delete_lines(amount)
         when 's' then @saved_cursor = [@row, @column]
         when 'u' then @row, @column = @saved_cursor
-        when 'r' then set_scroll_region(values)
+        when 'r' then update_scroll_region(values)
         when 'h' then enter_alternate_screen if alternate_screen_mode?(private_mode, values)
         when 'l' then leave_alternate_screen if alternate_screen_mode?(private_mode, values)
         end
@@ -153,7 +153,7 @@ module Shellfie
       end
 
       def write(grapheme)
-        return if extend_previous_grapheme(grapheme)
+        return if append_to_previous_grapheme(grapheme)
 
         width = TextMetrics.grapheme_width(grapheme)
         return if width.zero?
@@ -171,13 +171,13 @@ module Shellfie
         @wrap_pending = true
       end
 
-      def extend_previous_grapheme(grapheme)
-        return false if @column.zero?
+      def append_to_previous_grapheme(grapheme)
+        return if @column.zero?
 
         owner_column = @wrap_pending ? @column : @column - 1
         owner_column -= 1 if @cells[@row][owner_column].equal?(CONTINUATION)
         owner = @cells[@row][owner_column]
-        return false unless owner && TextMetrics.graphemes(owner.text + grapheme).size == 1
+        return unless owner && TextMetrics.graphemes(owner.text + grapheme).size == 1
 
         old_width = TextMetrics.grapheme_width(owner.text)
         owner.text << grapheme
@@ -190,7 +190,7 @@ module Shellfie
             @wrap_pending = true
           end
         end
-        true
+        owner
       end
 
       def newline(reset_column: true)
@@ -220,7 +220,7 @@ module Shellfie
         end
       end
 
-      def set_scroll_region(values)
+      def update_scroll_region(values)
         top = (values[0].to_i.nonzero? || 1) - 1
         bottom = (values[1].to_i.nonzero? || @rows) - 1
         return unless top.between?(0, @rows - 1) && bottom.between?(0, @rows - 1) && top < bottom

@@ -29,7 +29,7 @@ module Shellfie
         raise ParseError, "Cassette is too large (max #{MAX_BYTES} bytes)" if content.bytesize > MAX_BYTES
 
         raw = JSON.parse(content, symbolize_names: true)
-        validate!(raw)
+        validate(raw)
 
         Recording.new(
           columns: raw[:columns],
@@ -43,26 +43,26 @@ module Shellfie
         raise ParseError, "Invalid cassette: #{e.message}"
       end
 
-      def self.validate!(raw)
+      def self.validate(raw)
         raise ParseError, 'Cassette must be a JSON object' unless raw.is_a?(Hash)
         raise ParseError, 'Unsupported cassette version' unless raw[:version] == 1
         raise ParseError, 'Unknown cassette key' unless (raw.keys - TOP_LEVEL_KEYS).empty?
         raise ParseError, 'Cassette title must be a string' unless raw[:title].is_a?(String)
 
-        validate_dimensions!(raw)
-        validate_events!(raw[:events] || [])
-        validate_captures!(raw[:captures] || {})
-        validate_exit_status!(raw[:exit_status])
+        validate_dimensions(raw)
+        validate_events(raw[:events] || [])
+        validate_captures(raw[:captures] || {})
+        validate_exit_status(raw[:exit_status])
       end
 
-      def self.validate_dimensions!(raw)
+      def self.validate_dimensions(raw)
         unless raw[:columns].is_a?(Integer) && raw[:columns].between?(1, 500) &&
                raw[:rows].is_a?(Integer) && raw[:rows].between?(1, 200)
           raise ParseError, 'Invalid cassette dimensions'
         end
       end
 
-      def self.validate_events!(events)
+      def self.validate_events(events)
         raise ParseError, 'Cassette events must be an array' unless events.is_a?(Array)
         raise ParseError, 'Cassette has too many events' if events.size > MAX_EVENTS
 
@@ -83,7 +83,7 @@ module Shellfie
           (event[:status].nil? || (event[:status].is_a?(Integer) && event[:status].between?(0, 255)))
       end
 
-      def self.validate_captures!(captures)
+      def self.validate_captures(captures)
         unless captures.is_a?(Hash) && captures.all? do |name, lines|
           name.is_a?(Symbol) && lines.is_a?(Array) && lines.all?(String)
         end
@@ -91,14 +91,14 @@ module Shellfie
         end
       end
 
-      def self.validate_exit_status!(status)
+      def self.validate_exit_status(status)
         return if status.nil? || (status.is_a?(Integer) && status.between?(0, 255))
 
         raise ParseError, 'Invalid cassette exit status'
       end
 
-      private_class_method :validate_dimensions!, :validate_events!, :valid_event?, :validate_captures!,
-                           :validate_exit_status!
+      private_class_method :validate_dimensions, :validate_events, :valid_event?, :validate_captures,
+                           :validate_exit_status
     end
   end
 end

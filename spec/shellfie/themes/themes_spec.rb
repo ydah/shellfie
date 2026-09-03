@@ -97,7 +97,7 @@ RSpec.describe Shellfie::Themes do
         colors: { background: '#111111' },
         window_decoration: { corner_radius: 4 }
       )
-      theme = described_class.build(config)
+      theme = described_class.resolve(config)
 
       expect(theme.button_style).to eq(:icons)
       expect(theme.colors[:background]).to eq('#111111')
@@ -108,7 +108,7 @@ RSpec.describe Shellfie::Themes do
 
     it 'builds a headless theme snapshot' do
       config = Shellfie::Config.new(headless: true, lines: [Shellfie::Line.new(output: 'test')])
-      theme = described_class.build(config)
+      theme = described_class.resolve(config)
 
       expect(theme.window_decoration[:title_bar_height]).to eq(0)
       expect(theme.window_decoration[:corner_radius]).to eq(0)
@@ -118,8 +118,8 @@ RSpec.describe Shellfie::Themes do
 
   describe Shellfie::Themes::HeadlessRegistry do
     it 'provides an independent headless variant registry' do
-      base = Shellfie::Themes::Registry.build(Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'test')]))
-      headless = described_class.build(base)
+      base = Shellfie::Themes::Registry.resolve(Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'test')]))
+      headless = described_class.apply(base)
 
       expect(described_class.available_variants).to include('plain')
       expect(headless.window_decoration[:title_bar_height]).to eq(0)

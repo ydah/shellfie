@@ -74,7 +74,7 @@ module Shellfie
       }.freeze
 
       class << self
-        def build(config)
+        def resolve(config)
           base_name = config.theme == 'custom' ? (config.window_theme || 'macos') : (config.window_theme || config.theme)
           base_theme = fetch_window_theme(base_name).new
           colors = color_scheme(config.color_scheme).merge(config.colors)
@@ -87,7 +87,7 @@ module Shellfie
             font: font_overrides(config)
           )
           theme_data = Data.from_theme(theme, name: config.theme)
-          config.headless ? HeadlessRegistry.build(theme_data) : theme_data
+          config.headless ? HeadlessRegistry.apply(theme_data) : theme_data
         end
 
         def valid_theme?(name)

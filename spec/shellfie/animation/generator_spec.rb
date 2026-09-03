@@ -10,8 +10,8 @@ RSpec.describe Shellfie::Animation::Generator do
         frames: [Shellfie::Frame.new(type: 'abc')]
       )
 
-      first = described_class.new(config).send(:build_animation_frames).map { |frame| frame[:delay] }
-      second = described_class.new(config).send(:build_animation_frames).map { |frame| frame[:delay] }
+      first = described_class.new(config).send(:animation_frames).map { |frame| frame[:delay] }
+      second = described_class.new(config).send(:animation_frames).map { |frame| frame[:delay] }
       expect(first).to eq(second)
     end
 
@@ -19,7 +19,7 @@ RSpec.describe Shellfie::Animation::Generator do
       config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'done')])
       generator = described_class.new(config)
 
-      frames = generator.send(:build_animation_frames)
+      frames = generator.send(:animation_frames)
 
       expect(frames.size).to eq(1)
       expect(frames.first[:lines].first.output).to eq('done')
@@ -32,7 +32,7 @@ RSpec.describe Shellfie::Animation::Generator do
         frames: [Shellfie::Frame.new(prompt: '$ ', type: 'go')]
       )
 
-      first_frame = described_class.new(config).send(:build_animation_frames).first
+      first_frame = described_class.new(config).send(:animation_frames).first
 
       expect(first_frame[:lines].first.output).to eq('ready')
     end
@@ -43,7 +43,7 @@ RSpec.describe Shellfie::Animation::Generator do
         frames: [Shellfie::Frame.new(prompt: '$ ', type: 'x', delay: 120)]
       )
 
-      delays = described_class.new(config).send(:build_animation_frames).map { |frame| frame[:delay] }
+      delays = described_class.new(config).send(:animation_frames).map { |frame| frame[:delay] }
 
       expect(delays).to include(120)
       expect(delays).not_to include(500)
@@ -55,7 +55,7 @@ RSpec.describe Shellfie::Animation::Generator do
         frames: [Shellfie::Frame.new(prompt: '$ ', type: '👨‍👩‍👧‍👦x')]
       )
 
-      commands = described_class.new(config).send(:build_animation_frames).filter_map do |frame|
+      commands = described_class.new(config).send(:animation_frames).filter_map do |frame|
         frame[:lines].last&.command
       end
 
@@ -69,7 +69,7 @@ RSpec.describe Shellfie::Animation::Generator do
       )
       generator = described_class.new(config)
 
-      frames = generator.send(:build_animation_frames)
+      frames = generator.send(:animation_frames)
 
       expect(frames.map { |frame| frame[:delay] }).to include(50)
     end
@@ -111,7 +111,7 @@ RSpec.describe Shellfie::Animation::Generator do
       )
       generator = described_class.new(config)
 
-      command_line = generator.send(:build_animation_frames)
+      command_line = generator.send(:animation_frames)
                               .flat_map { |frame| frame[:lines] }
                               .find { |line| line.command == 'echo ok' }
 
@@ -126,7 +126,7 @@ RSpec.describe Shellfie::Animation::Generator do
       )
       generator = described_class.new(config)
 
-      delays = generator.send(:build_animation_frames).map { |frame| frame[:delay] }
+      delays = generator.send(:animation_frames).map { |frame| frame[:delay] }
 
       expect(delays.first).to be > delays.last
     end
@@ -139,7 +139,7 @@ RSpec.describe Shellfie::Animation::Generator do
       )
       generator = described_class.new(config)
 
-      offsets = generator.send(:build_animation_frames).filter_map { |frame| frame.dig(:window, :scroll_offset) }
+      offsets = generator.send(:animation_frames).filter_map { |frame| frame.dig(:window, :scroll_offset) }
 
       expect(offsets.size).to be > 1
       expect(offsets).to eq(offsets.sort)
@@ -151,7 +151,7 @@ RSpec.describe Shellfie::Animation::Generator do
       generator = described_class.new(config)
 
       frame_config = generator.send(
-        :create_frame_config,
+        :frame_config_for,
         [Shellfie::Line.new(output: 'one')],
         window_overrides: { scroll_offset: 0.5 }
       )
@@ -188,7 +188,7 @@ RSpec.describe Shellfie::Animation::Generator do
         frames: [Shellfie::Frame.new(prompt: '$ ', type: 'x', output: 'done', delay: 120)]
       )
 
-      delays = described_class.new(config).send(:build_animation_frames).map { |frame| frame[:delay] }
+      delays = described_class.new(config).send(:animation_frames).map { |frame| frame[:delay] }
 
       expect(delays.count(120)).to eq(1)
       expect(delays).to include(50, 10)
@@ -197,7 +197,7 @@ RSpec.describe Shellfie::Animation::Generator do
     it 'fixes every rendered frame to the final screen height' do
       config = Shellfie::Config.new(frames: [Shellfie::Frame.new(output: "one\ntwo")])
       generator = described_class.new(config)
-      frames = generator.send(:build_animation_frames)
+      frames = generator.send(:animation_frames)
 
       expect(generator.send(:fixed_visible_lines, frames)).to eq(2)
     end
@@ -224,10 +224,10 @@ RSpec.describe Shellfie::Animation::Generator do
         frames: [Shellfie::Frame.new(output: 'x', delay: 60_000)]
       )
       generator = described_class.new(config)
-      frames = generator.send(:build_animation_frames)
+      frames = generator.send(:animation_frames)
 
       expect do
-        generator.send(:validate_workload!, frames, scale: 1, shadow: false)
+        generator.send(:validate_workload, frames, scale: 1, shadow: false)
       end.to raise_error(Shellfie::ResourceLimitError, /timeline/)
     end
 

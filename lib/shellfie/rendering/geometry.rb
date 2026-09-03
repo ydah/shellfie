@@ -17,7 +17,7 @@ module Shellfie
         total_height = @config.window[:height] || (title_bar_height + ([visible_count,
                                                                         1].max * line_height) + (padding * 2))
         margin = canvas_margin(scale, shadow && !exact_size?)
-        geometry = geometry_hash(
+        geometry = geometry_attributes(
           display_lines,
           font_config,
           line_height,
@@ -27,7 +27,7 @@ module Shellfie
           shadow && !exact_size?,
           visible_count
         )
-        validate_pixel_limit!(geometry)
+        validate_pixel_limit(geometry)
         geometry
       end
 
@@ -35,7 +35,7 @@ module Shellfie
 
       def display_lines(lines, font_config, line_height)
         layout = LineLayout.new(@config)
-        display_lines = layout.prepare(
+        display_lines = layout.arrange(
           lines,
           content_width: [width - (padding * 2), 1].max,
           font_size: font_config[:size],
@@ -46,7 +46,7 @@ module Shellfie
         [display_lines, layout.visible_count]
       end
 
-      def geometry_hash(lines, font_config, line_height, total_height, scale, margin, shadow, visible_count)
+      def geometry_attributes(lines, font_config, line_height, total_height, scale, margin, shadow, visible_count)
         {
           lines: lines,
           visible_line_count: visible_count,
@@ -108,7 +108,7 @@ module Shellfie
            shadow_config[:offset_y].to_i.abs].max + 10) * scale).to_i
       end
 
-      def validate_pixel_limit!(geometry)
+      def validate_pixel_limit(geometry)
         pixels = geometry[:canvas_width] * geometry[:canvas_height]
         return if pixels <= @config.limits[:max_pixels]
 

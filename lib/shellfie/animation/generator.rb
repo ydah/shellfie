@@ -27,7 +27,7 @@ module Shellfie
       end
 
       def generate(output_path, scale: 1, shadow: true, transparent: false, format: nil, io: nil)
-        check_dependencies!
+        ensure_dependencies
 
         images = []
         chrome_cache = Rendering::ChromeCache.new
@@ -46,12 +46,12 @@ module Shellfie
 
       private
 
-      def check_dependencies!
-        DependencyChecker.configure_mini_magick!
-        DependencyChecker.ensure_imagemagick!
+      def ensure_dependencies
+        DependencyChecker.configure_mini_magick
+        DependencyChecker.ensure_imagemagick
       end
 
-      def build_animation_frames
+      def animation_frames
         @frame_builder.build
       end
 
@@ -60,9 +60,9 @@ module Shellfie
       end
 
       def prepared_frames(scale:, shadow:)
-        frames = playback_frames(coalesce_frames(build_animation_frames))
-        validate_frame_limit!(frames)
-        validate_workload!(frames, scale: scale, shadow: shadow)
+        frames = playback_frames(coalesce_frames(animation_frames))
+        validate_frame_limit(frames)
+        validate_workload(frames, scale: scale, shadow: shadow)
         warn_frame_count(frames)
         frames
       end
@@ -83,7 +83,7 @@ module Shellfie
         visible_lines = fixed_visible_lines(frames)
 
         frames.each_with_index do |frame, idx|
-          frame_config = create_frame_config(
+          frame_config = frame_config_for(
             frame[:lines],
             window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {})
           )
@@ -99,7 +99,7 @@ module Shellfie
         FileUtils.rm_rf(temp_dir) if temp_dir && !complete
       end
 
-      def create_frame_config(lines, window_overrides: {})
+      def frame_config_for(lines, window_overrides: {})
         Config.new(
           theme: config.theme,
           window_theme: config.window_theme,
@@ -138,7 +138,7 @@ module Shellfie
       end
 
       def encode_video(images, output_path, format)
-        DependencyChecker.ensure_ffmpeg!
+        DependencyChecker.ensure_ffmpeg
         FFmpegEncoder.encode(
           images,
           output_path,
@@ -239,7 +239,7 @@ module Shellfie
         warn "Warning: animation will generate #{frames.size} frames (max_frames is #{max_frames})"
       end
 
-      def validate_frame_limit!(frames)
+      def validate_frame_limit(frames)
         return if frames.size <= config.limits[:max_render_frames]
 
         raise ResourceLimitError,
@@ -273,8 +273,8 @@ module Shellfie
         frames + frames[1...-1].reverse
       end
 
-      def validate_workload!(frames, scale:, shadow:)
-        validate_encoded_frame_count!(frames)
+      def validate_workload(frames, scale:, shadow:)
+        validate_encoded_frame_count(frames)
         total_pixels = maximum_frame_pixels(frames, scale: scale, shadow: shadow) * frames.size
         if total_pixels > config.limits[:max_total_pixels]
           raise ResourceLimitError,
@@ -288,7 +288,7 @@ module Shellfie
               "Animation temporary data is too large (#{estimated_bytes} bytes, max #{config.limits[:max_temp_bytes]})"
       end
 
-      def validate_encoded_frame_count!(frames)
+      def validate_encoded_frame_count(frames)
         speed = Rational(config.animation[:playback_speed].to_s)
         count = (frames.sum { |frame| frame[:delay] } * config.animation[:framerate] / (1_000 * speed)).ceil
         return if count <= config.limits[:max_render_frames]
@@ -300,7 +300,7 @@ module Shellfie
       def maximum_frame_pixels(frames, scale:, shadow:)
         visible_lines = fixed_visible_lines(frames)
         frames.map do |frame|
-          frame_config = create_frame_config(
+          frame_config = frame_config_for(
             frame[:lines], window_overrides: { visible_lines: visible_lines }.merge(frame[:window] || {})
           )
           geometry = Renderer.new(frame_config).estimate(scale: scale, shadow: shadow)

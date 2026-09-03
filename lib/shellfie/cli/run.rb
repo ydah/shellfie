@@ -12,14 +12,14 @@ module Shellfie
       private
 
       def run_session(options)
-        execute_session(options, recording: false)
+        capture_live_session(options, recording: false)
       end
 
       def record_session(options)
-        execute_session(options, recording: true)
+        capture_live_session(options, recording: true)
       end
 
-      def execute_session(options, recording:)
+      def capture_live_session(options, recording:)
         input = @args.shift
         raise ConfigError, 'Session configuration is required' unless input
 
@@ -39,9 +39,9 @@ module Shellfie
           options: options,
           allow_empty: recording && (cassette_path || yaml_path)
         )
-        preflight_session_artifacts!(resolved_outputs, cassette_path, yaml_path,
+        preflight_session_artifacts(resolved_outputs, cassette_path, yaml_path,
                                      options: options, input_path: config.path)
-        preflight_render_dependencies!(resolved_outputs.map { |_path, format, _output| format })
+        preflight_render_dependencies(resolved_outputs.map { |_path, format, _output| format })
         raise DependencyError, 'Live sessions are not supported on native Windows' if Gem.win_platform?
 
         require_relative '../session/runner'
@@ -77,7 +77,7 @@ module Shellfie
 
       def render_session_output(session, resolved_output, theme:, render:, options:)
         path, format, output = resolved_output
-        ensure_output_writable!(path, options)
+        ensure_output_writable(path, options)
         animate = output.fetch(:animate, options.animate || CLI::Generate::ANIMATED_FORMATS.include?(format))
         capture = output[:capture]
         captured_lines = capture && (session.captures[capture] || session.captures[capture.to_sym])
@@ -112,7 +112,7 @@ module Shellfie
         end
 
         animate = output[:animate].nil? ? inferred_session_animation?(format, options) : output[:animate]
-        validate_output_mode!(format, animate, options)
+        validate_output_mode(format, animate, options)
         raise ConfigError, 'Captured screens cannot be rendered as animations' if output[:capture] && animate
 
         [path, format, output.merge(animate: animate)]
@@ -122,26 +122,26 @@ module Shellfie
         options.animate || CLI::Generate::ANIMATED_FORMATS.include?(format)
       end
 
-      def preflight_session_artifacts!(resolved_outputs, cassette_path, yaml_path, options:, input_path: nil)
+      def preflight_session_artifacts(resolved_outputs, cassette_path, yaml_path, options:, input_path: nil)
         metadata = [cassette_path, yaml_path].compact
         raise ConfigError, 'Cassette and YAML outputs cannot be stdout' if metadata.include?('-')
 
         paths = resolved_outputs.filter_map { |path, _format, _output| path unless path == '-' } +
                 metadata.map { |path| File.expand_path(path) }
-        validate_artifact_path_collisions!(paths)
-        validate_sequence_artifacts!(resolved_outputs, paths)
-        validate_session_input_collision!(paths, input_path)
+        validate_artifact_path_collisions(paths)
+        validate_sequence_artifacts(resolved_outputs, paths)
+        validate_session_input_collision(paths, input_path)
 
-        paths.each { |path| ensure_output_writable!(path, options) }
-        validate_session_transparency!(resolved_outputs, options)
+        paths.each { |path| ensure_output_writable(path, options) }
+        validate_session_transparency(resolved_outputs, options)
       end
 
-      def validate_artifact_path_collisions!(paths)
+      def validate_artifact_path_collisions(paths)
         collision = paths.group_by { |path| canonical_output_path(path) }.find { |_path, items| items.size > 1 }&.first
         raise ConfigError, "Session artifacts resolve to the same path: #{collision}" if collision
       end
 
-      def validate_sequence_artifacts!(resolved_outputs, paths)
+      def validate_sequence_artifacts(resolved_outputs, paths)
         canonical_paths = paths.map { |path| canonical_output_path(path) }
         sequence_dirs = resolved_outputs.filter_map do |path, format, _output|
           canonical_output_path(path) if format == 'png-sequence'
@@ -160,7 +160,7 @@ module Shellfie
         end
       end
 
-      def validate_session_input_collision!(paths, input_path)
+      def validate_session_input_collision(paths, input_path)
         return unless input_path && paths.any? { |path|
           canonical_output_path(path) == canonical_output_path(input_path)
         }
@@ -168,7 +168,7 @@ module Shellfie
         raise ConfigError, "Session artifact conflicts with the session configuration: #{input_path}"
       end
 
-      def validate_session_transparency!(resolved_outputs, options)
+      def validate_session_transparency(resolved_outputs, options)
         transparent_mp4 = resolved_outputs.any? do |_path, format, output|
           format == 'mp4' && (options.transparent || output[:transparent])
         end
@@ -192,7 +192,7 @@ module Shellfie
         end
 
         OutputWriter.write(path, extension: 'yml') do |temporary_path|
-          File.write(temporary_path, YAML.dump(session.compose_hash))
+          File.write(temporary_path, YAML.dump(session.editable_config))
         end
         warn "Recorded: #{path}" unless options.quiet
       end

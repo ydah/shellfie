@@ -37,7 +37,7 @@ module Shellfie
         end
 
         raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
-        YAMLSafety.validate_tree!(raw)
+        YAMLSafety.validate_tree(raw)
         if base_dir
           include_state ||= { files: 1, bytes: content.bytesize, cache: {}, sources: {} }
           raw = apply_includes(raw, base_dir, stack: include_stack, root: base_dir, state: include_state)
@@ -62,15 +62,15 @@ module Shellfie
           theme: raw[:theme],
           window_theme: raw[:window_theme],
           color_scheme: raw[:color_scheme],
-          colors: symbolize_hash(raw[:colors]),
-          window_decoration: symbolize_hash(raw[:window_decoration]),
+          colors: symbolize_keys(raw[:colors]),
+          window_decoration: symbolize_keys(raw[:window_decoration]),
           title: raw[:title],
-          window: symbolize_hash(raw[:window]),
-          font: symbolize_hash(raw[:font]),
+          window: symbolize_keys(raw[:window]),
+          font: symbolize_keys(raw[:font]),
           lines: parse_lines(raw[:lines]),
-          animation: symbolize_hash(raw[:animation]),
-          cursor: symbolize_hash(raw[:cursor]),
-          limits: symbolize_hash(raw[:limits]),
+          animation: symbolize_keys(raw[:animation]),
+          cursor: symbolize_keys(raw[:cursor]),
+          limits: symbolize_keys(raw[:limits]),
           frames: parse_frames(raw[:frames]),
           headless: raw[:headless] || false,
           source_paths: source_paths
@@ -96,9 +96,9 @@ module Shellfie
 
       def load_include(include_path, base_dir, root:, policy:, stack:, state:, depth:)
         include_file = resolve_include(include_path, base_dir, root: root, policy: policy)
-        validate_include_chain!(include_file, stack)
-        track_include!(state)
-        included_raw = cached_include(include_file, state)
+        validate_include_chain(include_file, stack)
+        track_include(state)
+        included_raw = fetch_include(include_file, state)
         apply_includes(
           included_raw,
           File.dirname(include_file),
@@ -124,21 +124,21 @@ module Shellfie
         include_file
       end
 
-      def validate_include_chain!(include_file, stack)
+      def validate_include_chain(include_file, stack)
         return unless stack.include?(include_file)
 
         chain = (stack + [include_file]).map { |path| File.basename(path) }.join(' -> ')
         raise ParseError, "Circular YAML include: #{chain}"
       end
 
-      def track_include!(state)
+      def track_include(state)
         state[:files] += 1
         return if state[:files] <= MAX_INCLUDE_FILES
 
         raise ParseError, "Too many YAML includes (max #{MAX_INCLUDE_FILES})"
       end
 
-      def cached_include(include_file, state)
+      def fetch_include(include_file, state)
         return state[:cache][include_file] if state[:cache][include_file]
 
         content = read_config(include_file)
@@ -149,7 +149,7 @@ module Shellfie
         end
 
         YAML.safe_load(content, symbolize_names: true, aliases: true).tap do |included_raw|
-          YAMLSafety.validate_tree!(included_raw)
+          YAMLSafety.validate_tree(included_raw)
           state[:cache][include_file] = included_raw
         end
       end
@@ -164,7 +164,7 @@ module Shellfie
         end
       end
 
-      def symbolize_hash(hash)
+      def symbolize_keys(hash)
         return nil unless hash.is_a?(Hash)
 
         Config.normalize_keys(hash)

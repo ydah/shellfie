@@ -17,7 +17,7 @@ module Shellfie
           font: theme.font.merge(font || {}),
           title_alignment: theme.title_alignment
         )
-        headless ? data.headless : data
+        headless ? data.headless_variant : data
       end
 
       def self.deep_merge(base, overrides)
@@ -45,7 +45,7 @@ module Shellfie
         colors[name.to_sym] || colors[:foreground]
       end
 
-      def headless
+      def headless_variant
         self.class.new(
           name: name,
           colors: colors,

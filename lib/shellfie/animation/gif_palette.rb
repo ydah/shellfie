@@ -34,18 +34,18 @@ module Shellfie
     private
 
       def apply_global_palette(convert, images)
-        palette_path = build_global_palette(images)
+        palette_path = write_global_palette(images)
         convert.remap palette_path if palette_path
         convert.colors color_count
       end
 
       def apply_theme_palette(convert)
-        palette_path = build_theme_palette
+        palette_path = write_theme_palette
         convert.remap palette_path if palette_path
         convert.colors(theme_color_count)
       end
 
-      def build_global_palette(images)
+      def write_global_palette(images)
         return nil if images.empty?
 
         path = palette_path
@@ -59,7 +59,7 @@ module Shellfie
         path
       end
 
-      def build_theme_palette
+      def write_theme_palette
         colors = theme_colors.first(color_count)
         return nil if colors.empty?
 

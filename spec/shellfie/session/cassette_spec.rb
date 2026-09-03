@@ -24,7 +24,7 @@ RSpec.describe Shellfie::Session::Cassette do
     session = Shellfie::Session::Recording.new(columns: 20, rows: 4, title: 'Recording')
     session.record('hello', delay: 0.25, visible: true)
 
-    expect(session.compose_hash).to include(
+    expect(session.editable_config).to include(
       'version' => 1,
       'title' => 'Recording',
       'frames' => [{ 'screen' => ['hello'], 'delay' => 250 }]
@@ -67,6 +67,6 @@ RSpec.describe Shellfie::Session::Cassette do
 
     expect { session.render_config(theme: 'macos', animated: true) }
       .to raise_error(Shellfie::ResourceLimitError, /session frames/)
-    expect { session.compose_hash }.to raise_error(Shellfie::ResourceLimitError, /session frames/)
+    expect { session.editable_config }.to raise_error(Shellfie::ResourceLimitError, /session frames/)
   end
 end

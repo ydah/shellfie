@@ -42,25 +42,25 @@ module Shellfie
         if total_timeout
           return Timeout.timeout(total_timeout, ExecutionError,
                                  "Session exceeded total timeout of #{total_timeout}s") do
-            execute_session
+            record_session
           end
         end
 
-        execute_session
+        record_session
       ensure
         stop_pty
       end
 
-      def execute_session
+      def record_session
         @started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        check_requirements!
-        validate_working_directories!
+        ensure_requirements
+        validate_working_directories
         @session = Recording.new(columns: terminal[:columns], rows: terminal[:rows], title: @config.title)
         @live_screen = new_terminal_screen
         start_pty
         @config.steps.each do |step|
-          execute(step)
-          check_reader_error!
+          execute_step(step)
+          raise_reader_error
         end
         @session
       end
@@ -81,7 +81,7 @@ module Shellfie
 
         prepare_terminal_buffer
         @master, @slave, @pid = PTY.spawn(
-          env, shell, *shell_arguments(shell), chdir: session_working_directory, unsetenv_others: true
+          env, shell, *shell_arguments(shell), chdir: working_directory, unsetenv_others: true
         )
         @master.winsize = [terminal[:rows], terminal[:columns]]
         start_terminal_reader
@@ -111,7 +111,7 @@ module Shellfie
         end
       end
 
-      def session_working_directory
+      def working_directory
         File.expand_path(terminal[:cwd], @config.base_dir)
       end
 
@@ -281,12 +281,12 @@ module Shellfie
         true
       end
 
-      def execute(step)
+      def execute_step(step)
         action = (step.keys & Config::ACTIONS).first
         case action
-        when :hide then set_visibility(false)
-        when :show then set_visibility(true)
-        when :run then execute_command(step[:run], step, visible: command_visible?(step))
+        when :hide then change_visibility(false)
+        when :show then change_visibility(true)
+        when :run then run_command(step[:run], step, visible: command_visible?(step))
         when :type then type(step[:type], step)
         when :key then key(step[:key], step)
         when :sleep then pause(step[:sleep])
@@ -316,7 +316,7 @@ module Shellfie
         @session.capture(name)
       end
 
-      def execute_command(command, step, visible:)
+      def run_command(command, step, visible:)
         flush_pending
         command = command_in_directory(command, step[:cwd])
         start = buffer_size
@@ -355,7 +355,7 @@ module Shellfie
       end
 
       def key(name, step)
-        sequence = key_sequence(name)
+        sequence = fetch_key_sequence(name)
         count = Integer(step[:count] || 1)
         delay = step[:delay] ? parse_duration(step[:delay]) : 0
         flush_pending
@@ -365,7 +365,7 @@ module Shellfie
       end
 
       def send_keys_without_delay(name, sequence, count, step)
-        start = key_capture_start(name)
+        start = prepare_key_capture(name)
         @slave.write(sequence * count)
         if enter_key?(name) && !step[:async]
           record_finished_key_command(start, step)
@@ -377,7 +377,7 @@ module Shellfie
 
       def send_keys_with_delay(name, sequence, count, delay, step)
         count.times do |index|
-          start = key_capture_start(name)
+          start = prepare_key_capture(name)
           @slave.write(sequence)
           if enter_key?(name) && !step[:async] && index == count - 1
             record_finished_key_command(start, step)
@@ -388,7 +388,7 @@ module Shellfie
         end
       end
 
-      def key_capture_start(name)
+      def prepare_key_capture(name)
         buffer_size.tap { |offset| @prompt_wait_offset = offset if enter_key?(name) }
       end
 
@@ -454,7 +454,7 @@ module Shellfie
         previous = live_screen_text
         stable_since = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         loop do
-          check_reader_error!
+          raise_reader_error
           now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           current = live_screen_text
           return if current == previous && now - stable_since >= seconds
@@ -471,18 +471,18 @@ module Shellfie
       def expect_condition(value)
         condition = value.is_a?(Hash) ? value.transform_keys(&:to_sym) : { screen_contains: value }
         current = @session.screen.to_s
-        expect_screen!(condition, current)
-        expect_exit_status!(condition)
-        expect_golden!(condition, current)
-        expect_cursor!(condition)
-        expect_elapsed_time!(condition)
+        expect_screen(condition, current)
+        expect_exit_status(condition)
+        expect_golden(condition, current)
+        expect_cursor(condition)
+        expect_elapsed_time(condition)
       rescue RegexpError => e
         raise ValidationError, "Invalid expect pattern: #{e.message}"
       rescue Errno::ENOENT
         raise FileSystemError, "Text golden not found: #{condition[:golden]}"
       end
 
-      def expect_screen!(condition, current)
+      def expect_screen(condition, current)
         if condition[:screen_contains] && !current.include?(condition[:screen_contains].to_s)
           raise ExecutionError, "Expected screen to contain #{condition[:screen_contains].inspect}"
         end
@@ -494,13 +494,13 @@ module Shellfie
         end
       end
 
-      def expect_exit_status!(condition)
+      def expect_exit_status(condition)
         if condition.key?(:exit_status) && @session.exit_status != condition[:exit_status]
           raise ExecutionError, "Expected exit status #{condition[:exit_status]}, got #{@session.exit_status.inspect}"
         end
       end
 
-      def expect_golden!(condition, current)
+      def expect_golden(condition, current)
         return unless condition[:golden]
 
         path = File.expand_path(condition[:golden], @config.base_dir)
@@ -511,7 +511,7 @@ module Shellfie
         raise ExecutionError, "Text golden mismatch: #{condition[:golden]}" unless expected == "#{current}\n"
       end
 
-      def expect_cursor!(condition)
+      def expect_cursor(condition)
         %i[row column].each do |coordinate|
           expected = condition[:"cursor_#{coordinate}"]
           actual = @session.screen.public_send(coordinate)
@@ -522,7 +522,7 @@ module Shellfie
         end
       end
 
-      def expect_elapsed_time!(condition)
+      def expect_elapsed_time(condition)
         return unless condition[:elapsed_under] || condition[:elapsed_over]
 
         elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - @started_at
@@ -537,7 +537,7 @@ module Shellfie
       def wait_for(pattern, timeout:, screen: false, line: false, offset: 0, prompt: false)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
         loop do
-          check_reader_error!
+          raise_reader_error
           text = screen || line ? live_screen_text : buffer_from(offset)
           match = if line
                     line_match(pattern, text, deadline: deadline)
@@ -557,7 +557,7 @@ module Shellfie
         previous = -1
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + parse_duration(terminal[:timeout])
         loop do
-          check_reader_error!
+          raise_reader_error
           current = buffer_size
           return if current == previous
           if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
@@ -570,12 +570,12 @@ module Shellfie
         end
       end
 
-      def check_requirements!
+      def ensure_requirements
         missing = @config.requires.reject { |command| resolve_command(command) }
         raise DependencyError, "Required command(s) not found: #{missing.join(', ')}" unless missing.empty?
       end
 
-      def validate_working_directories!
+      def validate_working_directories
         paths = [File.expand_path(terminal[:cwd], @config.base_dir)]
         paths.concat(@config.steps.filter_map { |step| step_directory(step[:cwd]) if step[:cwd] })
         missing = paths.find { |path| !File.directory?(path) }
@@ -658,7 +658,7 @@ module Shellfie
             .find { |candidate| File.file?(candidate) && File.executable?(candidate) }
       end
 
-      def key_sequence(name)
+      def fetch_key_sequence(name)
         normalized = name.downcase
         return KEYS.fetch(normalized) if KEYS.key?(normalized)
 
@@ -749,7 +749,7 @@ module Shellfie
         @recorded_offset = finish
       end
 
-      def set_visibility(visible)
+      def change_visibility(visible)
         flush_pending
         @visible = visible
       end
@@ -777,7 +777,7 @@ module Shellfie
         @mutex.synchronize { [@buffer.byteslice(index..) || '', @buffer.bytesize] }
       end
 
-      def check_reader_error!
+      def raise_reader_error
         error = @mutex&.synchronize { @reader_error }
         raise error if error
       end

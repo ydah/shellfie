@@ -28,10 +28,10 @@ module Shellfie
       end
 
       def run_validate(options)
-        validate_validation_format!(options.format)
-        input_file = required_input_file
+        validate_validation_format(options.format)
+        input_file = take_required_input_file
 
-        if configuration_version(input_file) == 2
+        if read_configuration_version(input_file) == 2
           validate_session_config(input_file, options)
         else
           validate_render_config(input_file, options)
@@ -39,19 +39,19 @@ module Shellfie
       end
 
       def run_inspect(options)
-        input_file = required_input_file
-        if configuration_version(input_file) == 2
+        input_file = take_required_input_file
+        if read_configuration_version(input_file) == 2
           inspect_session_config(input_file, json: options.json)
         else
           inspect_render_config(input_file, json: options.json)
         end
       end
 
-      def required_input_file
+      def take_required_input_file
         @args.shift || raise(ConfigError, 'Input file is required')
       end
 
-      def validate_validation_format!(format)
+      def validate_validation_format(format)
         return if VALIDATION_FORMATS.include?(format)
 
         raise ValidationError, 'validation format must be text, json, sarif, or junit'

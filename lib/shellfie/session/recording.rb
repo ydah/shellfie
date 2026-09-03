@@ -48,7 +48,7 @@ module Shellfie
         static_render_config(base, lines)
       end
 
-      def compose_hash
+      def editable_config
         frames = []
         each_snapshot do |event, snapshot|
           frames << {

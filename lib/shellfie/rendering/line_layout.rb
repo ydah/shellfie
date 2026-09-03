@@ -13,7 +13,7 @@ module Shellfie
         @config = config
       end
 
-      def prepare(lines, content_width:, font_size:, title_bar_height:, padding:, line_height:)
+      def arrange(lines, content_width:, font_size:, title_bar_height:, padding:, line_height:)
         max_cells = [(content_width / (font_size * 0.6)).floor, 1].max
         mode = @config.window[:wrap] ? 'wrap' : @config.window[:overflow]
         display_lines = lines.flat_map { |line| apply_overflow(line, max_cells, mode) }

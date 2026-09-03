@@ -54,7 +54,7 @@ module Shellfie
 
         def parse_session(content, path)
           raw = YAML.safe_load(content, symbolize_names: true, aliases: true)
-          YAMLSafety.validate_tree!(raw)
+          YAMLSafety.validate_tree(raw)
           raise ParseError, "Included session must be a YAML mapping: #{path}" unless raw.is_a?(Hash)
 
           raw

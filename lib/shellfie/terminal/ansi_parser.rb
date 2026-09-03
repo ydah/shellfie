@@ -44,7 +44,7 @@ module Shellfie
 
       def normalized_input(text)
         input = @pending_osc + text.to_s
-        reject_terminal_graphics!(input)
+        reject_terminal_graphics(input)
         input, @pending_osc = split_incomplete_osc(input)
         ANSINormalization.normalize(input, tab_width: @tab_width, osc_policy: @osc_policy)
       end
@@ -57,26 +57,26 @@ module Shellfie
         until scanner.eos?
           if scanner.scan(OSC_REGEX)
             unless current_text.empty?
-              segments << create_segment(current_text)
+              segments << segment_for(current_text)
               current_text = +''
             end
-            process_osc(scanner[1])
+            apply_osc(scanner[1])
           elsif scanner.scan(ANSI_REGEX)
             unless current_text.empty?
-              segments << create_segment(current_text)
+              segments << segment_for(current_text)
               current_text = +''
             end
-            process_codes(scanner[1])
+            apply_sgr_codes(scanner[1])
           else
             current_text << scanner.getch
           end
         end
 
-        segments << create_segment(current_text) unless current_text.empty?
+        segments << segment_for(current_text) unless current_text.empty?
         segments
       end
 
-      def reject_terminal_graphics!(text)
+      def reject_terminal_graphics(text)
         return unless @graphics_policy == 'error' && text.match?(ANSINormalization::GRAPHICS_CONTROL_PREFIX)
 
         raise ValidationError, 'Terminal graphics are not supported; use window.graphics_policy: ignore to discard them'
@@ -98,7 +98,7 @@ module Shellfie
         @conceal = false
       end
 
-      def create_segment(text)
+      def segment_for(text)
         Segment.new(
           text: text,
           foreground: @foreground,
@@ -118,7 +118,7 @@ module Shellfie
         )
       end
 
-      def process_codes(codes_str)
+      def apply_sgr_codes(codes_str)
         return reset_state if codes_str.empty?
 
         codes = sgr_codes(codes_str)
@@ -224,7 +224,7 @@ module Shellfie
         end
       end
 
-      def process_osc(value)
+      def apply_osc(value)
         return unless value.to_s.start_with?('8;')
 
         uri = value.to_s.split(';', 3)[2].to_s

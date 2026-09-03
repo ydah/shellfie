@@ -61,7 +61,7 @@ module Shellfie
 
     def initialize(options = {})
       options = self.class.normalize_keys(options)
-      merged = merge_defaults(options)
+      merged = options_with_defaults(options)
       @version = merged[:version]
       @theme = merged[:theme]
       @window_theme = merged[:window_theme]
@@ -79,8 +79,8 @@ module Shellfie
       @headless = merged[:headless] || false
       @source_paths = Array(options[:source_paths])
 
-      validate!
-      freeze_state!
+      validate
+      freeze_state
     end
 
     def static?
@@ -113,7 +113,7 @@ module Shellfie
 
     private
 
-    def merge_defaults(options)
+    def options_with_defaults(options)
       result = self.class.deep_dup(DEFAULTS)
       DEFAULTS.each do |key, value|
         next unless options.key?(key)
@@ -131,7 +131,7 @@ module Shellfie
       result
     end
 
-    def freeze_state!
+    def freeze_state
       @colors = self.class.deep_freeze(@colors)
       @window_decoration = self.class.deep_freeze(@window_decoration)
       @window = self.class.deep_freeze(@window)

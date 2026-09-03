@@ -90,7 +90,7 @@ module Shellfie
       else
         warn_error "Error: #{error.message}"
       end
-      exit determine_exit_code(error)
+      exit exit_code_for(error)
     end
 
     def canonical_output_path(path)
@@ -109,7 +109,7 @@ module Shellfie
       expanded
     end
 
-    def configuration_version(path)
+    def read_configuration_version(path)
       raw = YAMLSafety.load_file(path, max_bytes: Parser::MAX_INCLUDE_BYTES)
       raw.is_a?(Hash) ? raw[:version] : nil
     end
@@ -128,7 +128,7 @@ module Shellfie
       warn message
     end
 
-    def determine_exit_code(error)
+    def exit_code_for(error)
       case error
       when ParseError, ValidationError
         2

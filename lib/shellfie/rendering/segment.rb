@@ -10,7 +10,7 @@ module Shellfie
       attr_reader :text, :foreground, :background, :bold, :italic, :underline, :underline_style, :underline_color,
                   :dim, :reverse, :strikethrough, :overline, :blink, :conceal, :link
 
-      def self.from_segment(segment, default_color:)
+      def self.from_terminal(segment, default_color:)
         new(
           text: segment.text.to_s,
           foreground: segment.foreground || default_color,

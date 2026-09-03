@@ -37,14 +37,14 @@ module Shellfie
         normalized = YAML.dump(
           YAMLSafety.load_file(path, max_bytes: Parser::MAX_INCLUDE_BYTES, symbolize_names: false)
         )
-        return check_format(path, original, normalized) if options.check
+        return verify_format(path, original, normalized) if options.check
         return puts("Unchanged: #{path}") if original == normalized
 
         write_formatted(path, normalized)
         puts "Formatted: #{path}"
       end
 
-      def check_format(path, original, normalized)
+      def verify_format(path, original, normalized)
         raise ValidationError, "Configuration is not formatted: #{path}" unless original == normalized
 
         puts "Formatted: #{path}"
@@ -67,7 +67,7 @@ module Shellfie
         raise ConfigError, 'Configuration file is required' unless path
         raise ValidationError, 'compile format must be json or yaml' unless %w[json yaml].include?(output_format)
 
-        version = configuration_version(path)
+        version = read_configuration_version(path)
         value = version == 2 ? Session::Config.parse(path).to_h : Parser.parse(path).to_h
         puts(output_format == 'json' ? JSON.pretty_generate(value) : YAML.dump(value))
       end
@@ -124,7 +124,7 @@ module Shellfie
       end
 
       def regenerate(input, output)
-        version = configuration_version(input)
+        version = read_configuration_version(input)
         config = version == 2 ? Session::Config.parse(input) : Parser.parse(input)
         command = version == 2 ? 'run' : 'generate'
         CLI.new([command, input, '-o', output, '--force']).run

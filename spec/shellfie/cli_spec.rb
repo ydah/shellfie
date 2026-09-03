@@ -155,7 +155,7 @@ RSpec.describe Shellfie::CLI do
     it 'bounds parallel batch rendering after preflight' do
       config = Shellfie::Config.new(lines: [Shellfie::Line.new(output: 'ok')])
       allow(Shellfie::Parser).to receive(:parse).and_return(config)
-      allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick!)
+      allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick)
       active = maximum = 0
       mutex = Mutex.new
 
@@ -184,7 +184,7 @@ RSpec.describe Shellfie::CLI do
         File.write(parent, 'x')
 
         options = described_class::Options.new
-        expect { described_class.new([]).send(:ensure_output_writable!, File.join(parent, 'out.png'), options) }
+        expect { described_class.new([]).send(:ensure_output_writable, File.join(parent, 'out.png'), options) }
           .to raise_error(Shellfie::FileSystemError, /not writable/)
       end
     end
@@ -304,8 +304,8 @@ RSpec.describe Shellfie::CLI do
           { version: 2, steps: [{ run: 'side effect' }], outputs: [{ path: output, format: 'mp4' }] }
         )
         allow(Shellfie::Session::Config).to receive(:parse).and_return(config)
-        allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick!)
-        allow(Shellfie::DependencyChecker).to receive(:ensure_ffmpeg!).and_raise(Shellfie::DependencyError, 'missing')
+        allow(Shellfie::DependencyChecker).to receive(:ensure_imagemagick)
+        allow(Shellfie::DependencyChecker).to receive(:ensure_ffmpeg).and_raise(Shellfie::DependencyError, 'missing')
 
         expect { described_class.new(['run', 'session.yml']).run }
           .to output(/missing/).to_stderr.and raise_error(SystemExit)
@@ -323,7 +323,7 @@ RSpec.describe Shellfie::CLI do
     end
 
     it 'inspects a config' do
-      allow_any_instance_of(described_class).to receive(:configuration_version).and_return(1)
+      allow_any_instance_of(described_class).to receive(:read_configuration_version).and_return(1)
       allow(Shellfie).to receive(:inspect_config).and_return(
         config: { version: 1, title: 'Test', lines: [{}], frames: [] },
         theme: 'macos',

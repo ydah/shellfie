@@ -21,7 +21,7 @@ module Shellfie
       }.freeze
 
       class << self
-        def build(theme, variant: 'plain')
+        def apply(theme, variant: 'plain')
           settings = VARIANTS.fetch(variant)
           Data.new(
             name: theme.name,

@@ -42,75 +42,75 @@ module Shellfie
         raise ValidationError, 'Empty configuration' if raw.nil? || (raw.respond_to?(:empty?) && raw.empty?)
         raise ValidationError, 'Configuration must be a YAML mapping' unless raw.is_a?(Hash)
 
-        validate_keys!(raw, TOP_LEVEL_KEYS, 'configuration')
-        validate_config_mappings!(raw)
-        validate_config_themes!(raw)
-        validate_include_policy!(raw)
-        validate_config_content!(raw)
+        validate_keys(raw, TOP_LEVEL_KEYS, 'configuration')
+        validate_config_mappings(raw)
+        validate_config_themes(raw)
+        validate_include_policy(raw)
+        validate_config_content(raw)
       end
 
-      def validate_config_mappings!(raw)
-        validate_nested_hash!(raw, :window, WINDOW_KEYS)
-        validate_nested_hash!(raw, :font, FONT_KEYS)
-        validate_nested_hash!(raw, :animation, ANIMATION_KEYS)
-        validate_nested_hash!(raw, :cursor, CURSOR_KEYS)
-        validate_nested_hash!(raw, :limits, LIMIT_KEYS)
-        validate_nested_hash!(raw, :colors, COLOR_KEYS)
-        validate_nested_hash!(raw, :window_decoration, WINDOW_DECORATION_KEYS)
+      def validate_config_mappings(raw)
+        validate_nested_mapping(raw, :window, WINDOW_KEYS)
+        validate_nested_mapping(raw, :font, FONT_KEYS)
+        validate_nested_mapping(raw, :animation, ANIMATION_KEYS)
+        validate_nested_mapping(raw, :cursor, CURSOR_KEYS)
+        validate_nested_mapping(raw, :limits, LIMIT_KEYS)
+        validate_nested_mapping(raw, :colors, COLOR_KEYS)
+        validate_nested_mapping(raw, :window_decoration, WINDOW_DECORATION_KEYS)
         if raw.dig(:window_decoration, :shadow)
-          validate_nested_hash!(raw[:window_decoration], :shadow, SHADOW_KEYS, 'window_decoration.shadow')
+          validate_nested_mapping(raw[:window_decoration], :shadow, SHADOW_KEYS, 'window_decoration.shadow')
         end
       end
 
-      def validate_config_themes!(raw)
-        validate_theme!(raw[:theme]) if raw[:theme]
-        validate_window_theme!(raw[:window_theme]) if raw[:window_theme]
-        validate_color_scheme!(raw[:color_scheme]) if raw.key?(:color_scheme)
+      def validate_config_themes(raw)
+        validate_theme(raw[:theme]) if raw[:theme]
+        validate_window_theme(raw[:window_theme]) if raw[:window_theme]
+        validate_color_scheme(raw[:color_scheme]) if raw.key?(:color_scheme)
       end
 
-      def validate_include_policy!(raw)
+      def validate_include_policy(raw)
         if raw[:include_policy] && !%w[allow root].include?(raw[:include_policy])
           raise ValidationError, 'include_policy must be allow or root'
         end
       end
 
-      def validate_config_content!(raw)
+      def validate_config_content(raw)
         if raw[:lines].nil? && raw[:frames].nil?
           raise ValidationError,
                 "Configuration must have either 'lines' or 'frames'"
         end
 
-        validate_lines!(raw[:lines]) if raw.key?(:lines)
-        validate_frames!(raw[:frames]) if raw.key?(:frames)
+        validate_lines(raw[:lines]) if raw.key?(:lines)
+        validate_frames(raw[:frames]) if raw.key?(:frames)
       end
 
-      def validate_theme!(theme)
+      def validate_theme(theme)
         return if Themes::Registry.valid_theme?(theme)
 
         raise ValidationError,
               "Invalid theme '#{theme}'\n  → Available themes: #{Themes::Registry.available_themes.join(', ')}"
       end
 
-      def validate_window_theme!(theme)
+      def validate_window_theme(theme)
         return if Themes::Registry.valid_window_theme?(theme)
 
         raise ValidationError, "Invalid window_theme '#{theme}'"
       end
 
-      def validate_color_scheme!(scheme)
+      def validate_color_scheme(scheme)
         return if Themes::Registry.valid_color_scheme?(scheme)
 
         raise ValidationError, "Invalid color_scheme '#{scheme}'"
       end
 
-      def validate_nested_hash!(raw, key, allowed_keys, context = key.to_s)
+      def validate_nested_mapping(raw, key, allowed_keys, context = key.to_s)
         return unless raw.key?(key)
         raise ValidationError, "#{key} must be a mapping" unless raw[key].is_a?(Hash)
 
-        validate_keys!(raw[key], allowed_keys, context) if allowed_keys
+        validate_keys(raw[key], allowed_keys, context) if allowed_keys
       end
 
-      def validate_keys!(hash, allowed_keys, context)
+      def validate_keys(hash, allowed_keys, context)
         unknown_keys = hash.keys - allowed_keys
         return if unknown_keys.empty?
 
@@ -122,77 +122,77 @@ module Shellfie
         raise ValidationError, "Unknown #{context} key(s): #{unknown_keys.join(', ')}#{hint}"
       end
 
-      def validate_lines!(lines)
+      def validate_lines(lines)
         raise ValidationError, 'lines must be an array' unless lines.is_a?(Array)
 
         lines.each_with_index do |line, index|
           raise ValidationError, "lines[#{index}] must be a mapping" unless line.is_a?(Hash)
 
-          validate_keys!(line, LINE_KEYS, "lines[#{index}]")
+          validate_keys(line, LINE_KEYS, "lines[#{index}]")
           if line.values_at(:prompt, :command, :output).all?(&:nil?)
             raise ValidationError, "lines[#{index}] must include at least one of prompt, command, or output"
           end
 
-          validate_line_values!(line, index)
+          validate_line_values(line, index)
         end
       end
 
-      def validate_frames!(frames)
+      def validate_frames(frames)
         raise ValidationError, 'frames must be an array' unless frames.is_a?(Array)
 
         frames.each_with_index do |frame, index|
           raise ValidationError, "frames[#{index}] must be a mapping" unless frame.is_a?(Hash)
 
-          validate_keys!(frame, FRAME_KEYS, "frames[#{index}]")
-          validate_frame_shape!(frame, index)
+          validate_keys(frame, FRAME_KEYS, "frames[#{index}]")
+          validate_frame_shape(frame, index)
         end
       end
 
-      def validate_line_values!(line, index)
+      def validate_line_values(line, index)
         %i[prompt command output prompt_color command_color output_color].each do |key|
-          validate_string_value!(line[key], "lines[#{index}].#{key}") if line.key?(key)
+          validate_string_value(line[key], "lines[#{index}].#{key}") if line.key?(key)
         end
-        validate_boolean_value!(line[:selected], "lines[#{index}].selected") if line.key?(:selected)
+        validate_boolean_value(line[:selected], "lines[#{index}].selected") if line.key?(:selected)
       end
 
-      def validate_frame_shape!(frame, index)
+      def validate_frame_shape(frame, index)
         raise ValidationError, "frames[#{index}].prompt requires type" if frame[:prompt] && frame[:type].nil?
 
         if frame.values_at(:type, :output, :screen, :delay).all?(&:nil?)
           raise ValidationError, "frames[#{index}] must include type, output, screen, or delay"
         end
 
-        validate_string_value!(frame[:prompt], "frames[#{index}].prompt") if frame.key?(:prompt)
-        validate_string_value!(frame[:type], "frames[#{index}].type") if frame.key?(:type)
-        validate_string_value!(frame[:output], "frames[#{index}].output") if frame.key?(:output)
+        validate_string_value(frame[:prompt], "frames[#{index}].prompt") if frame.key?(:prompt)
+        validate_string_value(frame[:type], "frames[#{index}].type") if frame.key?(:type)
+        validate_string_value(frame[:output], "frames[#{index}].output") if frame.key?(:output)
         if frame.key?(:screen) && (!frame[:screen].is_a?(Array) || !frame[:screen].all?(String))
           raise ValidationError, "frames[#{index}].screen must be an array of strings"
         end
 
-        validate_string_value!(frame[:prompt_color], "frames[#{index}].prompt_color") if frame.key?(:prompt_color)
-        validate_string_value!(frame[:command_color], "frames[#{index}].command_color") if frame.key?(:command_color)
-        validate_string_value!(frame[:output_color], "frames[#{index}].output_color") if frame.key?(:output_color)
+        validate_string_value(frame[:prompt_color], "frames[#{index}].prompt_color") if frame.key?(:prompt_color)
+        validate_string_value(frame[:command_color], "frames[#{index}].command_color") if frame.key?(:command_color)
+        validate_string_value(frame[:output_color], "frames[#{index}].output_color") if frame.key?(:output_color)
         return unless frame.key?(:delay)
 
-        validate_non_negative_integer!(frame[:delay], "frames[#{index}].delay")
+        validate_non_negative_integer(frame[:delay], "frames[#{index}].delay")
         return unless frame[:delay] > MAX_FRAME_DELAY_MS
 
         raise ValidationError, "frames[#{index}].delay must be at most #{MAX_FRAME_DELAY_MS}"
       end
 
-      def validate_string_value!(value, name)
+      def validate_string_value(value, name)
         return if value.is_a?(String)
 
         raise ValidationError, "#{name} must be a string"
       end
 
-      def validate_boolean_value!(value, name)
+      def validate_boolean_value(value, name)
         return if [true, false].include?(value)
 
         raise ValidationError, "#{name} must be true or false"
       end
 
-      def validate_non_negative_integer!(value, name)
+      def validate_non_negative_integer(value, name)
         return if value.is_a?(Integer) && value >= 0
 
         raise ValidationError, "#{name} must be a non-negative integer"
