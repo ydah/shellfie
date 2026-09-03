@@ -28,7 +28,7 @@ RSpec.describe Shellfie::CLI do
 
     it 'outputs sample config with init' do
       cli = described_class.new(['init'])
-      expect { cli.run }.to output(/theme: macos/).to_stdout
+      expect { cli.run }.to output(/theme: macos.*shellfie #{Regexp.escape(Shellfie::VERSION)}/m).to_stdout
     end
 
     it 'exits with error for unknown command' do

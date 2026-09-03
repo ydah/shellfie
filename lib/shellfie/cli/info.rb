@@ -10,30 +10,8 @@ module Shellfie
       private
 
       def run_init
-        puts <<~YAML
-        # Shellfie configuration file
-        version: 1
-        theme: macos
-        title: "Terminal — zsh"
-
-        window:
-          width: 600
-          padding: 20
-
-        lines:
-          - prompt: "$ "
-            command: "gem install shellfie"
-
-          - output: |
-              Fetching shellfie-#{VERSION}.gem
-              Successfully installed shellfie-#{VERSION}
-              1 gem installed
-
-          - prompt: "$ "
-            command: "shellfie --version"
-
-          - output: "shellfie #{VERSION}"
-      YAML
+        template = File.read(File.join(__dir__, 'templates', 'init.yml'))
+        puts template.gsub('{{VERSION}}') { VERSION }
       end
 
       def run_themes
