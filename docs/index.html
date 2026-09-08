@@ -1,206 +1,203 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Shellfie Docs</title>
+    <meta name="theme-color" content="#f3f2ec" />
     <meta
       name="description"
-      content="Shellfie documentation. Compile deterministic terminal sessions from YAML."
+      content="Shellfie turns YAML into deterministic terminal images, animations, and executable sessions."
+    />
+    <meta property="og:title" content="Shellfie — Terminal visuals, as code" />
+    <meta
+      property="og:description"
+      content="Create repeatable terminal images, animations, and transcripts from YAML."
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:image"
+      content="https://raw.githubusercontent.com/ydah/shellfie/main/examples/demo.png"
+    />
+    <title>Shellfie — Terminal visuals, as code</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=DM+Sans:wght@400;500;600&amp;display=swap"
+      rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="ambient-glow" aria-hidden="true"></div>
-    <div class="sun-core" aria-hidden="true"></div>
-    <div class="scanlines" aria-hidden="true"></div>
-    <div class="stars" aria-hidden="true"></div>
-    <div class="grid-floor" aria-hidden="true"></div>
+    <a class="skip-link" href="#main">Skip to content</a>
 
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand__glyph">◎</span>
-        <div class="brand__stack">
-          <span class="brand__title">Shellfie</span>
-          <span class="brand__subtitle">Terminal Visual Compiler</span>
-        </div>
-      </div>
-      <nav class="topnav">
-        <a href="#features">Features</a>
-        <a href="#install">Install</a>
-        <a href="#usage">Usage</a>
-        <a href="#config">Config</a>
+    <header class="site-header">
+      <a class="wordmark" href="#top" aria-label="Shellfie home">
+        <span class="wordmark__mark" aria-hidden="true">$</span>
+        <span>shellfie</span>
+      </a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a href="#why">Why Shellfie</a>
         <a href="#themes">Themes</a>
+        <a href="#start">Quick start</a>
       </nav>
-      <a class="cta" href="https://github.com/ydah/shellfie">GitHub</a>
+      <a class="header-link" href="https://github.com/ydah/shellfie">View on GitHub</a>
     </header>
 
-    <main>
-      <section class="hero">
-        <div class="hero__content">
-          <p class="eyebrow">YAML → Image → Imagination</p>
-          <h1>
-            Terminal visuals that elevate<br />
-            your documentation
-          </h1>
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero__copy">
+          <p class="kicker">A terminal visual compiler</p>
+          <h1>Terminal screenshots should be code.</h1>
           <p class="hero__lead">
-            Shellfie is a CLI that renders PNG, SVG, HTML, and multi-format animations from YAML.
-            Build documentation, tutorials, and presentations without taking screenshots.
+            Shellfie compiles YAML into repeatable terminal images, animations,
+            and transcripts—ready for docs, tests, and release notes.
           </p>
           <div class="hero__actions">
-            <a class="cta cta--primary" href="#usage">Quick Start</a>
-            <a class="cta cta--ghost" href="#config">View Config</a>
-          </div>
-          <div class="hero__meta">
-            <span>Ruby 3.0+</span>
-            <span>ImageMagick 7.0+</span>
-            <span>CLI: shellfie / shf</span>
+            <a class="button button--primary" href="#start">Create your first visual</a>
+            <a class="button" href="https://github.com/ydah/shellfie">Read the documentation</a>
           </div>
         </div>
-        <div class="hero__preview">
-          <div class="terminal-card">
-            <div class="terminal-card__bar">
-              <span></span><span></span><span></span>
-            </div>
-            <div class="terminal-card__body">
-              <div
-                class="typewriter"
-                data-lines="$ shellfie init &gt; demo.yml||$ shellfie generate demo.yml -o neon.png||Generated: neon.png||Let the glow begin..."
-              ></div>
-            </div>
+
+        <figure class="hero-output">
+          <div class="hero-output__frame">
+            <picture>
+              <source
+                media="(prefers-reduced-motion: no-preference)"
+                srcset="https://raw.githubusercontent.com/ydah/shellfie/main/examples/demo.gif"
+                type="image/gif"
+              />
+              <img
+                src="https://raw.githubusercontent.com/ydah/shellfie/main/examples/demo.png"
+                alt="A macOS-style terminal generated by Shellfie"
+                width="728"
+                height="320"
+              />
+            </picture>
           </div>
-        </div>
+          <figcaption>
+            <span>Input: YAML</span>
+            <span>Output: GIF</span>
+          </figcaption>
+        </figure>
       </section>
 
-      <section id="features" class="section">
-        <div class="section__header">
-          <p class="eyebrow">Features</p>
-          <h2>Make visuals and storytelling effortless</h2>
-          <p class="section__lead">
-            Switch themes, animate typing, and support ANSI colors to level up your docs.
+      <section class="proof" aria-label="Key capabilities">
+        <p><strong>Deterministic</strong><span>The same source makes the same frame.</span></p>
+        <p><strong>Safe by default</strong><span>Compose mode never runs your content.</span></p>
+        <p><strong>15 output formats</strong><span>From selectable SVG to WebM and JSON.</span></p>
+      </section>
+
+      <section class="section statement" id="why">
+        <div class="section-heading">
+          <p class="kicker">Why Shellfie</p>
+          <h2>Keep the terminal. Lose the screenshot ritual.</h2>
+        </div>
+        <div class="statement__body">
+          <p>
+            Hand-captured terminal images go stale, vary by machine, and are hard
+            to review. Shellfie makes every visual an editable source file that
+            belongs in version control.
           </p>
-        </div>
-        <div class="grid">
-          <article class="card">
-            <h3>Multi Theme</h3>
-            <p>Switch between macOS, Ubuntu, and Windows terminal styles.</p>
-          </article>
-          <article class="card">
-            <h3>Multi-format animation</h3>
-            <p>Create typing animations as GIF, WebP, APNG, MP4, or WebM.</p>
-          </article>
-          <article class="card">
-            <h3>Terminal-aware ANSI</h3>
-            <p>Render SGR colors and styles, cursor and erase controls, alternate screens, and safe OSC 8 links.</p>
-          </article>
-          <article class="card">
-            <h3>HiDPI Output</h3>
-            <p>Render crisp assets with 2x or 3x scaling for HiDPI.</p>
-          </article>
+          <dl class="feature-list">
+            <dt>Compose</dt>
+            <dd>Render static or animated visuals without executing commands.</dd>
+            <dt>Run</dt>
+            <dd>Drive a real PTY with waits, assertions, limits, and redaction.</dd>
+            <dt>Record</dt>
+            <dd>Save editable sessions, then replay them offline and consistently.</dd>
+            <dt>Ship</dt>
+            <dd>Use the CLI, Docker image, or GitHub Action in your release flow.</dd>
+          </dl>
         </div>
       </section>
 
-      <section id="install" class="section section--alt">
-        <div class="section__header">
-          <p class="eyebrow">Install</p>
-          <h2>Install in two steps</h2>
+      <section class="section themes" id="themes">
+        <div class="section-heading section-heading--wide">
+          <p class="kicker">Built-in window styles</p>
+          <h2>One source. Three familiar terminals.</h2>
+          <p>Switch the window chrome without rewriting the content.</p>
         </div>
-        <div class="split">
-          <div class="code-block">
-            <h3>ImageMagick</h3>
-            <pre><code>brew install imagemagick
-# Ubuntu/Debian
-sudo apt install imagemagick</code></pre>
-          </div>
-          <div class="code-block">
-            <h3>Shellfie</h3>
-            <pre><code>gem install shellfie
-# or
-bundle add shellfie</code></pre>
-          </div>
+        <div class="theme-grid">
+          <figure class="theme">
+            <figcaption><span>macOS</span><code>theme: macos</code></figcaption>
+            <img
+              src="https://raw.githubusercontent.com/ydah/shellfie/main/examples/theme_macos.png"
+              alt="Shellfie output using the macOS theme"
+              width="700"
+              height="285"
+              loading="lazy"
+            />
+          </figure>
+          <figure class="theme">
+            <figcaption><span>Ubuntu</span><code>theme: ubuntu</code></figcaption>
+            <img
+              src="https://raw.githubusercontent.com/ydah/shellfie/main/examples/theme_ubuntu.png"
+              alt="Shellfie output using the Ubuntu theme"
+              width="700"
+              height="293"
+              loading="lazy"
+            />
+          </figure>
+          <figure class="theme">
+            <figcaption><span>Windows</span><code>theme: windows</code></figcaption>
+            <img
+              src="https://raw.githubusercontent.com/ydah/shellfie/main/examples/theme_windows.png"
+              alt="Shellfie output using the Windows theme"
+              width="700"
+              height="289"
+              loading="lazy"
+            />
+          </figure>
         </div>
       </section>
 
-      <section id="usage" class="section">
-        <div class="section__header">
-          <p class="eyebrow">Usage</p>
-          <h2>Quick Start</h2>
-          <p class="section__lead">
-            Create a YAML file, then generate the output.
-          </p>
+      <section class="section quick-start" id="start">
+        <div class="section-heading">
+          <p class="kicker">Quick start</p>
+          <h2>From zero to a checked-in visual.</h2>
+          <p>Ruby 3.0+ and ImageMagick are required.</p>
         </div>
-        <div class="split">
-          <div class="code-block">
-            <h3>terminal.yml</h3>
-            <pre><code>theme: macos
-title: "Terminal — zsh"
-
-window:
-  width: 620
-  padding: 20
+        <div class="steps">
+          <article class="step">
+            <div class="step__heading"><span>1</span><h3>Install</h3></div>
+            <pre><code>gem install shellfie</code></pre>
+          </article>
+          <article class="step">
+            <div class="step__heading"><span>2</span><h3>Describe</h3></div>
+            <pre><code>version: 1
+theme: macos
+title: "Terminal"
 
 lines:
   - prompt: "$ "
-    command: "echo 'Hello, Vaporwave!'"
-  - output: "Hello, Vaporwave!"</code></pre>
-          </div>
-          <div class="code-block">
-            <h3>Generate</h3>
-            <pre><code>shellfie generate terminal.yml -o output.png
-shellfie generate terminal.yml -o output.svg
-shellfie generate terminal.yml -o demo.webm --animate</code></pre>
-          </div>
+    command: "echo hello"
+  - output: "hello"</code></pre>
+          </article>
+          <article class="step">
+            <div class="step__heading"><span>3</span><h3>Generate</h3></div>
+            <pre><code>shellfie generate terminal.yml \
+  -o terminal.png</code></pre>
+          </article>
         </div>
       </section>
 
-      <section id="config" class="section section--alt">
-        <div class="section__header">
-          <p class="eyebrow">Config</p>
-          <h2>Animation controls</h2>
-          <p class="section__lead">
-            Tune typing speed, delays, and looping.
-          </p>
+      <section class="closing">
+        <p class="kicker">Open source · MIT licensed</p>
+        <h2>Make the terminal part of your source.</h2>
+        <div class="closing__actions">
+          <a class="button button--light" href="https://github.com/ydah/shellfie">Get Shellfie on GitHub</a>
+          <a class="text-link" href="https://rubygems.org/gems/shellfie">View on RubyGems</a>
         </div>
-        <div class="code-block code-block--wide">
-          <pre><code>animation:
-  typing_speed: 50
-  command_delay: 500
-  cursor_blink: true
-  loop: true
-
-frames:
-  - prompt: "$ "
-    type: "ls -la"
-    delay: 400
-  - output: "docs  lib  README.md"
-    delay: 800</code></pre>
-        </div>
-      </section>
-
-      <section id="themes" class="section">
-        <div class="section__header">
-          <p class="eyebrow">Themes</p>
-          <h2>Shape the vibe with themes</h2>
-        </div>
-        <div class="theme-list">
-          <div class="theme-pill">macos</div>
-          <div class="theme-pill">ubuntu</div>
-          <div class="theme-pill">windows</div>
-        </div>
-        <div class="code-block code-block--wide">
-          <pre><code>shellfie themes
-shellfie generate config.yml -o neon.png -t ubuntu
-shellfie generate config.yml -o ghost.png --no-header</code></pre>
-        </div>
-        <p class="section__lead">Headless output is a window mode, not a theme; combine it with any theme using <code>--no-header</code>.</p>
       </section>
     </main>
 
-    <footer class="footer">
-      <p>Shellfie Docs</p>
-      <p>Built for GitHub Pages + GitHub Actions</p>
+    <footer class="site-footer">
+      <a class="wordmark" href="#top" aria-label="Back to the top">
+        <span class="wordmark__mark" aria-hidden="true">$</span>
+        <span>shellfie</span>
+      </a>
+      <p>Deterministic terminal visuals from YAML.</p>
+      <p>Built by <a href="https://github.com/ydah">ydah</a>.</p>
     </footer>
-
-    <script src="./scripts.js"></script>
   </body>
 </html>
