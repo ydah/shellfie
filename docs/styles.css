@@ -388,6 +388,10 @@ pre {
   width: 100%;
 }
 
+.theme--windows img {
+  background: #000;
+}
+
 .quick-start {
   display: grid;
   grid-template-columns: minmax(300px, 0.72fr) minmax(500px, 1.28fr);
