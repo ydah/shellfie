@@ -1,12 +1,13 @@
 :root {
-  color-scheme: light;
-  --paper: #f3f2ec;
-  --ink: #171714;
-  --graphite: #5f5e58;
-  --line: #cbc9bf;
-  --panel: #242421;
-  --signal: #f4512a;
-  --white: #fffef9;
+  color-scheme: dark;
+  --paper: #101617;
+  --ink: #f1f3ee;
+  --graphite: #a4aeab;
+  --line: #34403e;
+  --panel: #080c0d;
+  --signal: #58cdb4;
+  --signal-ink: #06110f;
+  --white: #f7f8f4;
   --page: min(100% - 40px, 1240px);
 }
 
@@ -116,7 +117,7 @@ pre {
   place-items: center;
   width: 30px;
   height: 30px;
-  color: var(--white);
+  color: var(--signal-ink);
   background: var(--signal);
   border-radius: 50%;
 }
@@ -204,18 +205,20 @@ pre {
 }
 
 .button:hover {
+  color: var(--panel);
   background: var(--white);
 }
 
 .button--primary {
-  color: var(--white);
+  color: var(--signal-ink);
   border-color: var(--signal);
   background: var(--signal);
 }
 
 .button--primary:hover {
-  color: var(--white);
-  background: #d93c19;
+  color: var(--panel);
+  border-color: var(--ink);
+  background: var(--ink);
 }
 
 .hero-output {
@@ -413,7 +416,7 @@ pre {
   align-items: center;
   gap: 14px;
   padding: 14px 18px;
-  border-bottom: 1px solid #474741;
+  border-bottom: 1px solid var(--line);
 }
 
 .step__heading span {
@@ -422,7 +425,7 @@ pre {
   width: 26px;
   height: 26px;
   color: var(--panel);
-  background: var(--paper);
+  background: var(--ink);
   border-radius: 50%;
   font-family: "DM Mono", monospace;
   font-size: 12px;
@@ -446,11 +449,12 @@ pre {
 .closing {
   padding: 112px max(20px, calc((100% - 1240px) / 2));
   color: var(--white);
-  background: var(--ink);
+  border-top: 1px solid var(--line);
+  background: var(--panel);
 }
 
 .closing .kicker {
-  color: #ff7656;
+  color: var(--signal);
 }
 
 .closing h2 {
@@ -459,7 +463,7 @@ pre {
 }
 
 .button--light {
-  color: var(--ink);
+  color: var(--panel);
   border-color: var(--white);
   background: var(--white);
 }
